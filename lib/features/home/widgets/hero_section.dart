@@ -85,7 +85,7 @@ class HeroSection extends StatelessWidget {
           // Dark Overlay
           Positioned.fill(
             child: Container(
-              color: Colors.black.withOpacity(0.55),
+              color: Colors.black.withValues(alpha: 0.55),
             ),
           ),
 
@@ -108,7 +108,7 @@ class HeroSection extends StatelessWidget {
                     vertical: 10,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(.12),
+                    color: Colors.white.withValues(alpha:.12),
                     borderRadius: BorderRadius.circular(30),
                     border: Border.all(
                       color: Colors.white24,
