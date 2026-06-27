@@ -6,4 +6,4 @@ class AppAssets {
   static const hero = "assets/images/hero.png";
 
   static const about = "assets/images/about.png";
-}pubspec.yaml
+}
