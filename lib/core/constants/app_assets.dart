@@ -1,9 +1,7 @@
 class AppAssets {
   AppAssets._();
 
-  static const logo = "assets/images/logo.png";
-
-  static const hero = "assets/images/hero.png";
-
-  static const about = "assets/images/about.png";
-}pubspec.yaml
+  static const String logo = "assets/images/logo.png";
+  static const String hero = "assets/images/hero.png";
+  static const String about = "assets/images/about.png";
+}
