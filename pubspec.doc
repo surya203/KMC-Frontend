@@ -1,0 +1,20 @@
+SHAIK RESHMA - Jul 2, 2026
+
+File Name: pubspec.yaml
+
+1. Modification Done:
+
+   * Added two new packages: `flutter_dotenv` (to read the `.env` file) and `dio` (to call the backend API).
+   * Registered `.env` as an app asset so environment settings can be loaded at startup.
+   * Kept existing packages such as `go_router`, `google_fonts`, and image-related libraries unchanged.
+
+2. Purpose of This Modification:
+
+   * Phase 1 required the frontend to read configuration (API URL, Supabase keys, Razorpay key) from `.env` instead of hard-coding values in Dart files.
+   * The `dio` package was added to support backend health checks and future API calls as part of the API client layer.
+
+3. How This Modification Is Involved in the Flow:
+
+   * This file is the dependency and asset manifest for the entire Flutter app.
+   * Without `flutter_dotenv` and the `.env` asset entry, `main.dart` cannot load settings and `AppConfig` would have no source values.
+   * Without `dio`, the network layer (`api_client.dart`, `health_service.dart`, `cms_service.dart`) cannot communicate with the KMC backend.

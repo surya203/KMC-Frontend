@@ -1,7 +1,18 @@
 class AppAssets {
   AppAssets._();
 
-  static const String logo = "assets/images/logo.png";
-  static const String hero = "assets/images/hero.png";
-  static const String about = "assets/images/about.png";
+  static const String logo = 'assets/images/logo_lovable.webp';
+  static const String hero = 'assets/images/hero_lovable.webp';
+  static const String eventBanner = 'assets/images/event_banner.webp';
+
+  static const galleryImages = [
+    'assets/images/gallery_01.webp',
+    'assets/images/gallery_02.webp',
+    'assets/images/gallery_03.webp',
+    'assets/images/gallery_04.webp',
+    'assets/images/gallery_05.webp',
+    'assets/images/gallery_06.webp',
+    'assets/images/gallery_07.webp',
+    'assets/images/gallery_08.webp',
+  ];
 }

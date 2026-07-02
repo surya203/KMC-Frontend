@@ -10,6 +10,6 @@ class AppTheme {
     useMaterial3: true,
     scaffoldBackgroundColor: AppColors.background,
     colorSchemeSeed: AppColors.primary,
-    textTheme: GoogleFonts.poppinsTextTheme(),
+    textTheme: GoogleFonts.interTextTheme(),
   );
 }

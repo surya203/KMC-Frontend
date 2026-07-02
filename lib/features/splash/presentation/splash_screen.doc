@@ -1,0 +1,20 @@
+SHAIK RESHMA - Jul 2, 2026
+
+File Name: splash_screen.dart
+
+1. Modification Done:
+
+   * Updated splash navigation to use `go_router` (`context.go('/')`) instead of `Navigator.pushReplacement`.
+   * Replaced direct `Image.asset` with `SafeAssetImage` for the logo.
+   * Kept the 3-second delay and loading indicator before entering the Home page.
+
+2. Purpose of This Modification:
+
+   * Splash must work with the new centralized routing system introduced in Phase 1.
+   * Logo should not break the splash screen if the image file is missing.
+
+3. How This Modification Is Involved in the Flow:
+
+   * First screen users see at route `/splash` after app launch.
+   * After 3 seconds, automatically redirects to `/` (Home).
+   * Connects app startup (`main.dart` → `app_router.dart`) to the main marketing experience.

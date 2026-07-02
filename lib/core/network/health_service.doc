@@ -1,0 +1,20 @@
+SHAIK RESHMA - Jul 2, 2026
+
+File Name: health_service.dart
+
+1. Modification Done:
+
+   * Created a small service that checks whether the backend is running and healthy.
+   * Calls `GET /health` and returns `true` only when the response status is OK and body contains `"status": "ok"`.
+   * Returns `false` if the backend is offline or the request fails.
+
+2. Purpose of This Modification:
+
+   * Phase 1 required proof that the frontend can reach the backend API.
+   * Helps users and testers immediately see if the backend needs to be started.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Called from `home_screen.dart` when the Home page loads.
+   * Result is passed to `api_status_banner.dart` to show a green “connected” or orange “offline” message.
+   * Does not block the app; Home still works with default content if the backend is down.

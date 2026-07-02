@@ -1,0 +1,21 @@
+SHAIK RESHMA - Jul 2, 2026
+
+File Name: cms_service.dart
+
+1. Modification Done:
+
+   * Created a `CommunityStats` data model for homepage numbers (alumni, batches, events, members).
+   * Added `fetchStats()` to request stats from `GET /api/v1/cms/stats` when available.
+   * Added fallback default values (15,000+ alumni, 60+ batches, etc.) when the API is not ready or fails.
+   * Marks whether stats came from the API or from local defaults.
+
+2. Purpose of This Modification:
+
+   * Phase 1 handbook expects homepage stats to load from the API when possible.
+   * The backend CMS stats endpoint is not built yet, so fallback values keep the page working during development.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Called from `home_screen.dart` on page load alongside the health check.
+   * Results are passed to `stats_section.dart` to display community numbers.
+   * When the backend adds `/cms/stats`, the same code will automatically show live data without changing the Home screen.

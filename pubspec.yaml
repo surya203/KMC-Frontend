@@ -16,6 +16,8 @@ dependencies:
   flutter_svg: ^2.2.1
   cached_network_image: ^3.4.1
   go_router: ^16.2.1
+  flutter_dotenv: ^6.0.1
+  dio: ^5.10.0
 
 dev_dependencies:
   flutter_test:
@@ -27,6 +29,7 @@ flutter:
   uses-material-design: true
 
   assets:
+    - .env
     - assets/images/
 
   # Uncomment if you add custom fonts

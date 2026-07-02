@@ -1,0 +1,20 @@
+SHAIK RESHMA - Jul 2, 2026
+
+File Name: api_status_banner.dart
+
+1. Modification Done:
+
+   * Created a banner widget shown at the top of the Home page.
+   * Displays green message when backend health check passes: “Backend API connected”.
+   * Displays orange warning when backend is offline, with instruction to start backend on port 8000.
+
+2. Purpose of This Modification:
+
+   * Phase 1 API client work required a visible way to confirm frontend–backend connectivity.
+   * Helps developers and testers quickly diagnose setup issues during development.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Shown on `home_screen.dart` when health check completes.
+   * Driven by result from `health_service.dart` calling `GET /health`.
+   * Does not block page content; users still see the full Home page with default data if API is down.

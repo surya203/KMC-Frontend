@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
+import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
-import 'features/splash/presentation/splash_screen.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: '.env', isOptional: true);
   runApp(const KMCApp());
 }
 
@@ -12,11 +15,11 @@ class KMCApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return MaterialApp.router(
       debugShowCheckedModeBanner: false,
       title: 'KMC Alumni Connect',
       theme: AppTheme.light,
-      home: const SplashScreen(),
+      routerConfig: appRouter,
     );
   }
 }

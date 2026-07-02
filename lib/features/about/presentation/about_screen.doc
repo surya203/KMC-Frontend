@@ -1,0 +1,22 @@
+SHAIK RESHMA - Jul 2, 2026
+
+File Name: about_screen.dart
+
+1. Modification Done:
+
+   * Created the About page for the KMC Alumni Connect public site.
+   * Added a hero banner with page title and short introduction.
+   * Added “Our Mission” section explaining the platform’s purpose.
+   * Added a milestones timeline for years 1959, 1985, 2008, and 2025.
+   * Included the shared footer at the bottom of the page.
+
+2. Purpose of This Modification:
+
+   * Phase 1 handbook lists `/about` as a required public page with mission and timeline content.
+   * Provides institutional history and context for alumni and visitors.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Accessible from header nav, mobile drawer, footer links, and hero “Explore Platform” button.
+   * Registered in `app_router.dart` at path `/about`.
+   * Uses `public_layout.dart` for consistent navigation with Home and other public pages.

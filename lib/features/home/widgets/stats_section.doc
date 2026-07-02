@@ -1,0 +1,21 @@
+SHAIK RESHMA - Jul 2, 2026
+
+File Name: stats_section.dart
+
+1. Modification Done:
+
+   * Updated stats section to accept dynamic `CommunityStats` data instead of only hard-coded numbers.
+   * Displays four cards: Alumni, Batches, Upcoming Event, and Global Members.
+   * Shows a small “Live stats from API” label when data is loaded from the backend.
+   * Falls back to handbook default values when API data is not available.
+
+2. Purpose of This Modification:
+
+   * Phase 1 requires homepage stats to be API-ready while still working offline.
+   * Supports the handbook requirement that community numbers should eventually come from CMS/API.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Rendered on `home_screen.dart` below quick actions.
+   * Receives data from `cms_service.dart` via `home_screen.dart` state.
+   * Users see community metrics on the main landing page; testers can verify API vs fallback behavior.

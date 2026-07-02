@@ -1,0 +1,20 @@
+SHAIK RESHMA - Jul 2, 2026
+
+File Name: sign_in_screen.dart
+
+1. Modification Done:
+
+   * Created a placeholder Sign-in page with email and password fields.
+   * Added page title, helper text about using membership credentials, and a “Forgot password?” link.
+   * Sign-in button is present but not yet wired to the backend login API.
+
+2. Purpose of This Modification:
+
+   * Phase 1 requires the “Sign in” nav item and `/auth` route to render a real screen.
+   * Prepares the UI shell for Phase 2 when `POST /api/v1/auth/login` will be integrated.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Registered at `/auth` in `app_router.dart`.
+   * Opened from header “Sign in”, “MY KMC” nav items, and mobile drawer.
+   * Future flow: user enters credentials → API login → redirect to member dashboard (Phase 2).

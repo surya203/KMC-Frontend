@@ -1,0 +1,20 @@
+SHAIK RESHMA - Jul 2, 2026
+
+File Name: featured_alumni_section.dart
+
+1. Modification Done:
+
+   * Created a new “Featured Alumni” section on the Home page.
+   * Shows three testimonial cards with names, titles, batch years, and quotes from handbook seed data.
+   * Uses responsive layout: side-by-side cards on wide screens, stacked cards on mobile.
+
+2. Purpose of This Modification:
+
+   * Phase 1 Home page should match the reference site, which includes featured alumni spotlights.
+   * Adds credibility and community feel to the landing page before live API data is available.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Included in `home_screen.dart` between stats and latest events sections.
+   * Currently uses static handbook content; will later connect to `GET /profiles/featured` in Phase 3.
+   * Visitors see alumni success stories immediately on the main page.
