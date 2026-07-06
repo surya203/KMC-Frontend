@@ -56,16 +56,17 @@ class SectionHeader extends StatelessWidget {
           center ? CrossAxisAlignment.center : CrossAxisAlignment.start,
       children: [
         if (eyebrow != null || actionLabel != null)
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            alignment: center ? WrapAlignment.center : WrapAlignment.start,
             children: [
               if (eyebrow != null)
-                Expanded(
-                  child: Text(
-                    eyebrow!.toUpperCase(),
-                    textAlign: center ? TextAlign.center : TextAlign.start,
-                    style: HeadingStyles.eyebrow,
-                  ),
+                Text(
+                  eyebrow!.toUpperCase(),
+                  textAlign: center ? TextAlign.center : TextAlign.start,
+                  style: HeadingStyles.eyebrow,
                 ),
               if (actionLabel != null && onAction != null)
                 TextButton(

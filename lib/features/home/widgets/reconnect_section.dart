@@ -45,37 +45,43 @@ class ReconnectSection extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 36),
-                RichText(
-                  textAlign: TextAlign.center,
-                  text: TextSpan(
-                    style: GoogleFonts.fraunces(
-                      fontSize: 40,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
-                    children: [
-                      const TextSpan(text: 'Ready to '),
-                      WidgetSpan(
-                        alignment: PlaceholderAlignment.baseline,
-                        baseline: TextBaseline.alphabetic,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 2,
-                          ),
-                          color: AppColors.secondary,
-                          child: Text(
-                            'reconnect?',
-                            style: GoogleFonts.fraunces(
-                              fontSize: 40,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white,
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final titleSize = constraints.maxWidth < 400 ? 30.0 : 40.0;
+
+                    return RichText(
+                      textAlign: TextAlign.center,
+                      text: TextSpan(
+                        style: GoogleFonts.fraunces(
+                          fontSize: titleSize,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                        children: [
+                          const TextSpan(text: 'Ready to '),
+                          WidgetSpan(
+                            alignment: PlaceholderAlignment.baseline,
+                            baseline: TextBaseline.alphabetic,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
+                              color: AppColors.secondary,
+                              child: Text(
+                                'reconnect?',
+                                style: GoogleFonts.fraunces(
+                                  fontSize: titleSize,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
                             ),
                           ),
-                        ),
+                        ],
                       ),
-                    ],
-                  ),
+                    );
+                  },
                 ),
                 const SizedBox(height: 16),
                 Text(

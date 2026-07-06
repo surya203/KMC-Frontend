@@ -24,7 +24,7 @@ class PublicAppBar extends StatelessWidget implements PreferredSizeWidget {
     final width = MediaQuery.of(context).size.width;
     final currentPath = GoRouterState.of(context).uri.path;
 
-    if (width < 900) {
+    if (width < 1100) {
       return AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
@@ -69,7 +69,13 @@ class PublicAppBar extends StatelessWidget implements PreferredSizeWidget {
                   ),
                 ),
               ),
-              _CenterNavLinks(currentPath: currentPath),
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.center,
+                  child: _CenterNavLinks(currentPath: currentPath),
+                ),
+              ),
               Expanded(
                 child: Align(
                   alignment: Alignment.centerRight,
@@ -128,32 +134,57 @@ class _CenterNavLinks extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         for (final item in PublicAppBar._navItems)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 2),
-            child: TextButton(
-              onPressed: () => context.go(item.$2),
-              style: TextButton.styleFrom(
-                foregroundColor: AppColors.bodyText,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(6),
-                  side: currentPath == item.$2
-                      ? const BorderSide(color: AppColors.heading, width: 1.2)
-                      : BorderSide.none,
-                ),
-              ),
-              child: Text(
-                item.$1,
-                style: GoogleFonts.inter(
-                  fontWeight: currentPath == item.$2
-                      ? FontWeight.w700
-                      : FontWeight.w500,
-                  fontSize: 14,
-                ),
-              ),
-            ),
+          _NavLinkItem(
+            label: item.$1,
+            path: item.$2,
+            isActive: currentPath == item.$2,
           ),
       ],
+    );
+  }
+}
+
+class _NavLinkItem extends StatefulWidget {
+  const _NavLinkItem({
+    required this.label,
+    required this.path,
+    required this.isActive,
+  });
+
+  final String label;
+  final String path;
+  final bool isActive;
+
+  @override
+  State<_NavLinkItem> createState() => _NavLinkItemState();
+}
+
+class _NavLinkItemState extends State<_NavLinkItem> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final highlighted = widget.isActive || _hovered;
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: () => context.go(widget.path),
+        behavior: HitTestBehavior.opaque,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Text(
+            widget.label,
+            style: GoogleFonts.inter(
+              fontWeight: highlighted ? FontWeight.w700 : FontWeight.w500,
+              fontSize: 14,
+              color: highlighted ? AppColors.heading : AppColors.bodyText,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

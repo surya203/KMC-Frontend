@@ -58,35 +58,90 @@ class EventCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 18),
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.people_outline,
-                        size: 18,
-                        color: AppColors.bodyText,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        '0 registered',
-                        style: GoogleFonts.inter(color: AppColors.bodyText),
-                      ),
-                      const Spacer(),
-                      ElevatedButton(
-                        onPressed: onTap,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 24,
-                            vertical: 14,
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final stackActions = constraints.maxWidth < 340;
+                      if (stackActions) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.people_outline,
+                                  size: 18,
+                                  color: AppColors.bodyText,
+                                ),
+                                const SizedBox(width: 6),
+                                Flexible(
+                                  child: Text(
+                                    '0 registered',
+                                    style: GoogleFonts.inter(
+                                      color: AppColors.bodyText,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: ElevatedButton(
+                                onPressed: onTap,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.primary,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 24,
+                                    vertical: 14,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(24),
+                                  ),
+                                ),
+                                child: const Text('Register'),
+                              ),
+                            ),
+                          ],
+                        );
+                      }
+
+                      return Row(
+                        children: [
+                          const Icon(
+                            Icons.people_outline,
+                            size: 18,
+                            color: AppColors.bodyText,
                           ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(24),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              '0 registered',
+                              style: GoogleFonts.inter(
+                                color: AppColors.bodyText,
+                              ),
+                            ),
                           ),
-                        ),
-                        child: const Text('Register'),
-                      ),
-                    ],
+                          const SizedBox(width: 8),
+                          ElevatedButton(
+                            onPressed: onTap,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                                vertical: 14,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(24),
+                              ),
+                            ),
+                            child: const Text('Register'),
+                          ),
+                        ],
+                      );
+                    },
                   ),
                 ],
               ),
