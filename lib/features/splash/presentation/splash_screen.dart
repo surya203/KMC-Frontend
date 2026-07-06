@@ -1,9 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../core/constants/app_assets.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../home/presentation/home_screen.dart';
+import '../../../core/widgets/safe_asset_image.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -19,12 +21,7 @@ class _SplashScreenState extends State<SplashScreen> {
 
     Timer(const Duration(seconds: 3), () {
       if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => const HomeScreen(),
-        ),
-      );
+      context.go('/');
     });
   }
 
@@ -36,13 +33,13 @@ class _SplashScreenState extends State<SplashScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Image.asset(
-              "assets/images/logo.png",
+            const SafeAssetImage(
+              assetPath: AppAssets.logo,
               width: 120,
             ),
             const SizedBox(height: 24),
             const Text(
-              "KMC Alumni Connect",
+              'KMC Alumni Connect',
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 26,

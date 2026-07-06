@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/network/cms_service.dart';
 
 class StatsSection extends StatelessWidget {
-  const StatsSection({super.key});
+  const StatsSection({super.key, this.stats});
+
+  final CommunityStats? stats;
 
   @override
   Widget build(BuildContext context) {
+    final data = stats ?? CommunityStats.fallback;
+
     return Container(
       width: double.infinity,
       color: const Color(0xffF8FAFC),
@@ -17,27 +22,34 @@ class StatsSection extends StatelessWidget {
       child: Column(
         children: [
           const Text(
-            "Our Community",
+            'Our Community',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 32,
               fontWeight: FontWeight.bold,
             ),
           ),
-
           const SizedBox(height: 15),
-
           const Text(
-            "Building one of India's strongest medical alumni networks.",
+            'Building one of India\'s strongest medical alumni networks.',
             textAlign: TextAlign.center,
             style: TextStyle(
               color: Colors.grey,
               fontSize: 16,
             ),
           ),
-
+          if (data.fromApi) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Live stats from API',
+              style: TextStyle(
+                color: AppColors.success.withValues(alpha: 0.9),
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
           const SizedBox(height: 35),
-
           GridView.count(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -45,26 +57,26 @@ class StatsSection extends StatelessWidget {
             crossAxisSpacing: 15,
             mainAxisSpacing: 15,
             childAspectRatio: 1.3,
-            children: const [
+            children: [
               _StatCard(
                 icon: Icons.people_alt_outlined,
-                number: "15,000+",
-                title: "Alumni",
+                number: data.alumni,
+                title: 'Alumni',
               ),
               _StatCard(
                 icon: Icons.school_outlined,
-                number: "60+",
-                title: "Batches",
+                number: data.batches,
+                title: 'Batches',
               ),
               _StatCard(
                 icon: Icons.event_available_outlined,
-                number: "1",
-                title: "Upcoming Event",
+                number: data.upcomingEvents,
+                title: 'Upcoming Event',
               ),
               _StatCard(
                 icon: Icons.public_outlined,
-                number: "1000+",
-                title: "Global Members",
+                number: data.globalMembers,
+                title: 'Global Members',
               ),
             ],
           ),
@@ -75,15 +87,15 @@ class StatsSection extends StatelessWidget {
 }
 
 class _StatCard extends StatelessWidget {
-  final IconData icon;
-  final String number;
-  final String title;
-
   const _StatCard({
     required this.icon,
     required this.number,
     required this.title,
   });
+
+  final IconData icon;
+  final String number;
+  final String title;
 
   @override
   Widget build(BuildContext context) {
@@ -108,9 +120,7 @@ class _StatCard extends StatelessWidget {
             color: AppColors.primary,
             size: 34,
           ),
-
           const SizedBox(height: 12),
-
           Text(
             number,
             style: const TextStyle(
@@ -119,9 +129,7 @@ class _StatCard extends StatelessWidget {
               color: AppColors.primary,
             ),
           ),
-
           const SizedBox(height: 6),
-
           Text(
             title,
             textAlign: TextAlign.center,

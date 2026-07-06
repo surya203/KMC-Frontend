@@ -1,0 +1,22 @@
+SHAIK RESHMA - Jul 2, 2026
+
+File Name: public_layout.dart
+
+1. Modification Done:
+
+   * Created a shared page wrapper used by all public screens.
+   * Includes `PublicAppBar` (desktop nav links + Sign in + Join Network buttons).
+   * Includes `PublicDrawer` for mobile menu navigation.
+   * Highlights the active page in the navigation bar.
+   * Uses a scaffold key so the mobile menu button reliably opens the drawer.
+
+2. Purpose of This Modification:
+
+   * Phase 1 required a consistent header/footer experience matching the reference website.
+   * Avoids copying the same app bar and drawer code into every page.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Wraps Home, About, Events, Gallery, Sign-in, and Membership screens.
+   * All top navigation and mobile drawer items route through `go_router` paths.
+   * Users see the same KMC branding and menu on every public page, similar to the handbook’s AppShell requirement.

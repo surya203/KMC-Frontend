@@ -1,0 +1,20 @@
+SHAIK RESHMA - Jul 2, 2026
+
+File Name: safe_asset_image.dart
+
+1. Modification Done:
+
+   * Created a reusable image widget that loads assets from the `assets/images/` folder.
+   * If an image file is missing or fails to load, shows a simple placeholder icon instead of crashing the app.
+   * Supports optional width, height, fit, and rounded corners.
+
+2. Purpose of This Modification:
+
+   * Screens reference local assets (`logo_lovable.webp`, `hero_lovable.webp`, gallery/event images) in `assets/images/`.
+   * Provides a graceful placeholder if an asset fails to load at runtime (e.g. before a hot restart after adding new files).
+
+3. How This Modification Is Involved in the Flow:
+
+   * Used in `splash_screen.dart`, `public_layout.dart` (header logo), `footer_section.dart`, and `hero_section.dart`.
+   * Prevents broken layouts on Splash, Home, and About when assets are unavailable.
+   * Improves tester and demo experience during early development.

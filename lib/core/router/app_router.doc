@@ -1,0 +1,20 @@
+SHAIK RESHMA - Jul 2, 2026
+
+File Name: app_router.dart
+
+1. Modification Done:
+
+   * Created the central route table for the entire app using `go_router`.
+   * Defined routes for splash, home, about, events, gallery, sign-in, and membership pages.
+   * Set initial route to `/splash` so the branded splash screen still appears first.
+
+2. Purpose of This Modification:
+
+   * Phase 1 required working navigation between public pages instead of a single static Home screen.
+   * URL-based routing supports browser back/forward on web and clear page structure for testers.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Registered in `main.dart` via `MaterialApp.router`.
+   * Header, drawer, footer links, and hero buttons use `context.go()` to these routes.
+   * User flow: `/splash` (3 seconds) → `/` (Home) → user can navigate to `/about`, `/events`, `/gallery`, `/auth`, `/membership`.

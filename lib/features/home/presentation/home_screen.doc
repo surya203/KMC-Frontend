@@ -1,0 +1,23 @@
+SHAIK RESHMA - Jul 2, 2026
+
+File Name: home_screen.dart
+
+1. Modification Done:
+
+   * Changed Home from a static stateless page to a stateful page that loads backend data on open.
+   * Wrapped content in `PublicLayout` for shared header and mobile navigation.
+   * Added API health check and community stats loading on page start.
+   * Added `ApiStatusBanner` and `FeaturedAlumniSection` to the Home page layout.
+   * Removed the old standalone `HomeAppBar` usage from this screen.
+
+2. Purpose of This Modification:
+
+   * Phase 1 required Home to use the shared public layout, show API connectivity, and prepare for live stats.
+   * Completes the main landing page experience described in the developer handbook.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Default destination after splash (`/` route).
+   * Calls `health_service.dart` and `cms_service.dart` when the page loads.
+   * Displays hero, quick actions, stats, featured alumni, events preview, gallery preview, and footer.
+   * Users see whether the backend is online and view community information on the main entry page.

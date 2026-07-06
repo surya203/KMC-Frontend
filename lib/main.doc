@@ -1,0 +1,20 @@
+SHAIK RESHMA - Jul 2, 2026
+
+File Name: main.dart
+
+1. Modification Done:
+
+   * Changed app startup to load the `.env` file before the UI is shown.
+   * Replaced the single-screen `MaterialApp` with `MaterialApp.router` connected to `appRouter`.
+   * Removed direct navigation to only `SplashScreen`; routing is now handled centrally by `go_router`.
+
+2. Purpose of This Modification:
+
+   * Phase 1 required environment-based configuration and multi-page navigation (Home, About, Events, Gallery, Auth, Membership).
+   * Loading `.env` at startup ensures API URL and other settings are available to all services before any screen makes network calls.
+
+3. How This Modification Is Involved in the Flow:
+
+   * This is the application entry point. Every user session starts here.
+   * Flow: `main()` → load `.env` → `KMCApp` → `appRouter` → `/splash` → `/` (Home) and other routes.
+   * Connects theme (`app_theme.dart`), routing (`app_router.dart`), and configuration used by the API and public pages.

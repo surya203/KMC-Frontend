@@ -1,0 +1,23 @@
+SHAIK RESHMA - Jul 2, 2026
+
+File Name: footer_section.dart
+
+1. Modification Done:
+
+   * Rebuilt footer layout to be responsive and prevent horizontal overflow on smaller screens.
+   * On wide screens: three columns (brand info, Explore links, Office contact).
+   * On narrow screens: stacks sections vertically instead of forcing fixed widths.
+   * Made Explore links clickable and route to About, Events, Gallery, and MY KMC pages.
+   * Replaced logo image with `SafeAssetImage` to handle missing asset files safely.
+   * Removed large blocks of old commented-out code.
+
+2. Purpose of This Modification:
+
+   * Fixed the yellow/black overflow error seen when running the app in Chrome at medium widths.
+   * Phase 1 requires footer content and links to match the reference site and actually navigate.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Shown at the bottom of Home, About, Events, and Gallery pages.
+   * Footer links use `go_router` paths defined in `app_router.dart`.
+   * Users can reach key pages from the bottom of the site; testers can verify no layout overflow on resize.

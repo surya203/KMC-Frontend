@@ -1,0 +1,21 @@
+SHAIK RESHMA - Jul 2, 2026
+
+File Name: hero_section.dart
+
+1. Modification Done:
+
+   * Wired “Join Alumni Network” button to navigate to `/membership`.
+   * Wired “Explore Platform” button to navigate to `/about`.
+   * Replaced hero background `Image.asset` with `SafeAssetImage` to avoid crashes when `hero.jpg` is missing.
+   * Fixed class structure after routing imports were added.
+
+2. Purpose of This Modification:
+
+   * Hero call-to-action buttons were previously non-functional (empty `onPressed` handlers).
+   * Phase 1 requires key CTAs to lead users into membership and about flows.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Top section of the Home page (`home_screen.dart`).
+   * Primary user actions: join the alumni network or learn more about the platform.
+   * Connects marketing content to `membership_screen.dart` and `about_screen.dart` via `app_router.dart`.
