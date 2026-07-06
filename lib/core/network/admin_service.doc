@@ -1,0 +1,17 @@
+SHAIK RESHMA - Jul 6, 2026
+
+File Name: admin_service.dart
+
+1. Modification Done:
+
+   * Created the full admin API layer: analytics overview and engagement, verification queue, member search and CSV export, role changes, event CRUD and reminders, and gallery album CRUD with media upload.
+   * Added models for analytics stats, verification items, admin members, and admin events.
+
+2. Purpose of This Modification:
+
+   * Phase 4 admin dashboard must let staff manage events/gallery, verifiers approve profiles, and admins view analytics and export members.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Used by all screens in `admin_screens.dart`.
+   * CSV bytes from export are passed to `file_download_web.dart` for browser download.

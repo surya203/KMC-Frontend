@@ -18,3 +18,23 @@ File Name: featured_alumni_section.dart
    * Included in `home_screen.dart` between stats and latest events sections.
    * Currently uses static handbook content; will later connect to `GET /profiles/featured` in Phase 3.
    * Visitors see alumni success stories immediately on the main page.
+
+---
+
+SHAIK RESHMA - Jul 6, 2026
+
+File Name: featured_alumni_section.dart
+
+1. Modification Done:
+
+   * Section now fetches featured profiles from `GET /api/v1/profiles/featured` when backend has data.
+   * Keeps handbook testimonial fallback when API returns empty.
+
+2. Purpose of This Modification:
+
+   * Phase 3 handbook task: API-driven featured alumni carousel on homepage.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Uses `profiles_service.fetchFeatured()`; displayed on `home_screen.dart`.
+

@@ -1,0 +1,17 @@
+SHAIK RESHMA - Jul 6, 2026
+
+File Name: role_helpers.dart
+
+1. Modification Done:
+
+   * Added helper checks for user roles: staff, executive, verifier, and admin.
+   * Exposes flags such as `canAccessAdmin` and `canViewAnalytics` based on the logged-in user.
+
+2. Purpose of This Modification:
+
+   * Phase 4 admin screens must only open for the correct roles (e.g. verifiers see verifications, admins see analytics).
+   * Executive users need permission to create announcements; admins can unpublish them.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Used by `app_router.dart` admin redirects, `admin_layout.dart` nav, `public_layout.dart` admin link, and announcement create/edit/delete buttons in `dashboard_member_screens.dart`.

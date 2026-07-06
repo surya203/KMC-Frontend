@@ -2,36 +2,34 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/network/cms_service.dart';
 import '../../../core/theme/heading_styles.dart';
 import '../../../core/widgets/page_hero.dart';
 import '../../../core/widgets/public_layout.dart';
 import '../../home/widgets/footer_section.dart';
 
-class AboutScreen extends StatelessWidget {
+class AboutScreen extends StatefulWidget {
   const AboutScreen({super.key});
 
-  static const _milestones = [
-    (
-      1959,
-      'Founded',
-      'Kakatiya Medical College established in Warangal, Telangana.',
-    ),
-    (
-      1985,
-      'Postgraduate Programs',
-      'Expansion of specialist training and research across departments.',
-    ),
-    (
-      2008,
-      'Golden Jubilee',
-      'Celebrating fifty years of medical education and alumni pride.',
-    ),
-    (
-      2025,
-      'Digital Alumni Platform',
-      'KMC Alumni Connect launches to unite batches worldwide.',
-    ),
-  ];
+  @override
+  State<AboutScreen> createState() => _AboutScreenState();
+}
+
+class _AboutScreenState extends State<AboutScreen> {
+  final _cmsService = CmsService();
+  List<CmsMilestone> _milestones = CmsMilestone.fallback;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMilestones();
+  }
+
+  Future<void> _loadMilestones() async {
+    final milestones = await _cmsService.fetchMilestones();
+    if (!mounted) return;
+    setState(() => _milestones = milestones);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -84,9 +82,12 @@ class AboutScreen extends StatelessWidget {
                             for (var i = 0; i < _milestones.length; i++) ...[
                               if (i > 0) const SizedBox(height: 28),
                               _MilestoneEntry(
-                                year: _milestones[i].$1,
-                                title: _milestones[i].$2,
-                                description: _milestones[i].$3,
+                                key: ValueKey(
+                                  'about-milestone-${_milestones[i].year}',
+                                ),
+                                year: _milestones[i].year,
+                                title: _milestones[i].title,
+                                description: _milestones[i].description,
                               ),
                             ],
                           ],
@@ -107,6 +108,7 @@ class AboutScreen extends StatelessWidget {
 
 class _MilestoneEntry extends StatelessWidget {
   const _MilestoneEntry({
+    super.key,
     required this.year,
     required this.title,
     required this.description,

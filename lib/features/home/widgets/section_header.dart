@@ -52,8 +52,9 @@ class SectionHeader extends StatelessWidget {
     }
 
     return Column(
-      crossAxisAlignment:
-          center ? CrossAxisAlignment.center : CrossAxisAlignment.start,
+      crossAxisAlignment: center
+          ? CrossAxisAlignment.center
+          : CrossAxisAlignment.start,
       children: [
         if (eyebrow != null || actionLabel != null)
           Wrap(
@@ -80,7 +81,7 @@ class SectionHeader extends StatelessWidget {
             ],
           ),
         if (eyebrow != null) const SizedBox(height: 14),
-        if (heading != null) heading,
+        ?heading,
         if (subtitle != null) ...[
           const SizedBox(height: 14),
           ConstrainedBox(
@@ -102,10 +103,7 @@ class SectionHeader extends StatelessWidget {
 }
 
 /// @deprecated Use [HeadingStyles.sectionTitleWidget] or SectionHeader params.
-Widget sectionTitleRich({
-  required List<InlineSpan> spans,
-  bool center = true,
-}) {
+Widget sectionTitleRich({required List<InlineSpan> spans, bool center = true}) {
   return Builder(
     builder: (context) {
       final base = HeadingStyles.sectionPageTitle(context);

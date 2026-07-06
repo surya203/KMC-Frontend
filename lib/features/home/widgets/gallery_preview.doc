@@ -1,0 +1,18 @@
+SHAIK RESHMA - Jul 6, 2026
+
+File Name: gallery_preview.dart
+
+1. Modification Done:
+
+   * Updated homepage gallery preview to load album cover images from the gallery API when available.
+   * Keeps static fallback images if API has no albums yet.
+   * Tapping a preview image opens the matching album page when loaded from API.
+
+2. Purpose of This Modification:
+
+   * Phase 3 requires homepage gallery section to reflect real reunion albums, not only placeholder art.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Shown on `home_screen.dart` below latest events.
+   * Uses `gallery_service.fetchAlbums`; links to `/gallery/:slug`.

@@ -20,3 +20,24 @@ File Name: public_layout.dart
    * Wraps Home, About, Events, Gallery, Sign-in, and Membership screens.
    * All top navigation and mobile drawer items route through `go_router` paths.
    * Users see the same KMC branding and menu on every public page, similar to the handbook’s AppShell requirement.
+
+---
+
+SHAIK RESHMA - Jul 6, 2026
+
+File Name: public_layout.dart
+
+1. Modification Done:
+
+   * Header and drawer now react to login state: show Dashboard instead of Sign in when member is logged in.
+   * MY KMC link goes to `/dashboard` when signed in, otherwise to `/auth`.
+   * Shows Admin link in drawer when user has admin access.
+
+2. Purpose of This Modification:
+
+   * Public shell must stay correct after Phase 2 auth so members do not see misleading Sign in links.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Listens to `auth_session.dart` and `role_helpers.dart`; wraps all public and auth pages.
+
