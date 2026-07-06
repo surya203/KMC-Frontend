@@ -88,6 +88,7 @@ class FooterSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SafeAssetImage(
               assetPath: AppAssets.logo,
@@ -95,29 +96,31 @@ class FooterSection extends StatelessWidget {
               height: 52,
             ),
             const SizedBox(width: 18),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Text(
-                  'KMC Alumni Connect',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 28,
-                    fontWeight: FontWeight.w700,
-                    fontFamily: 'Georgia',
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: const [
+                  Text(
+                    'KMC Alumni Connect',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 28,
+                      fontWeight: FontWeight.w700,
+                      fontFamily: 'Georgia',
+                    ),
                   ),
-                ),
-                SizedBox(height: 5),
-                Text(
-                  'ESTD. 1959 • WARANGAL',
-                  style: TextStyle(
-                    color: Color(0xFFB7C0D1),
-                    fontSize: 13,
-                    letterSpacing: 3,
-                    fontWeight: FontWeight.w500,
+                  SizedBox(height: 5),
+                  Text(
+                    'ESTD. 1959 • WARANGAL',
+                    style: TextStyle(
+                      color: Color(0xFFB7C0D1),
+                      fontSize: 13,
+                      letterSpacing: 3,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ],
         ),
