@@ -24,10 +24,10 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _loadStats();
+    _loadData();
   }
 
-  Future<void> _loadStats() async {
+  Future<void> _loadData() async {
     final stats = await _cmsService.fetchStats();
     if (!mounted) return;
     setState(() => _stats = stats);
@@ -38,6 +38,8 @@ class _HomeScreenState extends State<HomeScreen> {
     return PublicLayout(
       child: SingleChildScrollView(
         child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             HeroSection(stats: _stats),
             const PlatformFeaturesSection(),

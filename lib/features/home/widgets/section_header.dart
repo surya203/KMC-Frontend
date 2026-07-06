@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/theme/heading_styles.dart';
+import '../../../core/widgets/hover_link.dart';
 
 class SectionHeader extends StatelessWidget {
   const SectionHeader({
@@ -17,6 +18,7 @@ class SectionHeader extends StatelessWidget {
     this.center = true,
     this.actionLabel,
     this.onAction,
+    this.actionBesideTitle = false,
   });
 
   final String? eyebrow;
@@ -29,6 +31,7 @@ class SectionHeader extends StatelessWidget {
   final bool center;
   final String? actionLabel;
   final VoidCallback? onAction;
+  final bool actionBesideTitle;
 
   @override
   Widget build(BuildContext context) {
@@ -55,7 +58,8 @@ class SectionHeader extends StatelessWidget {
       crossAxisAlignment:
           center ? CrossAxisAlignment.center : CrossAxisAlignment.start,
       children: [
-        if (eyebrow != null || actionLabel != null)
+        if (eyebrow != null &&
+            !(actionBesideTitle && actionLabel != null && onAction != null))
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -69,18 +73,41 @@ class SectionHeader extends StatelessWidget {
                   style: HeadingStyles.eyebrow,
                 ),
               if (actionLabel != null && onAction != null)
-                TextButton(
-                  onPressed: onAction,
-                  style: TextButton.styleFrom(
-                    foregroundColor: AppColors.bodyText,
-                    textStyle: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                HoverLink(
+                  label: '$actionLabel →',
+                  fontSize: 14,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 10,
                   ),
-                  child: Text('$actionLabel →'),
+                  onTap: onAction!,
                 ),
             ],
           ),
-        if (eyebrow != null) const SizedBox(height: 14),
-        if (heading != null) heading,
+        if (eyebrow != null &&
+            !(actionBesideTitle && actionLabel != null && onAction != null))
+          const SizedBox(height: 14),
+        if (actionBesideTitle && actionLabel != null && onAction != null) ...[
+          if (eyebrow != null)
+            Text(
+              eyebrow!.toUpperCase(),
+              style: HeadingStyles.eyebrow,
+            ),
+          if (eyebrow != null) const SizedBox(height: 14),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(child: heading ?? const SizedBox.shrink()),
+              HoverLink(
+                label: '$actionLabel →',
+                fontSize: 14,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                onTap: onAction!,
+              ),
+            ],
+          ),
+        ] else if (heading != null)
+          heading,
         if (subtitle != null) ...[
           const SizedBox(height: 14),
           ConstrainedBox(

@@ -10,13 +10,13 @@ class PlatformFeaturesSection extends StatelessWidget {
 
   static const _features = [
     (
-      Icons.verified_user_outlined,
+      Icons.person_add_alt_1_outlined,
       'Alumni Registration',
       'Verified, batch-tagged profiles for every graduate.',
       '/membership',
     ),
     (
-      Icons.card_membership_outlined,
+      Icons.verified_user_outlined,
       'Membership Plans',
       'Lifetime and Patron tiers with rich benefits.',
       '/membership',
@@ -90,7 +90,9 @@ class PlatformFeaturesSection extends StatelessWidget {
                 clipBehavior: Clip.antiAlias,
                 child: Column(
                   children: [
-                    for (var row = 0; row < (_features.length / columns).ceil(); row++)
+                    for (var row = 0;
+                        row < (_features.length / columns).ceil();
+                        row++)
                       IntrinsicHeight(
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -129,47 +131,97 @@ class PlatformFeaturesSection extends StatelessWidget {
 
     return Builder(
       builder: (context) {
-        return Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: feature.$4 == null ? null : () => context.go(feature.$4!),
-            child: Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                border: Border(
-                  bottom: isLastRow
-                      ? BorderSide.none
-                      : const BorderSide(color: AppColors.border),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(feature.$1, color: AppColors.bodyText, size: 22),
-                  const SizedBox(height: 16),
-                  Text(
-                    feature.$2,
-                    style: GoogleFonts.inter(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.heading,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    feature.$3,
-                    style: GoogleFonts.inter(
-                      fontSize: 14,
-                      height: 1.6,
-                      color: AppColors.bodyText,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+        return _FeatureCell(
+          icon: feature.$1,
+          title: feature.$2,
+          description: feature.$3,
+          route: feature.$4,
+          showBottomBorder: !isLastRow,
         );
       },
+    );
+  }
+}
+
+class _FeatureCell extends StatefulWidget {
+  const _FeatureCell({
+    required this.icon,
+    required this.title,
+    required this.description,
+    required this.route,
+    required this.showBottomBorder,
+  });
+
+  final IconData icon;
+  final String title;
+  final String description;
+  final String? route;
+  final bool showBottomBorder;
+
+  @override
+  State<_FeatureCell> createState() => _FeatureCellState();
+}
+
+class _FeatureCellState extends State<_FeatureCell> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: Material(
+        color: _hovered ? const Color(0xFFF5F0E6) : Colors.transparent,
+        child: InkWell(
+          onTap: widget.route == null ? null : () => context.go(widget.route!),
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: widget.showBottomBorder
+                    ? const BorderSide(color: AppColors.border)
+                    : BorderSide.none,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: _hovered ? AppColors.primary : AppColors.muted,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    widget.icon,
+                    color: _hovered ? Colors.white : AppColors.bodyText,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  widget.title,
+                  style: GoogleFonts.inter(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.heading,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  widget.description,
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    height: 1.6,
+                    color: AppColors.bodyText,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

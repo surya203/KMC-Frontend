@@ -31,8 +31,82 @@
 
   <title>kmc_alumni_connect</title>
   <link rel="manifest" href="manifest.json">
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+  <style>
+    /* Pill scrollbar — Lovable / Chrome reference (thin track, rounded thumb, arrows) */
+    :root {
+      --kmc-scroll-track: #f2f0eb;
+      --kmc-scroll-thumb: #8e95a3;
+      --kmc-scroll-thumb-hover: #6b7280;
+      --kmc-scroll-arrow: #6b7280;
+    }
+
+    html,
+    body,
+    flutter-view,
+    flt-glass-pane {
+      scrollbar-width: thin;
+      scrollbar-color: var(--kmc-scroll-thumb) var(--kmc-scroll-track);
+    }
+
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: var(--kmc-scroll-thumb) var(--kmc-scroll-track);
+    }
+
+    ::-webkit-scrollbar {
+      width: 14px;
+      height: 14px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--kmc-scroll-track);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background-color: var(--kmc-scroll-thumb);
+      border-radius: 100px;
+      border: 3px solid var(--kmc-scroll-track);
+      min-height: 48px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background-color: var(--kmc-scroll-thumb-hover);
+    }
+
+    ::-webkit-scrollbar-corner {
+      background: var(--kmc-scroll-track);
+    }
+
+    /* Up / down arrow buttons like the reference */
+    ::-webkit-scrollbar-button:single-button {
+      display: block;
+      height: 14px;
+      width: 14px;
+      background-color: var(--kmc-scroll-track);
+    }
+
+    ::-webkit-scrollbar-button:single-button:vertical:decrement {
+      border-style: solid;
+      border-width: 0 4px 6px 4px;
+      border-color: transparent transparent var(--kmc-scroll-arrow) transparent;
+      background-color: var(--kmc-scroll-track);
+    }
+
+    ::-webkit-scrollbar-button:single-button:vertical:increment {
+      border-style: solid;
+      border-width: 6px 4px 0 4px;
+      border-color: var(--kmc-scroll-arrow) transparent transparent transparent;
+      background-color: var(--kmc-scroll-track);
+    }
+
+    ::-webkit-scrollbar-button:single-button:horizontal:decrement,
+    ::-webkit-scrollbar-button:single-button:horizontal:increment {
+      display: none;
+    }
+  </style>
 </head>
-<body>
+<body style="background-color: #faf9f6; margin: 0;">
   <!--
     You can customize the "flutter_bootstrap.js" script.
     This is useful to provide a custom configuration to the Flutter loader
