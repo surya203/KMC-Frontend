@@ -16,7 +16,7 @@ class HeroSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
     final isCompact = width < 700;
-    final data = stats ?? CommunityStats.fallback;
+    final data = (stats ?? CommunityStats.fallback).heroDisplay;
     final headlineSize = width < 600 ? 40.0 : width < 900 ? 52.0 : 72.0;
     final heroHeight = isCompact ? 780.0 : 760.0;
 

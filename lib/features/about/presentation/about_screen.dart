@@ -2,39 +2,39 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/network/cms_service.dart';
 import '../../../core/theme/heading_styles.dart';
 import '../../../core/widgets/page_hero.dart';
 import '../../../core/widgets/public_layout.dart';
 import '../../home/widgets/footer_section.dart';
 
-class AboutScreen extends StatelessWidget {
+class AboutScreen extends StatefulWidget {
   const AboutScreen({super.key});
 
-  static const _milestones = [
-    (
-      1959,
-      'Founded',
-      'Kakatiya Medical College established in Warangal, Telangana.',
-    ),
-    (
-      1985,
-      'Postgraduate Programs',
-      'Expansion of specialist training and research across departments.',
-    ),
-    (
-      2008,
-      'Golden Jubilee',
-      'Celebrating fifty years of medical education and alumni pride.',
-    ),
-    (
-      2025,
-      'Digital Alumni Platform',
-      'KMC Alumni Connect launches to unite batches worldwide.',
-    ),
-  ];
+  @override
+  State<AboutScreen> createState() => _AboutScreenState();
+}
+
+class _AboutScreenState extends State<AboutScreen> {
+  final _cmsService = CmsService();
+  AboutContent? _content;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAbout();
+  }
+
+  Future<void> _loadAbout() async {
+    final content = await _cmsService.fetchAbout();
+    if (!mounted) return;
+    setState(() => _content = content);
+  }
 
   @override
   Widget build(BuildContext context) {
+    final content = _content ?? AboutContent.fallback;
+
     return PublicLayout(
       child: SingleChildScrollView(
         child: Column(
@@ -64,16 +64,30 @@ class AboutScreen extends StatelessWidget {
                     children: [
                       TwoColumnSection(
                         heading: 'Our mission',
-                        child: Text(
-                          'We connect KMC alumni, practicing doctors, researchers, '
-                          'academicians, and healthcare leaders across the globe — '
-                          'fostering mentorship, reunions, and lifelong association '
-                          'with our alma mater.',
-                          style: GoogleFonts.inter(
-                            fontSize: 17,
-                            height: 1.8,
-                            color: AppColors.bodyText,
-                          ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (content.fromApi)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: Text(
+                                  'Live content from API',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.success,
+                                  ),
+                                ),
+                              ),
+                            Text(
+                              content.mission,
+                              style: GoogleFonts.inter(
+                                fontSize: 17,
+                                height: 1.8,
+                                color: AppColors.bodyText,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                       TwoColumnSection(
@@ -81,12 +95,12 @@ class AboutScreen extends StatelessWidget {
                         showDivider: false,
                         child: Column(
                           children: [
-                            for (var i = 0; i < _milestones.length; i++) ...[
+                            for (var i = 0; i < content.milestones.length; i++) ...[
                               if (i > 0) const SizedBox(height: 28),
                               _MilestoneEntry(
-                                year: _milestones[i].$1,
-                                title: _milestones[i].$2,
-                                description: _milestones[i].$3,
+                                year: content.milestones[i].year,
+                                title: content.milestones[i].title,
+                                description: content.milestones[i].description,
                               ),
                             ],
                           ],

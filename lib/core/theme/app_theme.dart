@@ -3,6 +3,8 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../constants/app_colors.dart';
 
+import 'kmc_scroll_behavior.dart';
+
 class AppTheme {
   AppTheme._();
 
@@ -11,5 +13,6 @@ class AppTheme {
     scaffoldBackgroundColor: AppColors.background,
     colorSchemeSeed: AppColors.primary,
     textTheme: GoogleFonts.interTextTheme(),
+    scrollbarTheme: KmcScrollbarTheme.data,
   );
 }

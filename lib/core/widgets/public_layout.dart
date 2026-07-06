@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../constants/app_assets.dart';
 import '../constants/app_colors.dart';
+import 'hover_link.dart';
 import 'safe_asset_image.dart';
 
 class PublicAppBar extends StatelessWidget implements PreferredSizeWidget {
@@ -16,7 +17,7 @@ class PublicAppBar extends StatelessWidget implements PreferredSizeWidget {
     ('About', '/about'),
     ('Events', '/events'),
     ('Gallery', '/gallery'),
-    ('MY KMC', '/auth'),
+    ('MY KMC', '/membership'),
   ];
 
   @override
@@ -70,8 +71,8 @@ class PublicAppBar extends StatelessWidget implements PreferredSizeWidget {
                 ),
               ),
               Flexible(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
+                flex: 2,
+                child: Align(
                   alignment: Alignment.center,
                   child: _CenterNavLinks(currentPath: currentPath),
                 ),
@@ -82,12 +83,15 @@ class PublicAppBar extends StatelessWidget implements PreferredSizeWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      TextButton(
-                        onPressed: () => context.go('/auth'),
-                        child: Text(
-                          'Sign in',
-                          style: GoogleFonts.inter(color: AppColors.bodyText),
+                      HoverLink(
+                        label: 'Sign in',
+                        fontSize: 14,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 12,
                         ),
+                        isActive: isNavRouteActive(currentPath, '/auth'),
+                        onTap: () => context.go('/auth'),
                       ),
                       const SizedBox(width: 8),
                       ElevatedButton(
@@ -128,63 +132,23 @@ class _CenterNavLinks extends StatelessWidget {
 
   final String currentPath;
 
+  static bool _isActive(String current, String path) =>
+      isNavRouteActive(current, path);
+
   @override
   Widget build(BuildContext context) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         for (final item in PublicAppBar._navItems)
-          _NavLinkItem(
+          HoverLink(
             label: item.$1,
-            path: item.$2,
-            isActive: currentPath == item.$2,
+            fontSize: 14,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            isActive: _isActive(currentPath, item.$2),
+            onTap: () => context.go(item.$2),
           ),
       ],
-    );
-  }
-}
-
-class _NavLinkItem extends StatefulWidget {
-  const _NavLinkItem({
-    required this.label,
-    required this.path,
-    required this.isActive,
-  });
-
-  final String label;
-  final String path;
-  final bool isActive;
-
-  @override
-  State<_NavLinkItem> createState() => _NavLinkItemState();
-}
-
-class _NavLinkItemState extends State<_NavLinkItem> {
-  bool _hovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final highlighted = widget.isActive || _hovered;
-
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: () => context.go(widget.path),
-        behavior: HitTestBehavior.opaque,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          child: Text(
-            widget.label,
-            style: GoogleFonts.inter(
-              fontWeight: highlighted ? FontWeight.w700 : FontWeight.w500,
-              fontSize: 14,
-              color: highlighted ? AppColors.heading : AppColors.bodyText,
-            ),
-          ),
-        ),
-      ),
     );
   }
 }
@@ -211,12 +175,11 @@ class _BrandLockup extends StatelessWidget {
           children: [
             Text(
               'KMC',
-              style: GoogleFonts.inter(
-                fontSize: compact ? 16 : 18,
-                fontWeight: FontWeight.w800,
+              style: GoogleFonts.fraunces(
+                fontSize: compact ? 20 : 22,
+                fontWeight: FontWeight.w700,
                 height: 1,
                 color: AppColors.primary,
-                letterSpacing: 0.5,
               ),
             ),
             Text(
@@ -257,7 +220,7 @@ class PublicDrawer extends StatelessWidget {
             _DrawerTile(label: 'About', path: '/about', currentPath: currentPath),
             _DrawerTile(label: 'Events', path: '/events', currentPath: currentPath),
             _DrawerTile(label: 'Gallery', path: '/gallery', currentPath: currentPath),
-            _DrawerTile(label: 'MY KMC', path: '/auth', currentPath: currentPath),
+            _DrawerTile(label: 'MY KMC', path: '/membership', currentPath: currentPath),
             const Divider(),
             _DrawerTile(label: 'Sign in', path: '/auth', currentPath: currentPath),
             _DrawerTile(
@@ -285,7 +248,7 @@ class _DrawerTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final selected = currentPath == path;
+    final selected = isNavRouteActive(currentPath, path);
 
     return ListTile(
       title: Text(

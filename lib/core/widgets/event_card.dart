@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -6,12 +7,33 @@ import '../constants/app_colors.dart';
 import 'safe_asset_image.dart';
 
 class EventCard extends StatelessWidget {
-  const EventCard({super.key, this.onTap});
+  const EventCard({
+    super.key,
+    required this.title,
+    required this.dateLabel,
+    required this.venueLabel,
+    required this.registeredCount,
+    this.coverImageUrl,
+    this.registrationOpen = true,
+    this.isRegistered = false,
+    this.onTap,
+    this.onRegister,
+  });
 
+  final String title;
+  final String dateLabel;
+  final String venueLabel;
+  final int registeredCount;
+  final String? coverImageUrl;
+  final bool registrationOpen;
+  final bool isRegistered;
   final VoidCallback? onTap;
+  final VoidCallback? onRegister;
 
   @override
   Widget build(BuildContext context) {
+    final canRegister = registrationOpen && !isRegistered;
+
     return Material(
       color: AppColors.card,
       borderRadius: BorderRadius.circular(20),
@@ -21,13 +43,9 @@ class EventCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const SizedBox(
+            SizedBox(
               height: 240,
-              child: SafeAssetImage(
-                assetPath: AppAssets.eventBanner,
-                fit: BoxFit.cover,
-                expandToFill: true,
-              ),
+              child: _EventCoverImage(coverImageUrl: coverImageUrl),
             ),
             Padding(
               padding: const EdgeInsets.all(24),
@@ -37,20 +55,20 @@ class EventCard extends StatelessWidget {
                   Wrap(
                     spacing: 16,
                     runSpacing: 8,
-                    children: const [
+                    children: [
                       _MetaRow(
                         icon: Icons.calendar_today_outlined,
-                        label: '6 Jun 2027',
+                        label: dateLabel,
                       ),
                       _MetaRow(
                         icon: Icons.location_on_outlined,
-                        label: 'HITEX Novotel, Hyderabad',
+                        label: venueLabel,
                       ),
                     ],
                   ),
                   const SizedBox(height: 14),
                   Text(
-                    '2nd KMC Alumni Meet',
+                    title,
                     style: GoogleFonts.fraunces(
                       fontSize: 26,
                       fontWeight: FontWeight.w600,
@@ -61,6 +79,13 @@ class EventCard extends StatelessWidget {
                   LayoutBuilder(
                     builder: (context, constraints) {
                       final stackActions = constraints.maxWidth < 340;
+                      final countLabel = '$registeredCount registered';
+                      final buttonLabel = isRegistered
+                          ? 'Registered'
+                          : registrationOpen
+                              ? 'Register'
+                              : 'Closed';
+
                       if (stackActions) {
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -76,7 +101,7 @@ class EventCard extends StatelessWidget {
                                 const SizedBox(width: 6),
                                 Flexible(
                                   child: Text(
-                                    '0 registered',
+                                    countLabel,
                                     style: GoogleFonts.inter(
                                       color: AppColors.bodyText,
                                     ),
@@ -88,10 +113,12 @@ class EventCard extends StatelessWidget {
                             Align(
                               alignment: Alignment.centerLeft,
                               child: ElevatedButton(
-                                onPressed: onTap,
+                                onPressed: canRegister ? onRegister : null,
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: AppColors.primary,
                                   foregroundColor: Colors.white,
+                                  disabledBackgroundColor:
+                                      AppColors.muted.withValues(alpha: 0.4),
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 24,
                                     vertical: 14,
@@ -100,7 +127,7 @@ class EventCard extends StatelessWidget {
                                     borderRadius: BorderRadius.circular(24),
                                   ),
                                 ),
-                                child: const Text('Register'),
+                                child: Text(buttonLabel),
                               ),
                             ),
                           ],
@@ -117,7 +144,7 @@ class EventCard extends StatelessWidget {
                           const SizedBox(width: 6),
                           Flexible(
                             child: Text(
-                              '0 registered',
+                              countLabel,
                               style: GoogleFonts.inter(
                                 color: AppColors.bodyText,
                               ),
@@ -125,10 +152,12 @@ class EventCard extends StatelessWidget {
                           ),
                           const SizedBox(width: 8),
                           ElevatedButton(
-                            onPressed: onTap,
+                            onPressed: canRegister ? onRegister : null,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.primary,
                               foregroundColor: Colors.white,
+                              disabledBackgroundColor:
+                                  AppColors.muted.withValues(alpha: 0.4),
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 24,
                                 vertical: 14,
@@ -137,7 +166,7 @@ class EventCard extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(24),
                               ),
                             ),
-                            child: const Text('Register'),
+                            child: Text(buttonLabel),
                           ),
                         ],
                       );
@@ -149,6 +178,34 @@ class EventCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _EventCoverImage extends StatelessWidget {
+  const _EventCoverImage({this.coverImageUrl});
+
+  final String? coverImageUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final url = coverImageUrl;
+    if (url != null && url.isNotEmpty) {
+      return CachedNetworkImage(
+        imageUrl: url,
+        fit: BoxFit.cover,
+        width: double.infinity,
+        errorWidget: (context, url, error) => const SafeAssetImage(
+          assetPath: AppAssets.eventBanner,
+          fit: BoxFit.cover,
+          expandToFill: true,
+        ),
+      );
+    }
+    return const SafeAssetImage(
+      assetPath: AppAssets.eventBanner,
+      fit: BoxFit.cover,
+      expandToFill: true,
     );
   }
 }
