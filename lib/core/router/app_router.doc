@@ -18,3 +18,25 @@ File Name: app_router.dart
    * Registered in `main.dart` via `MaterialApp.router`.
    * Header, drawer, footer links, and hero buttons use `context.go()` to these routes.
    * User flow: `/splash` (3 seconds) → `/` (Home) → user can navigate to `/about`, `/events`, `/gallery`, `/auth`, `/membership`.
+
+---
+
+SHAIK RESHMA - Jul 6, 2026
+
+File Name: app_router.dart
+
+1. Modification Done:
+
+   * Added routes for forgot password, reset password, member dashboard sub-pages (profile, announcements, events), alumni directory, event/gallery detail URLs, and full admin section.
+   * Connected router to `auth_session` so pages refresh when login state changes.
+   * Added guards: guests cannot open `/dashboard` or `/admin`; logged-in users on `/auth` go to dashboard; admin routes check staff/verifier/admin roles.
+
+2. Purpose of This Modification:
+
+   * Phases 2–4 require many new URLs for auth, membership, member features, and admin tools with correct access control.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Central entry for all navigation after Phase 1 public pages.
+   * Works with `role_helpers.dart` for admin redirects and with `auth_session.dart` for member protection.
+

@@ -1,0 +1,15 @@
+SHAIK RESHMA - Jul 6, 2026
+
+File Name: plan_card.dart
+
+1. Modification Done:
+
+   * Created a card widget showing one membership plan (name, price, benefits) with selected/unselected state.
+
+2. Purpose of This Modification:
+
+   * Step 1 of Join Network wizard must let the user see and confirm the Life membership plan before continuing.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Used in `membership_screen.dart` step 0; selection is saved to registration draft via `registration_service.dart`.

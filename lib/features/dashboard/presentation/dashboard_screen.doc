@@ -1,0 +1,17 @@
+SHAIK RESHMA - Jul 6, 2026
+
+File Name: dashboard_screen.dart
+
+1. Modification Done:
+
+   * Rebuilt member dashboard as the MY KMC home after login.
+   * Shows profile summary, membership badge, and quick links to profile, announcements, events, and admin (if allowed).
+
+2. Purpose of This Modification:
+
+   * Phase 2 protected `/dashboard` shell is the main entry for authenticated alumni.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Route `/dashboard` in `app_router.dart`; uses `member_layout.dart`, `dashboard_summary.dart`, and `membership_badge.dart`.
+   * Redirect target after successful sign-in.

@@ -1,0 +1,17 @@
+SHAIK RESHMA - Jul 6, 2026
+
+File Name: directory_screen.dart
+
+1. Modification Done:
+
+   * Created alumni directory page with search by name and filter by batch year.
+   * Lists approved profiles with load-more paging and opens public profile detail page.
+
+2. Purpose of This Modification:
+
+   * Phase 3 requires members and visitors to find classmates in the approved alumni directory.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Routes `/profiles` and `/profiles/:profileId` in `app_router.dart`.
+   * Data from `profiles_service.searchProfiles` and `fetchById`.

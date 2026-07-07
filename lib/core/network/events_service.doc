@@ -1,0 +1,17 @@
+SHAIK RESHMA - Jul 6, 2026
+
+File Name: events_service.dart
+
+1. Modification Done:
+
+   * Created API layer for public events: upcoming list, event detail by slug, register, cancel registration, and my registrations.
+   * Added models for event summary, detail (with registration state), and member’s registered events.
+
+2. Purpose of This Modification:
+
+   * Phase 3 requires live reunion events with registration counts and member sign-up from the frontend.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Powers `events_screen.dart`, `EventDetailScreen`, `latest_events.dart` on Home, and `DashboardMyEventsScreen`.
+   * Register/cancel buttons on event detail call this service when the member is logged in.

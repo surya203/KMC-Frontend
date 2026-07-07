@@ -1,35 +1,47 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/network/profiles_service.dart';
 import 'section_header.dart';
 
-class FeaturedAlumniSection extends StatelessWidget {
+class FeaturedAlumniSection extends StatefulWidget {
   const FeaturedAlumniSection({super.key});
 
-  static const _alumni = [
+  @override
+  State<FeaturedAlumniSection> createState() => _FeaturedAlumniSectionState();
+}
+
+class _FeaturedAlumniSectionState extends State<FeaturedAlumniSection> {
+  final _service = ProfilesService();
+  List<ProfileSummary> _profiles = [];
+
+  static const _fallback = [
     (
       '“KMC shaped my career. The bonds I formed here remain my strongest support system.”',
       'Dr. Ramesh Reddy',
       'Chief Cardiologist, AIIMS Delhi · Batch 1992',
       'https://i.pravatar.cc/200?img=12',
     ),
-    (
-      '“Our alma mater taught us not just medicine, but compassion and excellence.”',
-      'Dr. Priya Sharma',
-      'Director of Pediatrics, Apollo Hospitals · Batch 2001',
-      'https://i.pravatar.cc/200?img=47',
-    ),
-    (
-      '“From Warangal to the world — proud KMC graduate and lifelong learner.”',
-      'Dr. Arjun Kumar',
-      'Neurosurgeon, Cleveland Clinic, USA · Batch 1988',
-      'https://i.pravatar.cc/200?img=33',
-    ),
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final profiles = await _service.fetchFeatured();
+    if (!mounted) return;
+    setState(() => _profiles = profiles.take(3).toList());
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final useApi = _profiles.isNotEmpty;
+
     return Container(
       width: double.infinity,
       color: AppColors.white,
@@ -39,7 +51,7 @@ class FeaturedAlumniSection extends StatelessWidget {
           constraints: const BoxConstraints(maxWidth: 1200),
           child: Column(
             children: [
-              SectionHeader(
+              const SectionHeader(
                 eyebrow: 'Featured Alumni',
                 regularTitle: 'From Warangal ',
                 italicTitle: 'to',
@@ -49,21 +61,45 @@ class FeaturedAlumniSection extends StatelessWidget {
               LayoutBuilder(
                 builder: (context, constraints) {
                   final isWide = constraints.maxWidth > 900;
-                  if (isWide) {
-                    return Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                  if (useApi) {
+                    final cards = _profiles
+                        .map((p) => _AlumniCard.fromProfile(p))
+                        .toList();
+                    if (isWide) {
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          for (var i = 0; i < cards.length; i++) ...[
+                            if (i > 0) const SizedBox(width: 20),
+                            Expanded(child: cards[i]),
+                          ],
+                        ],
+                      );
+                    }
+                    return Column(
                       children: [
-                        for (var i = 0; i < _alumni.length; i++) ...[
-                          if (i > 0) const SizedBox(width: 20),
-                          Expanded(child: _AlumniCard(data: _alumni[i])),
+                        for (final card in cards) ...[
+                          card,
+                          const SizedBox(height: 20),
                         ],
                       ],
                     );
                   }
 
+                  if (isWide) {
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        for (var i = 0; i < _fallback.length; i++) ...[
+                          if (i > 0) const SizedBox(width: 20),
+                          Expanded(child: _AlumniCard(data: _fallback[i])),
+                        ],
+                      ],
+                    );
+                  }
                   return Column(
                     children: [
-                      for (final person in _alumni) ...[
+                      for (final person in _fallback) ...[
                         _AlumniCard(data: person),
                         const SizedBox(height: 20),
                       ],
@@ -80,12 +116,25 @@ class FeaturedAlumniSection extends StatelessWidget {
 }
 
 class _AlumniCard extends StatelessWidget {
-  const _AlumniCard({required this.data});
+  const _AlumniCard({this.data, this.profile});
 
-  final (String, String, String, String) data;
+  final (String, String, String, String)? data;
+  final ProfileSummary? profile;
+
+  factory _AlumniCard.fromProfile(ProfileSummary profile) {
+    return _AlumniCard(profile: profile);
+  }
 
   @override
   Widget build(BuildContext context) {
+    final quote = data?.$1 ??
+        '“Proud KMC graduate making a difference in medicine and community.”';
+    final name = profile?.fullName ?? data?.$2 ?? '';
+    final subtitle = profile != null
+        ? '${profile!.currentTitle ?? profile!.organization ?? 'Alumni'} · Batch ${profile!.batchYear}'
+        : data?.$3 ?? '';
+    final photo = profile?.photoUrl ?? data?.$4;
+
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -97,7 +146,7 @@ class _AlumniCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            data.$1,
+            quote,
             style: GoogleFonts.fraunces(
               fontSize: 18,
               height: 1.6,
@@ -112,18 +161,15 @@ class _AlumniCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               ClipOval(
-                child: Image.network(
-                  data.$4,
-                  width: 48,
-                  height: 48,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => Container(
-                    width: 48,
-                    height: 48,
-                    color: AppColors.muted,
-                    child: const Icon(Icons.person, color: AppColors.primary),
-                  ),
-                ),
+                child: photo != null
+                    ? CachedNetworkImage(
+                        imageUrl: photo,
+                        width: 48,
+                        height: 48,
+                        fit: BoxFit.cover,
+                        errorWidget: (_, _, _) => _avatarFallback(),
+                      )
+                    : _avatarFallback(),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -131,7 +177,7 @@ class _AlumniCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      data.$2,
+                      name,
                       style: GoogleFonts.inter(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
@@ -140,7 +186,7 @@ class _AlumniCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      data.$3,
+                      subtitle,
                       style: GoogleFonts.inter(
                         fontSize: 14,
                         height: 1.5,
@@ -154,6 +200,15 @@ class _AlumniCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _avatarFallback() {
+    return Container(
+      width: 48,
+      height: 48,
+      color: AppColors.muted,
+      child: const Icon(Icons.person, color: AppColors.primary),
     );
   }
 }

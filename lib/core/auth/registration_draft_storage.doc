@@ -1,0 +1,18 @@
+SHAIK RESHMA - Jul 6, 2026
+
+File Name: registration_draft_storage.dart
+
+1. Modification Done:
+
+   * Created local storage for the membership registration draft ID and current wizard step.
+   * Saves progress when the user moves between membership wizard steps.
+
+2. Purpose of This Modification:
+
+   * New members may leave the Join Network flow and return later without starting from step 1 again.
+   * Supports the handbook 5-step registration journey with resume capability.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Used by `membership_screen.dart` on bootstrap, step changes, and completion.
+   * Works with `registration_service.dart` which loads the draft from the backend using the saved draft ID.

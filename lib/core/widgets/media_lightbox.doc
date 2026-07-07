@@ -1,0 +1,16 @@
+SHAIK RESHMA - Jul 6, 2026
+
+File Name: media_lightbox.dart
+
+1. Modification Done:
+
+   * Created a full-screen photo viewer dialog for gallery album images with zoom and close button.
+
+2. Purpose of This Modification:
+
+   * Phase 3 handbook requires gallery grid plus lightbox so members can view reunion photos in detail.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Opened when a user taps a photo in `GalleryAlbumScreen` inside `gallery_screen.dart`.
+   * Uses network image URL from `gallery_service.dart`.

@@ -1,0 +1,15 @@
+SHAIK RESHMA - Jul 6, 2026
+
+File Name: cover_image.dart
+
+1. Modification Done:
+
+   * Created a reusable image widget for event banners and album covers with network URL support and asset fallback.
+
+2. Purpose of This Modification:
+
+   * Live events and gallery albums from the API need cover images without broken layouts when a URL is missing.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Used on event cards, event detail, gallery album cards, and gallery preview on Home.

@@ -1,0 +1,18 @@
+SHAIK RESHMA - Jul 6, 2026
+
+File Name: announcements_service.dart
+
+1. Modification Done:
+
+   * Created API calls to list announcements, read detail (marks as read), create, update, and unpublish (delete) announcements.
+   * Added summary and detail models including read/unread state.
+
+2. Purpose of This Modification:
+
+   * Phase 3 member dashboard must show President/Treasurer/Office updates.
+   * Executives create and edit announcements; admins can unpublish them per handbook.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Used by `DashboardAnnouncementsScreen` and `DashboardAnnouncementDetailScreen`.
+   * Create/edit buttons appear for executive users; delete for admin users.

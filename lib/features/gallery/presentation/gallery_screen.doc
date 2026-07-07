@@ -19,3 +19,23 @@ File Name: gallery_screen.dart
    * Registered at `/gallery` in `app_router.dart`.
    * Accessible from header, drawer, and footer links.
    * Will later load albums from `GET /gallery/albums` when Phase 3 backend and frontend work is complete.
+
+---
+
+SHAIK RESHMA - Jul 6, 2026
+
+File Name: gallery_screen.dart
+
+1. Modification Done:
+
+   * Gallery list now loads albums from API with fallback to handbook seed names.
+   * Added album detail page at `/gallery/:slug` with photo grid and full-screen lightbox on tap.
+
+2. Purpose of This Modification:
+
+   * Phase 3 handbook task: gallery grid + lightbox with seed/live albums visible.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Uses `gallery_service.dart` and `media_lightbox.dart`; linked from Home gallery preview.
+

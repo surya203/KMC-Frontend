@@ -1,0 +1,18 @@
+SHAIK RESHMA - Jul 6, 2026
+
+File Name: event_card.dart
+
+1. Modification Done:
+
+   * Updated event card to accept live `EventSummary` data from the API instead of only static sample text.
+   * Shows registration count and Register button with accessibility labels.
+   * Uses `CoverImage` for dynamic event banner photos.
+
+2. Purpose of This Modification:
+
+   * Phase 3 events list and homepage teaser must reflect real upcoming reunions and registration numbers.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Used on `/events` and can be reused wherever an event summary card is shown.
+   * Register button navigates to event detail for full registration flow.

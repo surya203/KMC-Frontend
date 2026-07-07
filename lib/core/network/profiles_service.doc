@@ -1,0 +1,17 @@
+SHAIK RESHMA - Jul 6, 2026
+
+File Name: profiles_service.dart
+
+1. Modification Done:
+
+   * Created API layer for alumni profiles: featured list, directory search, public profile detail, my profile update, and profile photo upload.
+   * Added paging support for directory search results.
+
+2. Purpose of This Modification:
+
+   * Phase 3 requires a searchable alumni directory, editable member profile, and featured alumni on the homepage.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Powers `directory_screen.dart`, `DashboardProfileScreen`, and `featured_alumni_section.dart`.
+   * Photo upload uses multipart upload through `api_client.dart`.

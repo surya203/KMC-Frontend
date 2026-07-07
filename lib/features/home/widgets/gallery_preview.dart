@@ -3,12 +3,26 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/cms_service.dart';
+import '../../../core/network/gallery_service.dart';
 import '../../../core/widgets/safe_asset_image.dart';
 import 'section_header.dart';
 
-class GalleryPreview extends StatelessWidget {
+class _PreviewItem {
+  const _PreviewItem({this.assetPath, this.imageUrl, this.route = '/gallery'});
+
+  final String? assetPath;
+  final String? imageUrl;
+  final String route;
+}
+
+class GalleryPreview extends StatefulWidget {
   const GalleryPreview({super.key});
 
+  @override
+  State<GalleryPreview> createState() => _GalleryPreviewState();
+}
+
+class _GalleryPreviewState extends State<GalleryPreview> {
   static const _columnLayouts = [
     [220.0, 170.0],
     [190.0, 230.0, 160.0],
@@ -16,9 +30,33 @@ class GalleryPreview extends StatelessWidget {
     [200.0],
   ];
 
+  List<_PreviewItem> _items = [
+    for (final album in CmsService.galleryAlbums)
+      _PreviewItem(assetPath: album.$2),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final albums = await GalleryService().fetchAlbums();
+    final withCovers = [
+      for (final album in albums)
+        if (album.coverImageUrl != null && album.coverImageUrl!.isNotEmpty)
+          _PreviewItem(
+            imageUrl: album.coverImageUrl,
+            route: '/gallery/${album.slug}',
+          ),
+    ];
+    if (!mounted || withCovers.isEmpty) return;
+    setState(() => _items = withCovers);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final albums = CmsService.galleryAlbums;
     final width = MediaQuery.of(context).size.width;
 
     return Container(
@@ -40,9 +78,9 @@ class GalleryPreview extends StatelessWidget {
               ),
               const SizedBox(height: 32),
               if (width > 900)
-                _MasonryGallery(albums: albums, layouts: _columnLayouts)
+                _MasonryGallery(items: _items, layouts: _columnLayouts)
               else
-                _MobileGallery(albums: albums),
+                _MobileGallery(items: _items),
             ],
           ),
         ),
@@ -53,23 +91,23 @@ class GalleryPreview extends StatelessWidget {
 
 class _MasonryGallery extends StatelessWidget {
   const _MasonryGallery({
-    required this.albums,
+    required this.items,
     required this.layouts,
   });
 
-  final List<(String, String)> albums;
+  final List<_PreviewItem> items;
   final List<List<double>> layouts;
 
   @override
   Widget build(BuildContext context) {
-    final columns = <List<(String, double)>>[];
+    final columns = <List<(_PreviewItem, double)>>[];
     var imageIndex = 0;
 
     for (final heights in layouts) {
-      final columnItems = <(String, double)>[];
+      final columnItems = <(_PreviewItem, double)>[];
       for (final height in heights) {
-        if (imageIndex >= albums.length) break;
-        columnItems.add((albums[imageIndex].$2, height));
+        if (imageIndex >= items.length) break;
+        columnItems.add((items[imageIndex], height));
         imageIndex++;
       }
       columns.add(columnItems);
@@ -86,9 +124,9 @@ class _MasonryGallery extends StatelessWidget {
                 for (var row = 0; row < columns[col].length; row++) ...[
                   if (row > 0) const SizedBox(height: 12),
                   _GalleryImage(
-                    assetPath: columns[col][row].$1,
+                    item: columns[col][row].$1,
                     height: columns[col][row].$2,
-                    onTap: () => context.go('/gallery'),
+                    onTap: () => context.go(columns[col][row].$1.route),
                   ),
                 ],
               ],
@@ -101,9 +139,9 @@ class _MasonryGallery extends StatelessWidget {
 }
 
 class _MobileGallery extends StatelessWidget {
-  const _MobileGallery({required this.albums});
+  const _MobileGallery({required this.items});
 
-  final List<(String, String)> albums;
+  final List<_PreviewItem> items;
 
   @override
   Widget build(BuildContext context) {
@@ -116,12 +154,12 @@ class _MobileGallery extends StatelessWidget {
         mainAxisSpacing: 12,
         childAspectRatio: 1.1,
       ),
-      itemCount: albums.length,
+      itemCount: items.length,
       itemBuilder: (context, index) {
         return _GalleryImage(
-          assetPath: albums[index].$2,
+          item: items[index],
           height: 180,
-          onTap: () => context.go('/gallery'),
+          onTap: () => context.go(items[index].route),
         );
       },
     );
@@ -130,12 +168,12 @@ class _MobileGallery extends StatelessWidget {
 
 class _GalleryImage extends StatelessWidget {
   const _GalleryImage({
-    required this.assetPath,
+    required this.item,
     required this.height,
     required this.onTap,
   });
 
-  final String assetPath;
+  final _PreviewItem item;
   final double height;
   final VoidCallback onTap;
 
@@ -150,11 +188,23 @@ class _GalleryImage extends StatelessWidget {
         child: SizedBox(
           height: height,
           width: double.infinity,
-          child: SafeAssetImage(
-            assetPath: assetPath,
-            fit: BoxFit.cover,
-            expandToFill: true,
-          ),
+          child: item.imageUrl != null
+              ? Image.network(
+                  item.imageUrl!,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => const ColoredBox(
+                    color: AppColors.muted,
+                    child: Icon(
+                      Icons.photo_outlined,
+                      color: AppColors.mutedText,
+                    ),
+                  ),
+                )
+              : SafeAssetImage(
+                  assetPath: item.assetPath ?? '',
+                  fit: BoxFit.cover,
+                  expandToFill: true,
+                ),
         ),
       ),
     );

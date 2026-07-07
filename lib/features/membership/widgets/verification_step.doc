@@ -1,0 +1,18 @@
+SHAIK RESHMA - Jul 6, 2026
+
+File Name: verification_step.dart
+
+1. Modification Done:
+
+   * Created step 3 UI for email OTP: send code, enter 6-digit OTP, verify.
+   * Added optional document upload path (PDF/JPG/PNG) as an alternative to OTP.
+   * Shows debug OTP in development when backend returns it.
+
+2. Purpose of This Modification:
+
+   * Handbook allows alumni to verify identity by email code or by uploading a degree/ID document.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Used in `membership_screen.dart`; calls `registration_service.sendOtp`, `verifyOtp`, or `uploadVerificationDocument`.
+   * On success, wizard advances to payment step.

@@ -2,14 +2,37 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/network/events_service.dart';
 import '../../../core/widgets/event_card.dart';
 import 'section_header.dart';
 
-class LatestEvents extends StatelessWidget {
+class LatestEvents extends StatefulWidget {
   const LatestEvents({super.key});
 
   @override
+  State<LatestEvents> createState() => _LatestEventsState();
+}
+
+class _LatestEventsState extends State<LatestEvents> {
+  final _service = EventsService();
+  List<EventSummary> _events = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final events = await _service.fetchUpcoming();
+    if (!mounted) return;
+    setState(() => _events = events.take(1).toList());
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final event = _events.isNotEmpty ? _events.first : null;
+
     return Container(
       width: double.infinity,
       color: AppColors.muted,
@@ -33,7 +56,15 @@ class LatestEvents extends StatelessWidget {
                 alignment: Alignment.centerLeft,
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 520),
-                  child: EventCard(onTap: () => context.go('/events')),
+                  child: EventCard(
+                    event: event,
+                    onTap: event != null
+                        ? () => context.go('/events/${event.slug}')
+                        : () => context.go('/events'),
+                    onRegister: event != null
+                        ? () => context.go('/events/${event.slug}')
+                        : () => context.go('/events'),
+                  ),
                 ),
               ),
             ],

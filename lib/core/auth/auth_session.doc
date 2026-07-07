@@ -1,0 +1,20 @@
+SHAIK RESHMA - Jul 6, 2026
+
+File Name: auth_session.dart
+
+1. Modification Done:
+
+   * Created a global login state holder that tracks whether a member is signed in and who they are.
+   * Added bootstrap on app start to restore session from saved tokens.
+   * Added sign-in and sign-out methods that update the UI across the app.
+
+2. Purpose of This Modification:
+
+   * Header, routing, and dashboard need to react instantly when login status changes.
+   * Protected pages (`/dashboard`, `/admin`) depend on knowing if a valid session exists.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Initialized in `main.dart` before the app runs.
+   * Listened to by `app_router.dart` for redirects and by `public_layout.dart` / `member_layout.dart` for nav labels.
+   * `sign_in_screen.dart` calls `signIn`; dashboard sign-out calls `signOut`.

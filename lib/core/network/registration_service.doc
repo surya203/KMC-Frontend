@@ -1,0 +1,18 @@
+SHAIK RESHMA - Jul 6, 2026
+
+File Name: registration_service.dart
+
+1. Modification Done:
+
+   * Created API calls for the full membership registration wizard: create/update draft, send OTP, verify OTP, upload verification document, create payment checkout, and complete registration.
+   * Added result models for checkout (Razorpay order details), OTP debug info, and completion status.
+
+2. Purpose of This Modification:
+
+   * Phase 2 handbook requires all five registration steps to talk to the backend state machine.
+   * Supports both email OTP and document upload paths for alumni verification.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Used exclusively by `membership_screen.dart` and its step widgets.
+   * Checkout result is passed to Razorpay in `razorpay_checkout_web.dart`; completion clears `registration_draft_storage.dart`.

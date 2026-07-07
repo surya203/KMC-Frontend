@@ -1,0 +1,16 @@
+SHAIK RESHMA - Jul 6, 2026
+
+File Name: file_download_web.dart
+
+1. Modification Done:
+
+   * Implemented browser file download by creating a temporary link and triggering click for CSV bytes.
+
+2. Purpose of This Modification:
+
+   * Admins need to save the members export file locally from the web admin panel.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Called from `AdminMembersScreen` after `admin_service.exportMembers()` returns data.
+   * Saves file as `kmc-members.csv` in the user’s downloads folder.

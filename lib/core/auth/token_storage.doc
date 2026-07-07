@@ -1,0 +1,18 @@
+SHAIK RESHMA - Jul 6, 2026
+
+File Name: token_storage.dart
+
+1. Modification Done:
+
+   * Created local storage for login access and refresh tokens using device preferences.
+   * Provides save, read, and clear methods for both tokens.
+
+2. Purpose of This Modification:
+
+   * Members should remain signed in after closing the browser until they explicitly log out.
+   * The API client needs stored tokens to call protected endpoints.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Used by `auth_service.dart` on login/logout and by `api_client.dart` on every protected request.
+   * Cleared when registration completes or user signs out from dashboard/member layout.

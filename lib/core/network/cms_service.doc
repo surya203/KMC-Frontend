@@ -19,3 +19,23 @@ File Name: cms_service.dart
    * Called from `home_screen.dart` on page load alongside the health check.
    * Results are passed to `stats_section.dart` to display community numbers.
    * When the backend adds `/cms/stats`, the same code will automatically show live data without changing the Home screen.
+
+---
+
+SHAIK RESHMA - Jul 6, 2026
+
+File Name: cms_service.dart
+
+1. Modification Done:
+
+   * Added `CmsMilestone` model and `fetchMilestones()` for About page timeline.
+   * Switched to shared `ApiClient.instance` for all CMS requests.
+
+2. Purpose of This Modification:
+
+   * Phase 1 API client layer and About CMS integration per handbook.
+
+3. How This Modification Is Involved in the Flow:
+
+   * `fetchStats()` used by Home; `fetchMilestones()` used by About; both share auth-ready API client.
+

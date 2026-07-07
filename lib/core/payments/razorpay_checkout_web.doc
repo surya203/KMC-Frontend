@@ -1,0 +1,17 @@
+SHAIK RESHMA - Jul 6, 2026
+
+File Name: razorpay_checkout_web.dart
+
+1. Modification Done:
+
+   * Implemented opening the Razorpay payment popup on Flutter web using the checkout script from `index.html`.
+   * Returns success when payment completes or false when the user closes the popup.
+
+2. Purpose of This Modification:
+
+   * Phase 2 handbook step 4 requires real Razorpay checkout after the backend creates an order.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Called from `membership_screen.dart` with `key_id`, `order_id`, and amount from `registration_service.createCheckout`.
+   * On success, the wizard moves to the completion step to confirm membership activation.

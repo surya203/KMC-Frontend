@@ -18,3 +18,26 @@ File Name: sign_in_screen.dart
    * Registered at `/auth` in `app_router.dart`.
    * Opened from header “Sign in”, “MY KMC” nav items, and mobile drawer.
    * Future flow: user enters credentials → API login → redirect to member dashboard (Phase 2).
+
+---
+
+SHAIK RESHMA - Jul 6, 2026
+
+File Name: sign_in_screen.dart
+
+1. Modification Done:
+
+   * Wired sign-in form to real backend login through `auth_session.signIn`.
+   * Added validation, error banner, loading state on submit, and password show/hide.
+   * Added accessibility wrapper and field labels for screen readers.
+   * Forgot password link navigates to `/auth/forgot-password`; successful login goes to `/dashboard`.
+
+2. Purpose of This Modification:
+
+   * Phase 2 handbook task: `/auth` sign-in with form, error states, and member reaching dashboard.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Uses `auth_service.dart` and `auth_session.dart`; protected routes unlock after success.
+   * QA keys: `auth-email-field`, `auth-password-field`, `auth-sign-in-button`.
+

@@ -1,0 +1,16 @@
+SHAIK RESHMA - Jul 6, 2026
+
+File Name: registration_stepper.dart
+
+1. Modification Done:
+
+   * Created the horizontal 5-step progress indicator (Plan, Details, Verify, Payment, Complete).
+   * Added accessibility labels for each step and current position.
+
+2. Purpose of This Modification:
+
+   * Members should always see where they are in the Join Network journey.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Displayed at top of `membership_screen.dart`; `currentStep` updates as user completes each stage.
