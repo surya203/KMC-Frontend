@@ -93,7 +93,7 @@ class _FooterHoverLinkState extends State<FooterHoverLink> {
         highlighted ? AppColors.secondary : const Color(0xFFD7DEE8);
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(bottom: 2),
       child: MouseRegion(
         onEnter: (_) => setState(() => _hovered = true),
         onExit: (_) => setState(() => _hovered = false),
@@ -108,12 +108,12 @@ class _FooterHoverLinkState extends State<FooterHoverLink> {
             highlightColor: AppColors.secondary.withValues(alpha: 0.14),
             borderRadius: BorderRadius.circular(8),
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+              padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
               child: AnimatedDefaultTextStyle(
                 duration: const Duration(milliseconds: 150),
                 curve: Curves.easeOut,
                 style: GoogleFonts.inter(
-                  fontSize: 16,
+                  fontSize: 13,
                   fontWeight: FontWeight.w600,
                   color: color,
                 ),

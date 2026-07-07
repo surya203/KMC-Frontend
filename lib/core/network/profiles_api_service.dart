@@ -219,6 +219,35 @@ class MyProfile {
       isDirectoryVisible: json['is_directory_visible'] as bool?,
     );
   }
+
+  MyProfile copyWith({
+    String? photoUrl,
+    String? phone,
+    String? currentTitle,
+    String? organization,
+    String? city,
+    String? bio,
+    String? linkedinUrl,
+    bool? isDirectoryVisible,
+  }) {
+    return MyProfile(
+      id: id,
+      fullName: fullName,
+      batchYear: batchYear,
+      degree: degree,
+      specialization: specialization,
+      currentTitle: currentTitle ?? this.currentTitle,
+      organization: organization ?? this.organization,
+      city: city ?? this.city,
+      country: country,
+      bio: bio ?? this.bio,
+      linkedinUrl: linkedinUrl ?? this.linkedinUrl,
+      photoUrl: photoUrl ?? this.photoUrl,
+      phone: phone ?? this.phone,
+      verificationStatus: verificationStatus,
+      isDirectoryVisible: isDirectoryVisible ?? this.isDirectoryVisible,
+    );
+  }
 }
 
 class ProfilesApiService {
@@ -322,36 +351,54 @@ class ProfilesApiService {
     if (header == null) throw Exception('Not signed in.');
     if (file.bytes == null) throw Exception('Could not read image file.');
 
-    final formData = FormData.fromMap({
-      'file': MultipartFile.fromBytes(
-        file.bytes!,
-        filename: file.name,
-      ),
-    });
-
     try {
       final response = await _apiClient.dio.post<Map<String, dynamic>>(
         '${AppConfig.apiPrefix}/profiles/me/photo',
-        data: formData,
-        options: Options(
-          headers: {
-            'Authorization': header,
-            'Content-Type': 'multipart/form-data',
-          },
-        ),
+        data: FormData.fromMap({
+          'file': MultipartFile.fromBytes(
+            file.bytes!,
+            filename: file.name,
+          ),
+        }),
+        options: Options(headers: {'Authorization': header}),
       );
       final url = response.data?['photo_url'] as String?;
       if (url == null || url.isEmpty) throw Exception('Upload failed.');
       return url;
     } on DioException catch (e) {
+      // Some backends expect "photo" instead of "file"; retry once.
+      final status = e.response?.statusCode ?? 0;
+      if (status == 400 || status == 415 || status == 422) {
+        try {
+          final retry = await _apiClient.dio.post<Map<String, dynamic>>(
+            '${AppConfig.apiPrefix}/profiles/me/photo',
+            data: FormData.fromMap({
+              'photo': MultipartFile.fromBytes(
+                file.bytes!,
+                filename: file.name,
+              ),
+            }),
+            options: Options(headers: {'Authorization': header}),
+          );
+          final url = retry.data?['photo_url'] as String?;
+          if (url != null && url.isNotEmpty) return url;
+        } on DioException {
+          // Fall through to the original error detail.
+        }
+      }
       throw Exception(_readDetail(e));
     }
   }
 
   String _readDetail(DioException e) {
     final detail = e.response?.data;
-    if (detail is Map && detail['detail'] != null) {
-      return '${detail['detail']}';
+    if (detail is Map) {
+      if (detail['detail'] != null) return '${detail['detail']}';
+      final errors = detail['errors'];
+      if (errors is List && errors.isNotEmpty) {
+        return errors.map((e) => '$e').join(', ');
+      }
+      if (detail['message'] != null) return '${detail['message']}';
     }
     return e.response?.statusMessage ?? 'Profile request failed.';
   }

@@ -3,14 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../../core/auth/auth_session.dart';
-import '../../../core/constants/app_assets.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/announcements_api_service.dart';
 import '../../../core/network/events_api_service.dart';
 import '../../../core/network/membership_api_service.dart';
 import '../../../core/network/profiles_api_service.dart';
-import '../../../core/widgets/safe_asset_image.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -24,7 +21,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final _profilesApi = ProfilesApiService();
   final _eventsApi = EventsApiService();
   final _announcementsApi = AnnouncementsApiService();
-  final _searchController = TextEditingController();
 
   MemberMembership? _membership;
   MyProfile? _profile;
@@ -34,28 +30,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String? _error;
   bool _loading = true;
 
-  static const _navItems = <_NavItem>[
-    _NavItem('Dashboard', Icons.grid_view_rounded, '/dashboard'),
-    _NavItem('My Profile', Icons.person_outline_rounded, '/directory'),
-    _NavItem('Membership', Icons.workspace_premium_outlined, '/membership'),
-    _NavItem('Events', Icons.event_outlined, '/events'),
-    _NavItem('Gallery', Icons.photo_library_outlined, '/gallery'),
-    _NavItem('Announcements', Icons.campaign_outlined, '/announcements'),
-    _NavItem('Connect', Icons.people_outline_rounded, '/directory'),
-    _NavItem('Payments', Icons.payments_outlined, '/membership'),
-    _NavItem('Settings', Icons.settings_outlined, '/dashboard'),
-  ];
-
   @override
   void initState() {
     super.initState();
     _loadDashboard();
-  }
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
   }
 
   Future<void> _loadDashboard() async {
@@ -91,176 +69,119 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  Future<void> _signOut() async {
-    await AuthSession.instance.clearSession();
-    if (!mounted) return;
-    context.go('/auth');
-  }
-
   int get _profileCompletion => _profileCompletionPercent(_profile);
 
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
-    final isDesktop = width >= 1100;
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF7F7F4),
-      drawer: isDesktop
-          ? null
-          : Drawer(
-              child: _DashboardSidebar(
-                currentPath: '/dashboard',
-                onSignOut: _signOut,
-              ),
-            ),
-      body: Builder(
-        builder: (scaffoldContext) => Row(
-          children: [
-            if (isDesktop)
-              SizedBox(
-                width: 228,
-                child: _DashboardSidebar(
-                  currentPath: '/dashboard',
-                  onSignOut: _signOut,
-                ),
-              ),
-            Expanded(
-              child: Column(
-                children: [
-                  _DashboardTopBar(
-                    searchController: _searchController,
-                    profileName: _profile?.fullName,
-                    onMenuTap: isDesktop
-                        ? null
-                        : () => Scaffold.of(scaffoldContext).openDrawer(),
-                    onSearchTap: () => context.go('/directory'),
-                    onPublicSiteTap: () => context.go('/'),
-                  ),
-                  Expanded(
-                    child: _loading
-                        ? const Center(child: CircularProgressIndicator())
-                        : SingleChildScrollView(
-                            padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
-                            child: Center(
-                              child: ConstrainedBox(
-                                constraints:
-                                    const BoxConstraints(maxWidth: 1200),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    _HeroCard(
-                                      profile: _profile,
-                                      membership: _membership,
-                                    ),
-                                    const SizedBox(height: 18),
-                                    if (_error != null)
-                                      _InlineError(message: _error!),
-                                    _StatsGrid(
-                                      membership: _membership,
-                                      eventsAttended: _myEvents.length,
-                                      profileCompletion: _profileCompletion,
-                                      batchYear: _profile?.batchYear,
-                                    ),
-                                    const SizedBox(height: 18),
-                                    LayoutBuilder(
-                                      builder: (context, constraints) {
-                                        final wide = constraints.maxWidth > 900;
-                                        if (!wide) {
-                                          return Column(
-                                            children: [
-                                              _SubscriptionCard(
-                                                membership: _membership,
-                                                completion: _profileCompletion,
-                                              ),
-                                              const SizedBox(height: 18),
-                                              _EventsChartCard(
-                                                eventsAttended:
-                                                    _myEvents.length,
-                                              ),
-                                            ],
-                                          );
-                                        }
-                                        return Row(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Expanded(
-                                              flex: 2,
-                                              child: _SubscriptionCard(
-                                                membership: _membership,
-                                                completion: _profileCompletion,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 18),
-                                            Expanded(
-                                              flex: 3,
-                                              child: _EventsChartCard(
-                                                eventsAttended:
-                                                    _myEvents.length,
-                                              ),
-                                            ),
-                                          ],
-                                        );
-                                      },
-                                    ),
-                                    const SizedBox(height: 18),
-                                    LayoutBuilder(
-                                      builder: (context, constraints) {
-                                        final wide = constraints.maxWidth > 900;
-                                        if (!wide) {
-                                          return Column(
-                                            children: [
-                                              _UpcomingReunionsCard(
-                                                events: _upcomingEvents,
-                                              ),
-                                              const SizedBox(height: 18),
-                                              _RecentNotificationsCard(
-                                                announcements: _announcements,
-                                              ),
-                                            ],
-                                          );
-                                        }
-                                        return IntrinsicHeight(
-                                          child: Row(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.stretch,
-                                            children: [
-                                              Expanded(
-                                                flex: 3,
-                                                child: _UpcomingReunionsCard(
-                                                  events: _upcomingEvents,
-                                                ),
-                                              ),
-                                              const SizedBox(width: 18),
-                                              Expanded(
-                                                flex: 2,
-                                                child: _RecentNotificationsCard(
-                                                  announcements: _announcements,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                    const SizedBox(height: 18),
-                                    _LatestAnnouncementsSection(
-                                      announcements: _announcements,
-                                    ),
-                                  ],
+    return SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1200),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _HeroCard(
+                        profile: _profile,
+                        membership: _membership,
+                      ),
+                      const SizedBox(height: 18),
+                      if (_error != null) _InlineError(message: _error!),
+                      _StatsGrid(
+                        membership: _membership,
+                        eventsAttended: _myEvents.length,
+                        profileCompletion: _profileCompletion,
+                        batchYear: _profile?.batchYear,
+                      ),
+                      const SizedBox(height: 18),
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final wide = constraints.maxWidth > 900;
+                          if (!wide) {
+                            return Column(
+                              children: [
+                                _SubscriptionCard(
+                                  membership: _membership,
+                                  completion: _profileCompletion,
+                                ),
+                                const SizedBox(height: 18),
+                                _EventsChartCard(
+                                  eventsAttended: _myEvents.length,
+                                ),
+                              ],
+                            );
+                          }
+                          return Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                flex: 2,
+                                child: _SubscriptionCard(
+                                  membership: _membership,
+                                  completion: _profileCompletion,
                                 ),
                               ),
+                              const SizedBox(width: 18),
+                              Expanded(
+                                flex: 3,
+                                child: _EventsChartCard(
+                                  eventsAttended: _myEvents.length,
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 18),
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final wide = constraints.maxWidth > 900;
+                          if (!wide) {
+                            return Column(
+                              children: [
+                                _UpcomingReunionsCard(events: _upcomingEvents),
+                                const SizedBox(height: 18),
+                                _RecentNotificationsCard(
+                                  announcements: _announcements,
+                                ),
+                              ],
+                            );
+                          }
+                          return IntrinsicHeight(
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Expanded(
+                                  flex: 3,
+                                  child: _UpcomingReunionsCard(
+                                    events: _upcomingEvents,
+                                  ),
+                                ),
+                                const SizedBox(width: 18),
+                                Expanded(
+                                  flex: 2,
+                                  child: _RecentNotificationsCard(
+                                    announcements: _announcements,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 18),
+                      _LatestAnnouncementsSection(
+                        announcements: _announcements,
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
-            ),
-          ],
-        ),
-      ),
-    );
+            );
   }
 }
 
@@ -288,212 +209,12 @@ String _relativeTime(DateTime date) {
   return 'Just now';
 }
 
-class _DashboardSidebar extends StatelessWidget {
-  const _DashboardSidebar({
-    required this.currentPath,
-    required this.onSignOut,
-  });
-
-  final String currentPath;
-  final VoidCallback onSignOut;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: AppColors.primary,
-      child: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(18, 12, 18, 16),
-              child: Row(
-                children: [
-                  const SafeAssetImage(
-                    assetPath: AppAssets.logo,
-                    width: 38,
-                    height: 38,
-                  ),
-                  const SizedBox(width: 10),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'KMC',
-                        style: GoogleFonts.fraunces(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 20,
-                          height: 1.0,
-                        ),
-                      ),
-                      Text(
-                        'ALUMNI CONNECT',
-                        style: GoogleFonts.inter(
-                          color: Colors.white70,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 1.1,
-                          fontSize: 10,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const Divider(color: Color(0x33FFFFFF), height: 1),
-            const SizedBox(height: 12),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                children: [
-                  for (final item in _DashboardScreenState._navItems)
-                    _SidebarNavTile(
-                      item: item,
-                      active: item.path == currentPath && item.label == 'Dashboard',
-                    ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
-              child: OutlinedButton.icon(
-                onPressed: onSignOut,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  side: const BorderSide(color: Color(0x66FFFFFF)),
-                  minimumSize: const Size.fromHeight(42),
-                ),
-                icon: const Icon(Icons.logout, size: 18),
-                label: const Text('Sign out'),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SidebarNavTile extends StatelessWidget {
-  const _SidebarNavTile({required this.item, required this.active});
-
-  final _NavItem item;
-  final bool active;
-
-  @override
-  Widget build(BuildContext context) {
-    final bg = active ? AppColors.secondary : Colors.transparent;
-    final fg = active ? AppColors.primary : Colors.white;
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Material(
-        color: bg,
-        borderRadius: BorderRadius.circular(12),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: () => context.go(item.path),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            child: Row(
-              children: [
-                Icon(item.icon, size: 18, color: fg),
-                const SizedBox(width: 10),
-                Text(
-                  item.label,
-                  style: GoogleFonts.inter(
-                    color: fg,
-                    fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _DashboardTopBar extends StatelessWidget {
-  const _DashboardTopBar({
-    required this.searchController,
-    required this.onSearchTap,
-    required this.onPublicSiteTap,
-    this.profileName,
-    this.onMenuTap,
-  });
-
-  final TextEditingController searchController;
-  final VoidCallback onSearchTap;
-  final VoidCallback onPublicSiteTap;
-  final String? profileName;
-  final VoidCallback? onMenuTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final initial = (profileName?.isNotEmpty == true)
-        ? profileName!.trim()[0].toUpperCase()
-        : 'K';
-
-    return Container(
-      height: 72,
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: AppColors.border)),
-      ),
-      child: Row(
-        children: [
-          if (onMenuTap != null)
-            IconButton(onPressed: onMenuTap, icon: const Icon(Icons.menu)),
-          Text(
-            'Dashboard',
-            style: GoogleFonts.fraunces(
-              fontWeight: FontWeight.w600,
-              color: AppColors.heading,
-              fontSize: 30,
-            ),
-          ),
-          const Spacer(),
-          SizedBox(
-            width: 280,
-            child: TextField(
-              controller: searchController,
-              onSubmitted: (_) => onSearchTap(),
-              decoration: InputDecoration(
-                hintText: 'Search alumni, events...',
-                prefixIcon: const Icon(Icons.search, size: 20),
-                filled: true,
-                fillColor: AppColors.background,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: AppColors.border),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: AppColors.border),
-                ),
-                isDense: true,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          IconButton(
-            onPressed: onPublicSiteTap,
-            icon: const Icon(Icons.notifications_none_rounded),
-          ),
-          const SizedBox(width: 4),
-          CircleAvatar(
-            radius: 16,
-            backgroundColor: AppColors.primary,
-            child: Text(initial, style: const TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-  }
+String _formatMembershipDate(DateTime date) {
+  const months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+  return '${months[date.month - 1]} ${date.year}';
 }
 
 class _HeroCard extends StatelessWidget {
@@ -552,7 +273,7 @@ class _HeroCard extends StatelessWidget {
             runSpacing: 10,
             children: [
               OutlinedButton(
-                onPressed: () => context.go('/directory'),
+                onPressed: () => context.go('/my-profile'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.white,
                   side: const BorderSide(color: Color(0x66FFFFFF)),
@@ -560,7 +281,7 @@ class _HeroCard extends StatelessWidget {
                 child: const Text('View Profile'),
               ),
               ElevatedButton(
-                onPressed: () => context.go('/events'),
+                onPressed: () => context.go('/my-events'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.secondary,
                   foregroundColor: AppColors.primary,
@@ -700,7 +421,9 @@ class _SubscriptionCard extends StatelessWidget {
             ),
           ),
           Text(
-            'Activated ${DateTime.now().year - 8}',
+            membership?.startedAt != null
+                ? 'Activated ${_formatMembershipDate(membership!.startedAt!)}'
+                : 'Lifetime membership',
             style: GoogleFonts.inter(color: AppColors.bodyText),
           ),
           const SizedBox(height: 18),
@@ -735,7 +458,7 @@ class _SubscriptionCard extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           TextButton(
-            onPressed: () => context.go('/membership'),
+            onPressed: () => context.go('/my-membership'),
             child: const Text('Manage →'),
           ),
         ],
@@ -921,7 +644,7 @@ class _UpcomingReunionsCard extends StatelessWidget {
               ),
               const Spacer(),
               TextButton(
-                onPressed: () => context.go('/events'),
+                onPressed: () => context.go('/my-events'),
                 child: const Text('View all'),
               ),
             ],
@@ -1020,33 +743,36 @@ class _RecentNotificationsCard extends StatelessWidget {
             )
           else
             for (final item in items) ...[
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: CircleAvatar(
-                  radius: 16,
-                  backgroundColor: AppColors.muted,
-                  child: Icon(
-                    item.isRead ? Icons.mail_outline : Icons.mark_email_unread,
-                    size: 16,
-                    color: AppColors.primary,
+              Material(
+                color: Colors.transparent,
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: CircleAvatar(
+                    radius: 16,
+                    backgroundColor: AppColors.muted,
+                    child: Icon(
+                      item.isRead ? Icons.mail_outline : Icons.mark_email_unread,
+                      size: 16,
+                      color: AppColors.primary,
+                    ),
                   ),
-                ),
-                title: Text(
-                  item.title,
-                  style: GoogleFonts.inter(
-                    fontWeight:
-                        item.isRead ? FontWeight.w500 : FontWeight.w700,
-                    fontSize: 14,
+                  title: Text(
+                    item.title,
+                    style: GoogleFonts.inter(
+                      fontWeight:
+                          item.isRead ? FontWeight.w500 : FontWeight.w700,
+                      fontSize: 14,
+                    ),
                   ),
-                ),
-                subtitle: Text(
-                  _relativeTime(item.publishedAt),
-                  style: GoogleFonts.inter(
-                    color: AppColors.mutedText,
-                    fontSize: 12,
+                  subtitle: Text(
+                    _relativeTime(item.publishedAt),
+                    style: GoogleFonts.inter(
+                      color: AppColors.mutedText,
+                      fontSize: 12,
+                    ),
                   ),
+                  onTap: () => context.go('/announcements'),
                 ),
-                onTap: () => context.go('/announcements'),
               ),
             ],
         ],
@@ -1239,13 +965,6 @@ class _InlineError extends StatelessWidget {
       ),
     );
   }
-}
-
-class _NavItem {
-  const _NavItem(this.label, this.icon, this.path);
-  final String label;
-  final IconData icon;
-  final String path;
 }
 
 class _StatCardData {

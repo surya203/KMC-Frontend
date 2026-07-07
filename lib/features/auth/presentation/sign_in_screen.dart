@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../../core/constants/app_colors.dart';import '../../../core/auth/auth_session.dart';
+import '../../../core/constants/app_colors.dart';
+import '../../../core/auth/auth_session.dart';
+import '../../../core/auth/role_utils.dart';
 import '../../../core/network/auth_service.dart';
 import '../../../core/theme/heading_styles.dart';
 import '../../../core/widgets/public_layout.dart';
@@ -60,7 +62,7 @@ class _SignInScreenState extends State<SignInScreen> {
       await AuthSession.instance.saveLogin(tokens);
       await _authService.fetchMe();
       if (!mounted) return;
-      context.go('/dashboard');
+      context.go(homeRouteForRole(AuthSession.instance.currentUser?.role));
     } on AuthException catch (e) {
       if (!mounted) return;
       setState(() => _errorMessage = e.message);
