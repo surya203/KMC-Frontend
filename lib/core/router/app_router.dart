@@ -1,11 +1,24 @@
 import 'package:go_router/go_router.dart';
 
 import '../auth/auth_session.dart';
+import '../auth/role_utils.dart';
 import '../../features/about/presentation/about_screen.dart';
+import '../../features/admin/presentation/admin_dashboard_screen.dart';
+import '../../features/admin/presentation/admin_members_screen.dart';
+import '../../features/admin/presentation/admin_verifications_screen.dart';
+import '../../features/admin/widgets/admin_shell.dart';
+import '../../features/admin/widgets/admin_shell_host.dart';
 import '../../features/auth/presentation/sign_in_screen.dart';
 import '../../features/dashboard/presentation/announcements_screen.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
-import '../../features/dashboard/presentation/my_events_screen.dart';
+import '../../features/dashboard/presentation/dashboard_connect_screen.dart';
+import '../../features/dashboard/presentation/dashboard_gallery_screen.dart';
+import '../../features/dashboard/presentation/dashboard_events_screen.dart';
+import '../../features/dashboard/presentation/my_payments_screen.dart';
+import '../../features/dashboard/presentation/my_membership_screen.dart';
+import '../../features/dashboard/presentation/settings_screen.dart';
+import '../../features/dashboard/presentation/my_profile_screen.dart';
+import '../../features/dashboard/widgets/dashboard_shell_host.dart';
 import '../../features/directory/presentation/directory_screen.dart';
 import '../../features/directory/presentation/profile_detail_screen.dart';
 import '../../features/events/presentation/event_detail_screen.dart';
@@ -17,8 +30,29 @@ import '../../features/splash/presentation/splash_screen.dart';
 
 bool _requiresAuth(String location) {
   return location.startsWith('/dashboard') ||
+      location.startsWith('/admin') ||
       location == '/announcements' ||
-      location == '/my-events';
+      location == '/my-events' ||
+      location == '/my-profile' ||
+      location == '/my-membership' ||
+      location == '/my-payments' ||
+      location == '/my-gallery' ||
+      location == '/connect' ||
+      location == '/settings';
+}
+
+bool _canAccessAdminPath(String location, String? role) {
+  if (!isStaffRole(role)) return false;
+  if (location == '/admin' || location.startsWith('/admin/analytics')) {
+    return canViewAdminAnalytics(role);
+  }
+  if (location.startsWith('/admin/verifications')) {
+    return canReviewVerifications(role);
+  }
+  if (location.startsWith('/admin/members')) {
+    return canManageMembers(role);
+  }
+  return isStaffRole(role);
 }
 
 final GoRouter appRouter = GoRouter(
@@ -27,6 +61,7 @@ final GoRouter appRouter = GoRouter(
   redirect: (context, state) {
     final location = state.matchedLocation;
     final isAuthenticated = AuthSession.instance.isAuthenticated;
+    final role = AuthSession.instance.currentUser?.role;
 
     if (location == '/splash') return null;
 
@@ -34,8 +69,23 @@ final GoRouter appRouter = GoRouter(
       return '/auth';
     }
 
+    if (location.startsWith('/admin')) {
+      if (!isAuthenticated) return '/auth';
+      if (!_canAccessAdminPath(location, role)) {
+        if (canReviewVerifications(role)) return '/admin/verifications';
+        return '/dashboard';
+      }
+    }
+
+    if (location == '/admin' &&
+        isAuthenticated &&
+        !canViewAdminAnalytics(role) &&
+        canReviewVerifications(role)) {
+      return '/admin/verifications';
+    }
+
     if (location == '/auth' && isAuthenticated) {
-      return '/dashboard';
+      return homeRouteForRole(role);
     }
 
     return null;
@@ -95,17 +145,99 @@ final GoRouter appRouter = GoRouter(
       path: '/membership',
       builder: (context, state) => const MembershipScreen(),
     ),
-    GoRoute(
-      path: '/dashboard',
-      builder: (context, state) => const DashboardScreen(),
+    ShellRoute(
+      builder: (context, state, child) => AdminShellHost(child: child),
+      routes: [
+        GoRoute(
+          path: '/admin',
+          pageBuilder: (context, state) => adminPage(
+            key: state.pageKey,
+            child: const AdminDashboardScreen(),
+          ),
+        ),
+        GoRoute(
+          path: '/admin/verifications',
+          pageBuilder: (context, state) => adminPage(
+            key: state.pageKey,
+            child: const AdminVerificationsScreen(),
+          ),
+        ),
+        GoRoute(
+          path: '/admin/members',
+          pageBuilder: (context, state) => adminPage(
+            key: state.pageKey,
+            child: const AdminMembersScreen(),
+          ),
+        ),
+      ],
     ),
-    GoRoute(
-      path: '/announcements',
-      builder: (context, state) => const AnnouncementsScreen(),
-    ),
-    GoRoute(
-      path: '/my-events',
-      builder: (context, state) => const MyEventsScreen(),
+    ShellRoute(
+      builder: (context, state, child) => DashboardShellHost(child: child),
+      routes: [
+        GoRoute(
+          path: '/dashboard',
+          pageBuilder: (context, state) => dashboardPage(
+            key: state.pageKey,
+            child: const DashboardScreen(),
+          ),
+        ),
+        GoRoute(
+          path: '/my-profile',
+          pageBuilder: (context, state) => dashboardPage(
+            key: state.pageKey,
+            child: const MyProfileScreen(),
+          ),
+        ),
+        GoRoute(
+          path: '/my-membership',
+          pageBuilder: (context, state) => dashboardPage(
+            key: state.pageKey,
+            child: const MyMembershipScreen(),
+          ),
+        ),
+        GoRoute(
+          path: '/my-payments',
+          pageBuilder: (context, state) => dashboardPage(
+            key: state.pageKey,
+            child: const MyPaymentsScreen(),
+          ),
+        ),
+        GoRoute(
+          path: '/announcements',
+          pageBuilder: (context, state) => dashboardPage(
+            key: state.pageKey,
+            child: const AnnouncementsScreen(),
+          ),
+        ),
+        GoRoute(
+          path: '/my-events',
+          pageBuilder: (context, state) => dashboardPage(
+            key: state.pageKey,
+            child: const DashboardEventsScreen(),
+          ),
+        ),
+        GoRoute(
+          path: '/my-gallery',
+          pageBuilder: (context, state) => dashboardPage(
+            key: state.pageKey,
+            child: const DashboardGalleryScreen(),
+          ),
+        ),
+        GoRoute(
+          path: '/connect',
+          pageBuilder: (context, state) => dashboardPage(
+            key: state.pageKey,
+            child: const DashboardConnectScreen(),
+          ),
+        ),
+        GoRoute(
+          path: '/settings',
+          pageBuilder: (context, state) => dashboardPage(
+            key: state.pageKey,
+            child: const SettingsScreen(),
+          ),
+        ),
+      ],
     ),
   ],
 );

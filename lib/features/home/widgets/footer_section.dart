@@ -19,7 +19,7 @@ class FooterSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(24, 48, 24, 36),
+            padding: const EdgeInsets.fromLTRB(20, 28, 20, 22),
             child: Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 1200),
@@ -32,9 +32,9 @@ class FooterSection extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(flex: 3, child: _brandColumn()),
-                          const SizedBox(width: 40),
+                          const SizedBox(width: 28),
                           Expanded(child: _exploreColumn(context)),
-                          const SizedBox(width: 40),
+                          const SizedBox(width: 28),
                           Expanded(child: _officeColumn()),
                         ],
                       );
@@ -44,9 +44,9 @@ class FooterSection extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _brandColumn(),
-                        const SizedBox(height: 32),
+                        const SizedBox(height: 20),
                         _exploreColumn(context),
-                        const SizedBox(height: 32),
+                        const SizedBox(height: 20),
                         _officeColumn(),
                       ],
                     );
@@ -57,7 +57,7 @@ class FooterSection extends StatelessWidget {
           ),
           Container(height: 1, color: Colors.white12),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             child: Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 1200),
@@ -66,11 +66,11 @@ class FooterSection extends StatelessWidget {
                     final isWide = constraints.maxWidth > 900;
                     const copyright = Text(
                       '© 2026 KMC Alumni Association. All rights reserved.',
-                      style: TextStyle(color: Color(0xFFB8C2D2), fontSize: 15),
+                      style: TextStyle(color: Color(0xFFB8C2D2), fontSize: 13),
                     );
                     const tagline = Text(
                       'Official Platform · Estd. 1959',
-                      style: TextStyle(color: Color(0xFFB8C2D2), fontSize: 15),
+                      style: TextStyle(color: Color(0xFFB8C2D2), fontSize: 13),
                     );
 
                     if (isWide) {
@@ -106,10 +106,10 @@ class FooterSection extends StatelessWidget {
           children: [
             const SafeAssetImage(
               assetPath: AppAssets.logo,
-              width: 52,
-              height: 52,
+              width: 40,
+              height: 40,
             ),
-            const SizedBox(width: 18),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -118,18 +118,18 @@ class FooterSection extends StatelessWidget {
                     'KMC Alumni Connect',
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: 28,
+                      fontSize: 20,
                       fontWeight: FontWeight.w700,
                       fontFamily: 'Georgia',
                     ),
                   ),
-                  SizedBox(height: 5),
+                  SizedBox(height: 3),
                   Text(
                     'ESTD. 1959 · WARANGAL',
                     style: TextStyle(
                       color: Color(0xFFB7C0D1),
-                      fontSize: 13,
-                      letterSpacing: 3,
+                      fontSize: 11,
+                      letterSpacing: 2,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -138,15 +138,15 @@ class FooterSection extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 28),
+        const SizedBox(height: 14),
         const Text(
           'The official alumni engagement platform for Kakatiya Medical College — '
           'uniting alumni batches, doctors, researchers, practicing doctors, '
           'clinical researchers, policy makers and pharmaceutical industry advisors across the world.',
           style: TextStyle(
             color: Color(0xFFD8DEE8),
-            fontSize: 16,
-            height: 1.8,
+            fontSize: 13,
+            height: 1.5,
           ),
         ),
       ],
@@ -163,12 +163,12 @@ class FooterSection extends StatelessWidget {
           'EXPLORE',
           style: TextStyle(
             color: Colors.white,
-            fontSize: 22,
+            fontSize: 16,
             fontWeight: FontWeight.w700,
             fontFamily: 'Georgia',
           ),
         ),
-        const SizedBox(height: 26),
+        const SizedBox(height: 12),
         _FooterLink(label: 'About', path: '/about', currentPath: currentPath),
         _FooterLink(label: 'Directory', path: '/directory', currentPath: currentPath),
         _FooterLink(label: 'Events', path: '/events', currentPath: currentPath),
@@ -186,16 +186,16 @@ class FooterSection extends StatelessWidget {
           'OFFICE',
           style: TextStyle(
             color: Colors.white,
-            fontSize: 22,
+            fontSize: 16,
             fontWeight: FontWeight.bold,
             fontFamily: 'Georgia',
           ),
         ),
-        SizedBox(height: 26),
+        SizedBox(height: 12),
         FooterInfo('Kakatiya Medical College'),
-        SizedBox(height: 10),
+        SizedBox(height: 6),
         FooterInfo('Rangampet, Warangal — 506007'),
-        SizedBox(height: 10),
+        SizedBox(height: 6),
         FooterInfo('alumni@kmc.edu.in'),
       ],
     );
@@ -234,8 +234,8 @@ class FooterInfo extends StatelessWidget {
       text,
       style: const TextStyle(
         color: Color(0xFFD7DEE8),
-        fontSize: 16,
-        height: 1.8,
+        fontSize: 13,
+        height: 1.5,
       ),
     );
   }
