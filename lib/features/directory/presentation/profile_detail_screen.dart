@@ -98,7 +98,7 @@ class _ProfileDetailScreenState extends State<ProfileDetailScreen> {
 
   Widget _buildContent(ProfileDetail profile) {
     final location = [profile.city, profile.country]
-        .where((e) => e != null && e!.isNotEmpty)
+        .where((e) => e != null && e.isNotEmpty)
         .join(', ');
 
     return Column(
@@ -173,7 +173,7 @@ class _ProfileDetailScreenState extends State<ProfileDetailScreen> {
             [
               profile.degree,
               profile.specialization,
-            ].where((e) => e != null && e!.isNotEmpty).join(' · '),
+            ].where((e) => e != null && e.isNotEmpty).join(' · '),
             style: GoogleFonts.inter(
               fontSize: 16,
               height: 1.7,
