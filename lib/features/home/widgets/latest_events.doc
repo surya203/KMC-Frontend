@@ -1,0 +1,16 @@
+SHAIK RESHMA - Jul 6, 2026
+
+File Name: latest_events.dart
+
+1. Modification Done:
+
+   * Updated homepage upcoming events section to fetch live events from the backend API.
+   * Falls back to static sample event when API returns no data.
+
+2. Purpose of This Modification:
+
+   * Phase 3 homepage should tease real reunion dates and drive users to the full events list.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Embedded in `home_screen.dart`; uses `events_service.fetchUpcoming` and links to `/events`.

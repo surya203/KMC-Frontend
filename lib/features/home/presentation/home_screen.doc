@@ -21,3 +21,22 @@ File Name: home_screen.dart
    * Calls `health_service.dart` and `cms_service.dart` when the page loads.
    * Displays hero, quick actions, stats, featured alumni, events preview, gallery preview, and footer.
    * Users see whether the backend is online and view community information on the main entry page.
+
+---
+
+SHAIK RESHMA - Jul 6, 2026
+
+File Name: home_screen.dart
+
+1. Modification Done:
+
+   * No structural change in this phase beyond widgets already updated (`latest_events`, `gallery_preview`, `featured_alumni_section`) which now pull API data when available.
+
+2. Purpose of This Modification:
+
+   * Homepage remains the hub that composes all Phase 3 live sections.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Still loads health + CMS stats on open; child widgets handle events, gallery, and alumni API calls.
+

@@ -1,0 +1,21 @@
+SHAIK RESHMA - Jul 6, 2026
+
+File Name: api_client.dart
+
+1. Modification Done:
+
+   * Turned the API client into a single shared instance used across the whole app.
+   * Added automatic attachment of the member login token to protected API calls.
+   * Added automatic token refresh when the access token expires (401 response).
+   * Added support for PATCH requests and file uploads (multipart) needed for profile photos, gallery media, and document verification.
+
+2. Purpose of This Modification:
+
+   * Phase 2–4 features require authenticated calls to many backend endpoints without repeating login logic in every screen.
+   * Members should stay signed in smoothly while browsing dashboard, admin, and registration flows.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Used by all service files (`auth_service`, `registration_service`, `events_service`, `admin_service`, etc.).
+   * Reads saved tokens from `token_storage.dart` and refreshes via `auth_service.dart` when needed.
+   * If refresh fails, the user is effectively logged out and protected routes redirect to `/auth`.

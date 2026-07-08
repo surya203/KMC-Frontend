@@ -18,3 +18,23 @@ File Name: main.dart
    * This is the application entry point. Every user session starts here.
    * Flow: `main()` → load `.env` → `KMCApp` → `appRouter` → `/splash` → `/` (Home) and other routes.
    * Connects theme (`app_theme.dart`), routing (`app_router.dart`), and configuration used by the API and public pages.
+
+---
+
+SHAIK RESHMA - Jul 6, 2026
+
+File Name: main.dart
+
+1. Modification Done:
+
+   * Added router configuration and `authSession.bootstrap()` before `runApp` so saved login is restored on refresh.
+   * App now waits for session bootstrap so protected routes redirect correctly on first paint.
+
+2. Purpose of This Modification:
+
+   * Phase 2–4 require persistent login and role-aware routing from the first screen load.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Calls `configureRouter()` and `authSession.bootstrap()` then starts `KMCApp` with `appRouter`.
+

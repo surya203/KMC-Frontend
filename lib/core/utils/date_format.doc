@@ -1,0 +1,15 @@
+SHAIK RESHMA - Jul 6, 2026
+
+File Name: date_format.dart
+
+1. Modification Done:
+
+   * Added shared helpers to format event dates and date-times consistently across the app.
+
+2. Purpose of This Modification:
+
+   * Events list, event cards, and dashboard should show dates in the same readable format.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Used by `event_card.dart`, `events_screen.dart`, and other screens that display event schedules.

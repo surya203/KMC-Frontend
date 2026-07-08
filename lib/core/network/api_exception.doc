@@ -1,0 +1,17 @@
+SHAIK RESHMA - Jul 6, 2026
+
+File Name: api_exception.dart
+
+1. Modification Done:
+
+   * Created a standard error type for failed API calls.
+   * Converts backend and network errors into short, user-friendly messages for screens to display.
+
+2. Purpose of This Modification:
+
+   * Sign-in, membership wizard, admin actions, and profile updates all need consistent error handling instead of raw technical messages.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Thrown by service classes and caught in screens (e.g. sign-in banner, membership error box, admin snackbars).
+   * Works with `api_client.dart` which wraps unknown errors into `ApiException`.
