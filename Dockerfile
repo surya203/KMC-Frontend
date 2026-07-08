@@ -1,6 +1,6 @@
 # Production image for KMC Alumni Connect (Flutter web + nginx)
 
-FROM ghcr.io/cirruslabs/flutter:stable AS build
+FROM ghcr.io/cirruslabs/flutter:3.44.4 AS build
 
 WORKDIR /app
 
@@ -8,6 +8,10 @@ COPY pubspec.yaml pubspec.lock ./
 RUN flutter pub get
 
 COPY . .
+# .env is git/docker-ignored but declared as a bundled asset in pubspec.yaml.
+# Create an empty one so the web build succeeds; runtime config is injected
+# via docker/docker-entrypoint.sh (window.__ENV__ / env-config.js).
+RUN touch .env
 RUN flutter build web --release
 
 FROM nginx:1.27-alpine
