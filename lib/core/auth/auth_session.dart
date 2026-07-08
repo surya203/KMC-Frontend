@@ -1,90 +1,71 @@
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-import '../auth/token_storage.dart';
 import '../network/auth_service.dart';
-import '../network/api_exception.dart';
 
 class AuthSession extends ChangeNotifier {
-  AuthSession({
-    TokenStorage? tokenStorage,
-    AuthService? authService,
-  })  : _tokenStorage = tokenStorage ?? TokenStorage(),
-        _authService = authService ?? AuthService();
+  AuthSession._();
+  static final AuthSession instance = AuthSession._();
 
-  final TokenStorage _tokenStorage;
-  final AuthService _authService;
+  static const _accessTokenKey = 'auth_access_token';
+  static const _refreshTokenKey = 'auth_refresh_token';
+  static const _draftIdKey = 'registration_draft_id';
 
-  bool _bootstrapped = false;
-  bool _loading = false;
-  UserMe? _user;
+  final AuthService _authService = AuthService();
+  bool _initialized = false;
 
-  bool get bootstrapped => _bootstrapped;
-  bool get isAuthenticated => _user != null;
-  bool get loading => _loading;
-  UserMe? get user => _user;
+  bool get isAuthenticated => AuthService.isAuthenticated;
+  AuthUser? get currentUser => AuthService.currentUser;
 
-  String get memberDestination => isAuthenticated ? '/dashboard' : '/auth';
-
-  Future<void> bootstrap() async {
-    if (_bootstrapped) return;
-    _loading = true;
-    notifyListeners();
-
-    try {
-      final accessToken = await _tokenStorage.getAccessToken();
-      if (accessToken != null && accessToken.isNotEmpty) {
-        _user = await _authService.fetchMe();
-      }
-    } catch (_) {
-      await _tokenStorage.clear();
-      _user = null;
-    } finally {
-      _bootstrapped = true;
-      _loading = false;
-      notifyListeners();
-    }
-  }
-
-  Future<void> signIn({
-    required String email,
-    required String password,
-  }) async {
-    _loading = true;
-    notifyListeners();
-
-    try {
-      final tokens = await _authService.login(email: email, password: password);
-      await _tokenStorage.saveTokens(
-        accessToken: tokens.accessToken,
-        refreshToken: tokens.refreshToken,
+  Future<void> initialize() async {
+    if (_initialized) return;
+    final prefs = await SharedPreferences.getInstance();
+    final access = prefs.getString(_accessTokenKey);
+    final refresh = prefs.getString(_refreshTokenKey);
+    if (access != null && refresh != null) {
+      AuthService.restoreTokens(
+        accessToken: access,
+        refreshToken: refresh,
       );
-      _user = await _authService.fetchMe();
-    } catch (error) {
-      _loading = false;
-      notifyListeners();
-      if (error is ApiException) rethrow;
-      throw ApiException('$error');
+      try {
+        await _authService.fetchMe();
+      } catch (_) {
+        await clearSession();
+      }
     }
-
-    _loading = false;
+    _initialized = true;
     notifyListeners();
   }
 
-  Future<void> signOut() async {
-    await _authService.logout();
-    _user = null;
+  Future<void> saveLogin(AuthTokens tokens) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_accessTokenKey, tokens.accessToken);
+    await prefs.setString(_refreshTokenKey, tokens.refreshToken);
     notifyListeners();
   }
 
-  Future<void> refreshUser() async {
-    if (!isAuthenticated) return;
-    try {
-      _user = await _authService.fetchMe();
-      notifyListeners();
-    } catch (_) {
-      await signOut();
-    }
+  Future<void> clearSession() async {
+    _authService.logout();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_accessTokenKey);
+    await prefs.remove(_refreshTokenKey);
+    notifyListeners();
   }
+
+  Future<String?> getDraftId() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_draftIdKey);
+  }
+
+  Future<void> saveDraftId(String draftId) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_draftIdKey, draftId);
+  }
+
+  Future<void> clearDraftId() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_draftIdKey);
+  }
+
+  AuthService get authService => _authService;
 }
-
-final AuthSession authSession = AuthSession();

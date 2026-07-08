@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_colors.dart';
-import '../../../core/network/events_service.dart';
+import '../../../core/network/events_api_service.dart';
 import '../../../core/theme/heading_styles.dart';
-import '../../../core/utils/date_format.dart';
-import '../../../core/widgets/cover_image.dart';
 import '../../../core/widgets/event_card.dart';
 import '../../../core/widgets/page_hero.dart';
 import '../../../core/widgets/public_layout.dart';
@@ -19,23 +18,44 @@ class EventsScreen extends StatefulWidget {
 }
 
 class _EventsScreenState extends State<EventsScreen> {
-  final _service = EventsService();
-  List<EventSummary> _events = [];
+  final _api = EventsApiService();
+  List<EventItem> _upcoming = [];
+  List<EventItem> _past = [];
+  String? _error;
   bool _loading = true;
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _loadEvents();
   }
 
-  Future<void> _load() async {
-    final events = await _service.fetchUpcoming();
-    if (!mounted) return;
+  Future<void> _loadEvents() async {
     setState(() {
-      _events = events;
-      _loading = false;
+      _loading = true;
+      _error = null;
     });
+    try {
+      final results = await Future.wait([
+        _api.fetchEvents(upcoming: true),
+        _api.fetchEvents(upcoming: false),
+      ]);
+      if (!mounted) return;
+      final upcoming = results[0];
+      final all = results[1];
+      final upcomingIds = upcoming.map((e) => e.id).toSet();
+      setState(() {
+        _upcoming = upcoming;
+        _past = all.where((e) => !upcomingIds.contains(e.id)).toList();
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString();
+        _loading = false;
+      });
+    }
   }
 
   @override
@@ -71,26 +91,29 @@ class _EventsScreenState extends State<EventsScreen> {
                       const SizedBox(height: 28),
                       if (_loading)
                         const Center(child: CircularProgressIndicator())
-                      else if (_events.isEmpty)
-                        const Text('No upcoming events right now.')
-                      else
-                        Wrap(
-                          spacing: 24,
-                          runSpacing: 24,
-                          children: [
-                            for (final event in _events)
-                              SizedBox(
-                                width: 520,
-                                child: EventCard(
-                                  event: event,
-                                  onTap: () =>
-                                      context.go('/events/${event.slug}'),
-                                  onRegister: () =>
-                                      context.go('/events/${event.slug}'),
-                                ),
-                              ),
-                          ],
-                        ),
+                      else if (_error != null)
+                        _ErrorBanner(
+                          message: _error!,
+                          onRetry: _loadEvents,
+                        )
+                      else ...[
+                        if (_upcoming.isEmpty)
+                          Text(
+                            'No upcoming events yet. Check back soon.',
+                            style: GoogleFonts.inter(color: AppColors.bodyText),
+                          )
+                        else
+                          _EventGrid(events: _upcoming),
+                        if (_past.isNotEmpty) ...[
+                          const SizedBox(height: 48),
+                          Text(
+                            'Past events',
+                            style: HeadingStyles.contentColumnHeading,
+                          ),
+                          const SizedBox(height: 28),
+                          _EventGrid(events: _past),
+                        ],
+                      ],
                     ],
                   ),
                 ),
@@ -104,119 +127,63 @@ class _EventsScreenState extends State<EventsScreen> {
   }
 }
 
-class EventDetailScreen extends StatefulWidget {
-  const EventDetailScreen({super.key, required this.slug});
+class _EventGrid extends StatelessWidget {
+  const _EventGrid({required this.events});
 
-  final String slug;
-
-  @override
-  State<EventDetailScreen> createState() => _EventDetailScreenState();
-}
-
-class _EventDetailScreenState extends State<EventDetailScreen> {
-  final _service = EventsService();
-  EventDetail? _event;
-  bool _loading = true;
-  bool _busy = false;
-  String? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    try {
-      final event = await _service.fetchBySlug(widget.slug);
-      if (!mounted) return;
-      setState(() {
-        _event = event;
-        _loading = false;
-      });
-    } catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _error = '$error';
-        _loading = false;
-      });
-    }
-  }
-
-  Future<void> _toggleRegistration() async {
-    final event = _event;
-    if (event == null) return;
-    setState(() => _busy = true);
-    try {
-      if (event.isRegistered == true) {
-        await _service.cancelRegistration(event.id);
-      } else {
-        await _service.register(event.id);
-      }
-      await _load();
-    } catch (error) {
-      setState(() => _error = '$error');
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
+  final List<EventItem> events;
 
   @override
   Widget build(BuildContext context) {
-    return PublicLayout(
-      child: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _event == null
-              ? Center(child: Text(_error ?? 'Event not found'))
-              : SingleChildScrollView(
-                  padding: const EdgeInsets.all(24),
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 760),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          CoverImage(imageUrl: _event!.coverImageUrl, height: 280),
-                          const SizedBox(height: 24),
-                          Text(
-                            _event!.title,
-                            style: HeadingStyles.contentColumnHeading,
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            '${formatDateTime(_event!.startsAt)} · ${_event!.locationLabel}',
-                          ),
-                          const SizedBox(height: 16),
-                          if (_event!.description != null)
-                            Text(_event!.description!),
-                          const SizedBox(height: 16),
-                          Text('${_event!.registeredCount} registered'),
-                          if (_error != null) ...[
-                            const SizedBox(height: 12),
-                            Text(_error!, style: const TextStyle(color: AppColors.error)),
-                          ],
-                          const SizedBox(height: 20),
-                          if (_event!.registrationOpen)
-                            Semantics(
-                              label: _event!.isRegistered == true
-                                  ? 'Cancel event registration'
-                                  : 'Register for event',
-                              button: true,
-                              child: ElevatedButton(
-                                key: const ValueKey('event-register-button'),
-                                onPressed: _busy ? null : _toggleRegistration,
-                                child: Text(
-                                  _event!.isRegistered == true
-                                      ? 'Cancel registration'
-                                      : 'Register for event',
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
+    return Wrap(
+      spacing: 24,
+      runSpacing: 24,
+      children: [
+        for (final event in events)
+          SizedBox(
+            width: 520,
+            child: EventCard(
+              title: event.title,
+              dateLabel: event.displayDate,
+              venueLabel: event.displayVenue,
+              registeredCount: event.registeredCount,
+              coverImageUrl: event.coverImageUrl,
+              registrationOpen: event.registrationOpen,
+              isRegistered: event.isRegistered ?? false,
+              onTap: () => context.go('/events/${event.slug}'),
+              onRegister: () => context.go('/events/${event.slug}'),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _ErrorBanner extends StatelessWidget {
+  const _ErrorBanner({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.warning.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            message,
+            style: GoogleFonts.inter(color: AppColors.bodyText),
+          ),
+          const SizedBox(height: 12),
+          TextButton(onPressed: onRetry, child: const Text('Retry')),
+        ],
+      ),
     );
   }
 }

@@ -1,36 +1,38 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../constants/app_assets.dart';
 import '../constants/app_colors.dart';
-import '../network/events_service.dart';
-import '../utils/date_format.dart';
-import 'cover_image.dart';
 import 'safe_asset_image.dart';
 
 class EventCard extends StatelessWidget {
   const EventCard({
     super.key,
-    this.event,
+    required this.title,
+    required this.dateLabel,
+    required this.venueLabel,
+    required this.registeredCount,
+    this.coverImageUrl,
+    this.registrationOpen = true,
+    this.isRegistered = false,
     this.onTap,
     this.onRegister,
-    this.showRegisterButton = true,
   });
 
-  final EventSummary? event;
+  final String title;
+  final String dateLabel;
+  final String venueLabel;
+  final int registeredCount;
+  final String? coverImageUrl;
+  final bool registrationOpen;
+  final bool isRegistered;
   final VoidCallback? onTap;
   final VoidCallback? onRegister;
-  final bool showRegisterButton;
 
   @override
   Widget build(BuildContext context) {
-    final data = event;
-    final title = data?.title ?? '2nd KMC Alumni Meet';
-    final dateLabel = data != null
-        ? formatEventDate(data.startsAt)
-        : '6 Jun 2027';
-    final location = data?.locationLabel ?? 'HITEX Novotel, Hyderabad';
-    final count = data?.registeredCount ?? 0;
+    final canRegister = registrationOpen && !isRegistered;
 
     return Material(
       color: AppColors.card,
@@ -41,16 +43,10 @@ class EventCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            data != null
-                ? CoverImage(imageUrl: data.coverImageUrl)
-                : const SizedBox(
-                    height: 240,
-                    child: SafeAssetImage(
-                      assetPath: AppAssets.eventBanner,
-                      fit: BoxFit.cover,
-                      expandToFill: true,
-                    ),
-                  ),
+            SizedBox(
+              height: 240,
+              child: _EventCoverImage(coverImageUrl: coverImageUrl),
+            ),
             Padding(
               padding: const EdgeInsets.all(24),
               child: Column(
@@ -66,7 +62,7 @@ class EventCard extends StatelessWidget {
                       ),
                       _MetaRow(
                         icon: Icons.location_on_outlined,
-                        label: location,
+                        label: venueLabel,
                       ),
                     ],
                   ),
@@ -79,32 +75,89 @@ class EventCard extends StatelessWidget {
                       color: AppColors.heading,
                     ),
                   ),
-                  if (showRegisterButton) ...[
-                    const SizedBox(height: 18),
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.people_outline,
-                          size: 18,
-                          color: AppColors.bodyText,
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            '$count registered',
-                            style: GoogleFonts.inter(
-                              color: AppColors.bodyText,
+                  const SizedBox(height: 18),
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final stackActions = constraints.maxWidth < 340;
+                      final countLabel = '$registeredCount registered';
+                      final buttonLabel = isRegistered
+                          ? 'Registered'
+                          : registrationOpen
+                              ? 'Register'
+                              : 'Closed';
+
+                      if (stackActions) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.people_outline,
+                                  size: 18,
+                                  color: AppColors.bodyText,
+                                ),
+                                const SizedBox(width: 6),
+                                Flexible(
+                                  child: Text(
+                                    countLabel,
+                                    style: GoogleFonts.inter(
+                                      color: AppColors.bodyText,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: ElevatedButton(
+                                onPressed: canRegister ? onRegister : null,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.primary,
+                                  foregroundColor: Colors.white,
+                                  disabledBackgroundColor:
+                                      AppColors.muted.withValues(alpha: 0.4),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 24,
+                                    vertical: 14,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(24),
+                                  ),
+                                ),
+                                child: Text(buttonLabel),
+                              ),
+                            ),
+                          ],
+                        );
+                      }
+
+                      return Row(
+                        children: [
+                          const Icon(
+                            Icons.people_outline,
+                            size: 18,
+                            color: AppColors.bodyText,
+                          ),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              countLabel,
+                              style: GoogleFonts.inter(
+                                color: AppColors.bodyText,
+                              ),
                             ),
                           ),
-                        ),
-                        Semantics(
-                          label: 'Register for $title',
-                          button: true,
-                          child: ElevatedButton(
-                            onPressed: onRegister ?? onTap,
+                          const SizedBox(width: 8),
+                          ElevatedButton(
+                            onPressed: canRegister ? onRegister : null,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.primary,
                               foregroundColor: Colors.white,
+                              disabledBackgroundColor:
+                                  AppColors.muted.withValues(alpha: 0.4),
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 24,
                                 vertical: 14,
@@ -113,18 +166,46 @@ class EventCard extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(24),
                               ),
                             ),
-                            child: const Text('Register'),
+                            child: Text(buttonLabel),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
+                        ],
+                      );
+                    },
+                  ),
                 ],
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _EventCoverImage extends StatelessWidget {
+  const _EventCoverImage({this.coverImageUrl});
+
+  final String? coverImageUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final url = coverImageUrl;
+    if (url != null && url.isNotEmpty) {
+      return CachedNetworkImage(
+        imageUrl: url,
+        fit: BoxFit.cover,
+        width: double.infinity,
+        errorWidget: (context, url, error) => const SafeAssetImage(
+          assetPath: AppAssets.eventBanner,
+          fit: BoxFit.cover,
+          expandToFill: true,
+        ),
+      );
+    }
+    return const SafeAssetImage(
+      assetPath: AppAssets.eventBanner,
+      fit: BoxFit.cover,
+      expandToFill: true,
     );
   }
 }

@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/network/cms_service.dart';
-import '../../../core/network/health_service.dart';
 import '../../../core/widgets/public_layout.dart';
-import '../widgets/api_status_banner.dart';
 import '../widgets/footer_section.dart';
 import '../widgets/featured_alumni_section.dart';
 import '../widgets/gallery_preview.dart';
@@ -21,24 +19,15 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final _cmsService = CmsService();
-  final _healthService = HealthService();
   CommunityStats? _stats;
-  bool? _isApiHealthy;
 
   @override
   void initState() {
     super.initState();
-    _checkApiHealth();
-    _loadStats();
+    _loadData();
   }
 
-  Future<void> _checkApiHealth() async {
-    final isHealthy = await _healthService.checkHealth();
-    if (!mounted) return;
-    setState(() => _isApiHealthy = isHealthy);
-  }
-
-  Future<void> _loadStats() async {
+  Future<void> _loadData() async {
     final stats = await _cmsService.fetchStats();
     if (!mounted) return;
     setState(() => _stats = stats);
@@ -49,12 +38,9 @@ class _HomeScreenState extends State<HomeScreen> {
     return PublicLayout(
       child: SingleChildScrollView(
         child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (_isApiHealthy != null)
-              ApiStatusBanner(
-                key: const ValueKey('home-api-status-banner'),
-                isHealthy: _isApiHealthy!,
-              ),
             HeroSection(stats: _stats),
             const PlatformFeaturesSection(),
             const FeaturedAlumniSection(),
