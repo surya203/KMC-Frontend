@@ -231,7 +231,7 @@ class _ProfilePhoto extends StatelessWidget {
               width: 120,
               height: 120,
               fit: BoxFit.cover,
-              errorWidget: (_, __, ___) => _fallback(),
+              errorWidget: (_, error, stackTrace) => _fallback(),
             )
           : _fallback(),
     );
