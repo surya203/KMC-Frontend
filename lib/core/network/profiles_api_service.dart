@@ -277,15 +277,19 @@ class ProfilesApiService {
     int pageSize = 20,
   }) async {
     try {
+      final queryParameters = <String, dynamic>{
+        'search': search,
+        'batch_year': batchYear,
+        'country': country,
+        'page': page,
+        'page_size': pageSize,
+      };
+      queryParameters.removeWhere(
+        (key, value) => value == null || (value is String && value.isEmpty),
+      );
       final response = await _apiClient.get<Map<String, dynamic>>(
         '${AppConfig.apiPrefix}/profiles',
-        queryParameters: {
-          if (search != null && search.isNotEmpty) 'search': search,
-          if (batchYear != null) 'batch_year': batchYear,
-          if (country != null && country.isNotEmpty) 'country': country,
-          'page': page,
-          'page_size': pageSize,
-        },
+        queryParameters: queryParameters,
       );
       final data = response.data ?? {};
       final profiles = data['profiles'] as List<dynamic>? ?? [];

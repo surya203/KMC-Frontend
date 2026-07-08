@@ -288,7 +288,7 @@ class _Avatar extends StatelessWidget {
               width: 56,
               height: 56,
               fit: BoxFit.cover,
-              errorWidget: (_, __, ___) => _fallback(),
+              errorWidget: (_, error, stackTrace) => _fallback(),
             )
           : _fallback(),
     );

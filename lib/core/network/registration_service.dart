@@ -60,14 +60,15 @@ class RegistrationService {
     String? email,
     required Map<String, dynamic> payload,
   }) async {
+    final draftPayload = <String, dynamic>{
+      'step': step,
+      'email': email,
+      'payload': payload,
+    }..removeWhere((key, value) => value == null);
     return _draftRequest(
       'PATCH',
       '${AppConfig.apiPrefix}/auth/register/draft/$draftId',
-      data: {
-        'step': step,
-        if (email != null) 'email': email,
-        'payload': payload,
-      },
+      data: draftPayload,
     );
   }
 
