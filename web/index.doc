@@ -1,0 +1,16 @@
+SHAIK RESHMA - Jul 6, 2026
+
+File Name: index.html
+
+1. Modification Done:
+
+   * Added Razorpay checkout JavaScript script tag so the payment popup can open on Flutter web during membership step 4.
+
+2. Purpose of This Modification:
+
+   * Razorpay requires their checkout.js library in the web page before the payment modal can be shown.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Loaded when the Flutter web app starts.
+   * Used by `razorpay_checkout_web.dart` when member pays on `/membership` wizard.

@@ -1,0 +1,16 @@
+SHAIK RESHMA - Jul 6, 2026
+
+File Name: gallery_service.dart
+
+1. Modification Done:
+
+   * Created API calls to list gallery albums, fetch album details, and load paginated photos inside an album.
+   * Added models for album summary, album detail, and individual media items.
+
+2. Purpose of This Modification:
+
+   * Phase 3 gallery pages must show real reunion photos from the backend instead of only static placeholders.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Used by `gallery_screen.dart`, `GalleryAlbumScreen`, `gallery_preview.dart` on Home, and admin gallery via `admin_service.dart` for staff uploads.

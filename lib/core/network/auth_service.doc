@@ -1,0 +1,19 @@
+SHAIK RESHMA - Jul 6, 2026
+
+File Name: auth_service.dart
+
+1. Modification Done:
+
+   * Created the authentication API layer: login, logout, fetch current user, forgot password, and reset password.
+   * Added data models for tokens, user profile summary, and membership summary returned by `/auth/me`.
+   * Forgot-password now returns an optional dev reset token for local testing.
+
+2. Purpose of This Modification:
+
+   * Phase 2 requires full sign-in and password recovery connected to the backend.
+   * Dashboard membership badge and profile summary need user + membership data from one place.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Called from `auth_session.dart`, `sign_in_screen.dart`, `forgot_password_screen.dart`, and `reset_password_screen.dart`.
+   * Login tokens are saved via `token_storage.dart`; user details power `dashboard_summary.dart` and `membership_badge.dart`.

@@ -1,0 +1,16 @@
+SHAIK RESHMA - Jul 6, 2026
+
+File Name: file_download.dart
+
+1. Modification Done:
+
+   * Created a platform switch for downloading files (used for admin member CSV export).
+
+2. Purpose of This Modification:
+
+   * Admin members export returns file bytes that must be saved as a download in the browser on web.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Imported by `admin_screens.dart` when admin clicks Export CSV.
+   * Routes to `file_download_web.dart` on web or no-op stub on other platforms.

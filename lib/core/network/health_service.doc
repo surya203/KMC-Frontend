@@ -18,3 +18,22 @@ File Name: health_service.dart
    * Called from `home_screen.dart` when the Home page loads.
    * Result is passed to `api_status_banner.dart` to show a green “connected” or orange “offline” message.
    * Does not block the app; Home still works with default content if the backend is down.
+
+---
+
+SHAIK RESHMA - Jul 6, 2026
+
+File Name: health_service.dart
+
+1. Modification Done:
+
+   * Updated to use shared `ApiClient.instance` instead of a separate HTTP setup.
+
+2. Purpose of This Modification:
+
+   * All network calls should use one API client for consistent base URL and future token handling.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Still called only from `home_screen.dart` for the API status banner.
+

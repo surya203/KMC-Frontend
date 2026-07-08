@@ -1,0 +1,15 @@
+SHAIK RESHMA - Jul 6, 2026
+
+File Name: dashboard_summary.dart
+
+1. Modification Done:
+
+   * Created a welcome card showing logged-in member name, email, batch year, and verification status from profile data.
+
+2. Purpose of This Modification:
+
+   * Dashboard should immediately confirm who is signed in and their alumni identity.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Displayed on `dashboard_screen.dart`; data comes from `auth_session.user` populated by `auth_service.fetchMe`.

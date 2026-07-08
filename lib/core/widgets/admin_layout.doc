@@ -1,0 +1,18 @@
+SHAIK RESHMA - Jul 6, 2026
+
+File Name: admin_layout.dart
+
+1. Modification Done:
+
+   * Created the shared layout for staff/admin pages with role-based side navigation.
+   * Shows links for Analytics, Verifications, Members, Events, and Gallery depending on user role.
+   * Includes a link back to MY KMC member dashboard.
+
+2. Purpose of This Modification:
+
+   * Phase 4 admin area needs one shell so verifiers, staff, and admins see only the tools they are allowed to use.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Wraps all screens in `admin_screens.dart`.
+   * Navigation targets match routes defined in `app_router.dart` under `/admin`.

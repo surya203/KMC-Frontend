@@ -20,3 +20,22 @@ File Name: about_screen.dart
    * Accessible from header nav, mobile drawer, footer links, and hero “Explore Platform” button.
    * Registered in `app_router.dart` at path `/about`.
    * Uses `public_layout.dart` for consistent navigation with Home and other public pages.
+
+---
+
+SHAIK RESHMA - Jul 6, 2026
+
+File Name: about_screen.dart
+
+1. Modification Done:
+
+   * Milestones timeline now loads from `GET /api/v1/cms/milestones` when backend is available, with same fallback years if API fails.
+
+2. Purpose of This Modification:
+
+   * Phase 1 completion: About page CMS hooks for timeline content.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Uses `cms_service.fetchMilestones()` on page load; no change to public layout or routing.
+

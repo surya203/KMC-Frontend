@@ -1,0 +1,17 @@
+SHAIK RESHMA - Jul 6, 2026
+
+File Name: member_layout.dart
+
+1. Modification Done:
+
+   * Created the shared layout for logged-in member pages (MY KMC dashboard area).
+   * Added top navigation chips for Overview, Profile, Announcements, and My events.
+   * Shows Admin link and Sign out when the user has the right permissions.
+
+2. Purpose of This Modification:
+
+   * Phase 2–3 dashboard sub-pages need a consistent member header and easy navigation between sections.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Wraps `dashboard_screen.dart`, `dashboard_member_screens.dart` screens, and uses `auth_session.dart` and `role_helpers.dart`.

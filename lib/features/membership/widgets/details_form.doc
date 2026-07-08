@@ -1,0 +1,16 @@
+SHAIK RESHMA - Jul 6, 2026
+
+File Name: details_form.dart
+
+1. Modification Done:
+
+   * Created the step 2 form for full name, email, batch year, phone, and degree during registration.
+   * Includes validation before the user can continue to verification.
+
+2. Purpose of This Modification:
+
+   * Backend registration draft requires alumni details before OTP or document verification can run.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Embedded in `membership_screen.dart`; on continue, updates draft through `registration_service.updateDraft`.

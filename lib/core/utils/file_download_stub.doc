@@ -1,0 +1,15 @@
+SHAIK RESHMA - Jul 6, 2026
+
+File Name: file_download_stub.dart
+
+1. Modification Done:
+
+   * Added empty download handler for non-web platforms where browser download is not applicable.
+
+2. Purpose of This Modification:
+
+   * Allows the same admin export button code to compile on all Flutter targets.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Used via `file_download.dart` when not running on web; export button still runs API call but file save is web-only.

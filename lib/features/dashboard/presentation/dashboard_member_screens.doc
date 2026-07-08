@@ -1,0 +1,17 @@
+SHAIK RESHMA - Jul 6, 2026
+
+File Name: dashboard_member_screens.dart
+
+1. Modification Done:
+
+   * Created member sub-screens: Profile editor with photo upload, Announcements list/detail with executive create/edit and admin unpublish, and My events registrations list.
+   * Profile form saves text fields and uploads photo via file picker.
+
+2. Purpose of This Modification:
+
+   * Phase 3 handbook dashboard features: edit own profile, read announcements, see registered reunions.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Routes under `/dashboard/profile`, `/dashboard/announcements`, `/dashboard/events` in `app_router.dart`.
+   * Uses `profiles_service`, `announcements_service`, and `events_service`.
