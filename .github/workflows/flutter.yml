@@ -18,6 +18,16 @@ jobs:
         with:
           channel: stable
 
+      - name: Ensure .env exists for Flutter assets
+        run: |
+          if [ ! -f .env ]; then
+            if [ -f .env.example ]; then
+              cp .env.example .env
+            else
+              touch .env
+            fi
+          fi
+
       - run: flutter pub get
       - run: flutter analyze --no-fatal-infos
       - run: flutter build web --release
