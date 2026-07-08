@@ -1,6 +1,6 @@
 # Production image for KMC Alumni Connect (Flutter web + nginx)
 
-FROM ghcr.io/cirruslabs/flutter:3.44.4 AS build
+FROM ghcr.io/cirruslabs/flutter:stable AS build
 
 WORKDIR /app
 
