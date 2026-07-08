@@ -42,31 +42,53 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _error = null;
     });
 
-    try {
-      final results = await Future.wait([
-        _membershipApi.fetchMyMembership(),
-        _profilesApi.fetchMyProfile(),
-        _eventsApi.fetchEvents(upcoming: true),
-        _eventsApi.fetchMyRegistrations(),
-        _announcementsApi.fetchAnnouncements(),
-      ]);
+    MemberMembership? membership;
+    MyProfile? profile;
+    List<EventItem> upcomingEvents = [];
+    List<MyEventRegistration> myEvents = [];
+    List<AnnouncementItem> announcements = [];
+    final errors = <String>[];
 
-      if (!mounted) return;
-      setState(() {
-        _membership = results[0] as MemberMembership;
-        _profile = results[1] as MyProfile;
-        _upcomingEvents = results[2] as List<EventItem>;
-        _myEvents = results[3] as List<MyEventRegistration>;
-        _announcements = results[4] as List<AnnouncementItem>;
-        _loading = false;
-      });
+    try {
+      membership = await _membershipApi.fetchMyMembership();
     } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _error = e.toString();
-        _loading = false;
-      });
+      errors.add('Membership: $e');
     }
+
+    try {
+      profile = await _profilesApi.fetchMyProfile();
+    } catch (e) {
+      errors.add('Profile: $e');
+    }
+
+    try {
+      upcomingEvents = await _eventsApi.fetchEvents(upcoming: true);
+    } catch (e) {
+      errors.add('Events: $e');
+    }
+
+    try {
+      myEvents = await _eventsApi.fetchMyRegistrations();
+    } catch (e) {
+      errors.add('My events: $e');
+    }
+
+    try {
+      announcements = await _announcementsApi.fetchAnnouncements();
+    } catch (e) {
+      errors.add('Announcements: $e');
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _membership = membership;
+      _profile = profile;
+      _upcomingEvents = upcomingEvents;
+      _myEvents = myEvents;
+      _announcements = announcements;
+      _error = errors.isEmpty ? null : errors.join('\n');
+      _loading = false;
+    });
   }
 
   int get _profileCompletion => _profileCompletionPercent(_profile);
