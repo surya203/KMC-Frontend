@@ -14,7 +14,17 @@ class AdminMembersScreen extends StatefulWidget {
 class _AdminMembersScreenState extends State<AdminMembersScreen> {
   final _api = AdminApiService();
   final _search = TextEditingController();
-  final _roles = const ['member', 'staff', 'executive', 'admin', 'verifier'];
+  final _roles = const [
+    'member',
+    'staff',
+    'executive',
+    'verifier',
+    'president',
+    'vice_president',
+    'secretary',
+    'treasurer',
+    'admin',
+  ];
 
   List<AdminMemberItem> _members = [];
   int _page = 1;

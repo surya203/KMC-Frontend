@@ -1,5 +1,4 @@
-SHAIK RESHMA - Jul 2, 2026
-
+﻿
 File Name: pubspec.yaml
 
 1. Modification Done:
@@ -21,7 +20,6 @@ File Name: pubspec.yaml
 
 ---
 
-SHAIK RESHMA - Jul 6, 2026
 
 File Name: pubspec.yaml
 
@@ -33,11 +31,11 @@ File Name: pubspec.yaml
 
 2. Purpose of This Modification:
 
-   * Phases 2–4 need local persistence, file uploads, and browser-specific payment/download behavior.
+   * Phases 2â€“4 need local persistence, file uploads, and browser-specific payment/download behavior.
 
 3. How This Modification Is Involved in the Flow:
 
-   * `shared_preferences` → `token_storage.dart` and `registration_draft_storage.dart`.
-   * `file_picker` → profile, admin gallery, membership document verify.
-   * `web` → `razorpay_checkout_web.dart` and `file_download_web.dart`.
+   * `shared_preferences` â†’ `token_storage.dart` and `registration_draft_storage.dart`.
+   * `file_picker` â†’ profile, admin gallery, membership document verify.
+   * `web` â†’ `razorpay_checkout_web.dart` and `file_download_web.dart`.
 

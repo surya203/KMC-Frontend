@@ -1,5 +1,4 @@
-SHAIK RESHMA - Jul 6, 2026
-
+﻿
 File Name: api_client.dart
 
 1. Modification Done:
@@ -11,7 +10,7 @@ File Name: api_client.dart
 
 2. Purpose of This Modification:
 
-   * Phase 2–4 features require authenticated calls to many backend endpoints without repeating login logic in every screen.
+   * Phase 2â€“4 features require authenticated calls to many backend endpoints without repeating login logic in every screen.
    * Members should stay signed in smoothly while browsing dashboard, admin, and registration flows.
 
 3. How This Modification Is Involved in the Flow:

@@ -1,11 +1,10 @@
-SHAIK RESHMA - Jul 6, 2026
-
+﻿
 File Name: events_service.dart
 
 1. Modification Done:
 
    * Created API layer for public events: upcoming list, event detail by slug, register, cancel registration, and my registrations.
-   * Added models for event summary, detail (with registration state), and member’s registered events.
+   * Added models for event summary, detail (with registration state), and memberâ€™s registered events.
 
 2. Purpose of This Modification:
 

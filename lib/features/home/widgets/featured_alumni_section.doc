@@ -1,10 +1,9 @@
-SHAIK RESHMA - Jul 2, 2026
-
+﻿
 File Name: featured_alumni_section.dart
 
 1. Modification Done:
 
-   * Created a new “Featured Alumni” section on the Home page.
+   * Created a new â€œFeatured Alumniâ€ section on the Home page.
    * Shows three testimonial cards with names, titles, batch years, and quotes from handbook seed data.
    * Uses responsive layout: side-by-side cards on wide screens, stacked cards on mobile.
 
@@ -21,7 +20,6 @@ File Name: featured_alumni_section.dart
 
 ---
 
-SHAIK RESHMA - Jul 6, 2026
 
 File Name: featured_alumni_section.dart
 

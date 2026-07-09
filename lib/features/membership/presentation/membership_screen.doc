@@ -1,28 +1,26 @@
-SHAIK RESHMA - Jul 2, 2026
-
+﻿
 File Name: membership_screen.dart
 
 1. Modification Done:
 
    * Created a placeholder Join Network / Membership page.
-   * Shows Life Membership details (₹1,000, benefits summary from handbook).
+   * Shows Life Membership details (â‚¹1,000, benefits summary from handbook).
    * Lists all 5 registration wizard steps: plan, details, verify, payment, complete.
-   * “Start registration” button is shown but not yet connected to backend draft API.
+   * â€œStart registrationâ€ button is shown but not yet connected to backend draft API.
 
 2. Purpose of This Modification:
 
-   * Phase 1 requires the “Join Network” button and `/membership` route to open a real page.
+   * Phase 1 requires the â€œJoin Networkâ€ button and `/membership` route to open a real page.
    * Introduces users to the membership journey before Phase 2 wizard implementation.
 
 3. How This Modification Is Involved in the Flow:
 
    * Registered at `/membership` in `app_router.dart`.
-   * Linked from header “Join Network” button and hero “Join Alumni Network” button.
+   * Linked from header â€œJoin Networkâ€ button and hero â€œJoin Alumni Networkâ€ button.
    * Will connect to backend registration draft, verification, and Razorpay checkout in Phase 2.
 
 ---
 
-SHAIK RESHMA - Jul 6, 2026
 
 File Name: membership_screen.dart
 

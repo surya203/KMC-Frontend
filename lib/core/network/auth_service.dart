@@ -28,17 +28,29 @@ class AuthUser {
     required this.id,
     required this.email,
     required this.role,
+    this.fullName,
+    this.membershipNumber,
   });
 
   final String id;
   final String email;
   final String role;
+  final String? fullName;
+  final String? membershipNumber;
 
   factory AuthUser.fromJson(Map<String, dynamic> json) {
+    final profile = json['profile'];
+    final membership = json['membership'];
     return AuthUser(
       id: json['id'] as String,
       email: json['email'] as String,
       role: json['role'] as String,
+      fullName: profile is Map<String, dynamic>
+          ? profile['full_name'] as String?
+          : null,
+      membershipNumber: membership is Map<String, dynamic>
+          ? membership['membership_number'] as String?
+          : null,
     );
   }
 }
