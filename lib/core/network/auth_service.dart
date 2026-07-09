@@ -1,7 +1,6 @@
-import 'package:dio/dio.dart';
-
-import '../config/app_config.dart';
+﻿import '../config/app_config.dart';
 import 'api_client.dart';
+import 'api_exception.dart';
 
 class AuthTokens {
   const AuthTokens({
@@ -16,9 +15,94 @@ class AuthTokens {
 
   factory AuthTokens.fromJson(Map<String, dynamic> json) {
     return AuthTokens(
-      accessToken: json['access_token'] as String,
-      refreshToken: json['refresh_token'] as String,
-      tokenType: json['token_type'] as String? ?? 'bearer',
+      accessToken: '${json['access_token']}',
+      refreshToken: '${json['refresh_token']}',
+      tokenType: '${json['token_type'] ?? 'bearer'}',
+    );
+  }
+}
+
+class UserProfileSummary {
+  const UserProfileSummary({
+    required this.id,
+    required this.fullName,
+    required this.batchYear,
+    this.verificationStatus,
+    this.photoUrl,
+  });
+
+  final String id;
+  final String fullName;
+  final int batchYear;
+  final String? verificationStatus;
+  final String? photoUrl;
+
+  factory UserProfileSummary.fromJson(Map<String, dynamic> json) {
+    return UserProfileSummary(
+      id: '${json['id']}',
+      fullName: '${json['full_name']}',
+      batchYear: json['batch_year'] is int
+          ? json['batch_year'] as int
+          : int.tryParse('${json['batch_year']}') ?? 0,
+      verificationStatus: json['verification_status'] as String?,
+      photoUrl: json['photo_url'] as String?,
+    );
+  }
+}
+
+class MembershipSummary {
+  const MembershipSummary({
+    required this.status,
+    required this.planName,
+    required this.planSlug,
+    required this.votingRights,
+  });
+
+  final String status;
+  final String planName;
+  final String planSlug;
+  final bool votingRights;
+
+  factory MembershipSummary.fromJson(Map<String, dynamic> json) {
+    return MembershipSummary(
+      status: '${json['status']}',
+      planName: '${json['plan_name']}',
+      planSlug: '${json['plan_slug']}',
+      votingRights: json['voting_rights'] == true,
+    );
+  }
+}
+
+class UserMe {
+  const UserMe({
+    required this.id,
+    required this.email,
+    required this.role,
+    this.profile,
+    this.membership,
+  });
+
+  final String id;
+  final String email;
+  final String role;
+  final UserProfileSummary? profile;
+  final MembershipSummary? membership;
+
+  factory UserMe.fromJson(Map<String, dynamic> json) {
+    return UserMe(
+      id: '${json['id']}',
+      email: '${json['email']}',
+      role: '${json['role']}',
+      profile: json['profile'] is Map<String, dynamic>
+          ? UserProfileSummary.fromJson(
+              json['profile'] as Map<String, dynamic>,
+            )
+          : null,
+      membership: json['membership'] is Map<String, dynamic>
+          ? MembershipSummary.fromJson(
+              json['membership'] as Map<String, dynamic>,
+            )
+          : null,
     );
   }
 }
@@ -42,9 +126,9 @@ class AuthUser {
     final profile = json['profile'];
     final membership = json['membership'];
     return AuthUser(
-      id: json['id'] as String,
-      email: json['email'] as String,
-      role: json['role'] as String,
+      id: '${json['id']}',
+      email: '${json['email']}',
+      role: '${json['role']}',
       fullName: profile is Map<String, dynamic>
           ? profile['full_name'] as String?
           : null,
@@ -64,8 +148,16 @@ class AuthException implements Exception {
   String toString() => message;
 }
 
+class ForgotPasswordResult {
+  const ForgotPasswordResult({required this.message, this.debugResetToken});
+
+  final String message;
+  final String? debugResetToken;
+}
+
 class AuthService {
-  AuthService({ApiClient? apiClient}) : _apiClient = apiClient ?? ApiClient();
+  AuthService({ApiClient? apiClient})
+      : _apiClient = apiClient ?? ApiClient.instance;
 
   final ApiClient _apiClient;
 
@@ -88,8 +180,13 @@ class AuthService {
 
   static String? get authorizationHeader {
     final token = _tokens?.accessToken;
-    if (token == null) return null;
+    if (token == null || token.isEmpty) return null;
     return 'Bearer $token';
+  }
+
+  static void clearStaticSession() {
+    _tokens = null;
+    _currentUser = null;
   }
 
   Future<AuthTokens> login({
@@ -99,77 +196,85 @@ class AuthService {
     try {
       final response = await _apiClient.post<Map<String, dynamic>>(
         '${AppConfig.apiPrefix}/auth/login',
-        data: {'email': email, 'password': password},
+        data: {'email': email.trim(), 'password': password},
       );
       if (response.statusCode == 200 && response.data != null) {
-        _tokens = AuthTokens.fromJson(response.data!);
-        return _tokens!;
+        final tokens = AuthTokens.fromJson(response.data!);
+        _tokens = tokens;
+        return tokens;
       }
-      throw AuthException('Login failed (${response.statusCode}).');
-    } on DioException catch (e) {
-      final detail = e.response?.data;
-      if (detail is Map && detail['detail'] != null) {
-        throw AuthException('${detail['detail']}');
-      }
-      throw AuthException(
-        e.response?.statusMessage ?? 'Unable to reach the backend.',
-      );
+      throw const ApiException('Sign in failed. Please try again.');
+    } catch (error) {
+      throw ApiClient.wrapError(error);
     }
   }
 
-  Future<AuthUser> fetchMe({bool allowRefresh = true}) async {
-    final header = authorizationHeader;
-    if (header == null) {
-      throw AuthException('Not signed in.');
-    }
-
+  Future<UserMe> fetchMe() async {
     try {
       final response = await _apiClient.get<Map<String, dynamic>>(
         '${AppConfig.apiPrefix}/auth/me',
-        options: Options(headers: {'Authorization': header}),
       );
       if (response.statusCode == 200 && response.data != null) {
-        _currentUser = AuthUser.fromJson(response.data!);
-        return _currentUser!;
+        final data = response.data!;
+        final user = UserMe.fromJson(data);
+        _currentUser = AuthUser.fromJson(data);
+        return user;
       }
-      throw AuthException('Could not load profile (${response.statusCode}).');
-    } on DioException catch (e) {
-      if (e.response?.statusCode == 401 && allowRefresh) {
-        await refresh();
-        return fetchMe(allowRefresh: false);
-      }
-      throw AuthException(
-        e.response?.statusMessage ?? 'Unable to load profile.',
-      );
+      throw const ApiException('Could not load your profile.');
+    } catch (error) {
+      throw ApiClient.wrapError(error);
     }
   }
 
-  Future<AuthTokens> refresh() async {
-    final refreshToken = _tokens?.refreshToken;
-    if (refreshToken == null) {
-      throw AuthException('No refresh token available.');
+  Future<void> logout() async {
+    final refreshToken = await _apiClient.tokenStorage.getRefreshToken();
+    if (refreshToken != null && refreshToken.isNotEmpty) {
+      try {
+        await _apiClient.post<Map<String, dynamic>>(
+          '${AppConfig.apiPrefix}/auth/logout',
+          data: {'refresh_token': refreshToken},
+        );
+      } catch (_) {
+        // Clear local session even if revoke fails.
+      }
     }
+    await _apiClient.tokenStorage.clear();
+    clearStaticSession();
+  }
 
+  Future<ForgotPasswordResult> forgotPassword(String email) async {
     try {
       final response = await _apiClient.post<Map<String, dynamic>>(
-        '${AppConfig.apiPrefix}/auth/refresh',
-        data: {'refresh_token': refreshToken},
+        '${AppConfig.apiPrefix}/auth/forgot-password',
+        data: {'email': email.trim().toLowerCase()},
       );
       if (response.statusCode == 200 && response.data != null) {
-        _tokens = AuthTokens.fromJson(response.data!);
-        return _tokens!;
+        return ForgotPasswordResult(
+          message: '${response.data!['message']}',
+          debugResetToken: response.data!['debug_reset_token'] as String?,
+        );
       }
-      throw AuthException('Session refresh failed (${response.statusCode}).');
-    } on DioException catch (e) {
-      logout();
-      throw AuthException(
-        e.response?.statusMessage ?? 'Session expired. Please sign in again.',
-      );
+      throw const ApiException('Could not send reset instructions.');
+    } catch (error) {
+      throw ApiClient.wrapError(error);
     }
   }
 
-  void logout() {
-    _tokens = null;
-    _currentUser = null;
+  Future<String> resetPassword({
+    required String token,
+    required String newPassword,
+  }) async {
+    try {
+      final response = await _apiClient.post<Map<String, dynamic>>(
+        '${AppConfig.apiPrefix}/auth/reset-password',
+        data: {'token': token, 'new_password': newPassword},
+      );
+      if (response.statusCode == 200 && response.data != null) {
+        return '${response.data!['message']}';
+      }
+      throw const ApiException('Could not reset password.');
+    } catch (error) {
+      throw ApiClient.wrapError(error);
+    }
   }
 }

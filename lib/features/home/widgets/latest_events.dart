@@ -70,14 +70,8 @@ class _LatestEventsState extends State<LatestEvents> {
                   alignment: Alignment.centerLeft,
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 520),
-                    child: EventCard(
-                      title: _event!.title,
-                      dateLabel: _event!.displayDate,
-                      venueLabel: _event!.displayVenue,
-                      registeredCount: _event!.registeredCount,
-                      coverImageUrl: _event!.coverImageUrl,
-                      registrationOpen: _event!.registrationOpen,
-                      isRegistered: _event!.isRegistered ?? false,
+                    child: EventCard.fromEventItem(
+                      _event!,
                       onTap: () => context.go('/events/${_event!.slug}'),
                       onRegister: () => context.go('/events/${_event!.slug}'),
                     ),

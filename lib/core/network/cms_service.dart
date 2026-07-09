@@ -124,8 +124,66 @@ class AboutContent {
   }
 }
 
+class CmsMilestone {
+  const CmsMilestone({
+    required this.year,
+    required this.title,
+    required this.description,
+    required this.sortOrder,
+  });
+
+  final int year;
+  final String title;
+  final String description;
+  final int sortOrder;
+
+  static const fallback = [
+    CmsMilestone(
+      year: 1959,
+      title: 'Founded',
+      description:
+          'Kakatiya Medical College established in Warangal, Telangana.',
+      sortOrder: 1,
+    ),
+    CmsMilestone(
+      year: 1985,
+      title: 'Postgraduate Programs',
+      description:
+          'Expansion of specialist training and research across departments.',
+      sortOrder: 2,
+    ),
+    CmsMilestone(
+      year: 2008,
+      title: 'Golden Jubilee',
+      description:
+          'Celebrating fifty years of medical education and alumni pride.',
+      sortOrder: 3,
+    ),
+    CmsMilestone(
+      year: 2025,
+      title: 'Digital Alumni Platform',
+      description: 'KMC Alumni Connect launches to unite batches worldwide.',
+      sortOrder: 4,
+    ),
+  ];
+
+  factory CmsMilestone.fromJson(Map<String, dynamic> json, int index) {
+    return CmsMilestone(
+      year: json['year'] is int
+          ? json['year'] as int
+          : int.tryParse('${json['year']}') ?? 0,
+      title: '${json['title'] ?? ''}',
+      description: '${json['description'] ?? ''}',
+      sortOrder: json['sort_order'] is int
+          ? json['sort_order'] as int
+          : int.tryParse('${json['sort_order']}') ?? index + 1,
+    );
+  }
+}
+
 class CmsService {
-  CmsService({ApiClient? apiClient}) : _apiClient = apiClient ?? ApiClient();
+  CmsService({ApiClient? apiClient})
+      : _apiClient = apiClient ?? ApiClient.instance;
 
   final ApiClient _apiClient;
 
@@ -157,46 +215,25 @@ class CmsService {
     return AboutContent.fallback;
   }
 
-  static const galleryAlbums = [
-    (
-      'Grand Get-Together 2026',
-      'assets/images/gallery_01.webp',
-      'grand-get-together-2026',
-    ),
-    (
-      'Tricolour Stage Tribute',
-      'assets/images/gallery_02.webp',
-      'tricolour-stage-tribute',
-    ),
-    (
-      'Felicitation on Stage',
-      'assets/images/gallery_03.webp',
-      'felicitation-on-stage',
-    ),
-    (
-      'Alumni Speeches',
-      'assets/images/gallery_04.webp',
-      'alumni-speeches',
-    ),
-    (
-      "Chief Patron's Address",
-      'assets/images/gallery_05.webp',
-      'chief-patrons-address',
-    ),
-    (
-      'Young Alumna Speaks',
-      'assets/images/gallery_06.webp',
-      'young-alumna-speaks',
-    ),
-    (
-      'Alumnae of KMC',
-      'assets/images/gallery_07.webp',
-      'alumnae-of-kmc',
-    ),
-    (
-      'Welcome Desk',
-      'assets/images/gallery_08.webp',
-      'welcome-desk',
-    ),
-  ];
+  Future<List<CmsMilestone>> fetchMilestones() async {
+    try {
+      final response = await _apiClient.get<Map<String, dynamic>>(
+        '${AppConfig.apiPrefix}/cms/milestones',
+      );
+      final data = response.data?['milestones'];
+      if (response.statusCode == 200 && data is List) {
+        final milestones = [
+          for (var i = 0; i < data.length; i++)
+            if (data[i] is Map<String, dynamic>)
+              CmsMilestone.fromJson(data[i] as Map<String, dynamic>, i),
+        ]..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+        if (milestones.isNotEmpty) {
+          return milestones;
+        }
+      }
+    } catch (_) {
+      // Keep the About page usable when the Phase 1 CMS endpoint is offline.
+    }
+    return CmsMilestone.fallback;
+  }
 }
