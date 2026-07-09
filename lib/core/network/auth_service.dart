@@ -172,4 +172,62 @@ class AuthService {
     _tokens = null;
     _currentUser = null;
   }
+
+  Future<ForgotPasswordResult> forgotPassword({required String email}) async {
+    try {
+      final response = await _apiClient.post<Map<String, dynamic>>(
+        '${AppConfig.apiPrefix}/auth/forgot-password',
+        data: {'email': email},
+      );
+      final data = response.data;
+      if (data == null) {
+        throw AuthException('Could not send reset instructions.');
+      }
+      return ForgotPasswordResult(
+        message: data['message'] as String? ?? 'Check your email for reset instructions.',
+        debugResetToken: data['debug_reset_token'] as String?,
+      );
+    } on DioException catch (e) {
+      final detail = e.response?.data;
+      if (detail is Map && detail['detail'] != null) {
+        throw AuthException('${detail['detail']}');
+      }
+      throw AuthException(
+        e.response?.statusMessage ?? 'Unable to reach the backend.',
+      );
+    }
+  }
+
+  Future<void> resetPassword({
+    required String token,
+    required String newPassword,
+  }) async {
+    try {
+      await _apiClient.post<Map<String, dynamic>>(
+        '${AppConfig.apiPrefix}/auth/reset-password',
+        data: {
+          'token': token,
+          'new_password': newPassword,
+        },
+      );
+    } on DioException catch (e) {
+      final detail = e.response?.data;
+      if (detail is Map && detail['detail'] != null) {
+        throw AuthException('${detail['detail']}');
+      }
+      throw AuthException(
+        e.response?.statusMessage ?? 'Unable to reset password.',
+      );
+    }
+  }
+}
+
+class ForgotPasswordResult {
+  const ForgotPasswordResult({
+    required this.message,
+    this.debugResetToken,
+  });
+
+  final String message;
+  final String? debugResetToken;
 }

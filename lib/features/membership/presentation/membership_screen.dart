@@ -89,11 +89,21 @@ class _MembershipScreenState extends State<MembershipScreen> {
         }
       }
       if (!mounted) return;
+      var completion = _completion;
+      if (draft != null &&
+          (draft.payload['registration_completed'] == true || draft.step >= 5)) {
+        try {
+          completion = await _registration.completeRegistration(draft.id);
+        } catch (_) {
+          // Draft may still be processing; keep existing completion if any.
+        }
+      }
       setState(() {
         _plans = plans;
         _selectedPlan = plans.isNotEmpty ? plans.first : null;
         _draft = draft;
-        _step = _mapDraftStep(draft);
+        _completion = completion;
+        _step = _mapDraftStep(draft, completion);
         _hydrateFromDraft(draft);
         _loading = false;
       });
@@ -106,9 +116,11 @@ class _MembershipScreenState extends State<MembershipScreen> {
     }
   }
 
-  int _mapDraftStep(RegistrationDraft? draft) {
+  int _mapDraftStep(RegistrationDraft? draft, [CompleteRegistrationResult? completion]) {
     if (draft == null) return 0;
-    if (draft.payload['registration_completed'] == true) return 4;
+    if (draft.payload['registration_completed'] == true || completion?.completed == true) {
+      return 4;
+    }
     if (draft.step >= 4) return 3;
     if (draft.verificationToken != null || draft.step >= 3) return 3;
     if (draft.step >= 2) return 2;
@@ -308,7 +320,6 @@ class _MembershipScreenState extends State<MembershipScreen> {
       try {
         final result = await _registration.completeRegistration(draftId);
         if (!mounted) return;
-        await AuthSession.instance.clearDraftId();
         setState(() {
           _completion = result;
           _step = 4;
@@ -1378,10 +1389,12 @@ class _CompleteStep extends StatelessWidget {
                 ],
               ),
             ),
-          ] else if (result?.message != null) ...[
+          ] else ...[
             const SizedBox(height: 16),
             Text(
-              result!.message,
+              result?.message ??
+                  'Your membership is active. If you did not save your password, '
+                  'use Forgot password on the login page to set a new one.',
               style: GoogleFonts.inter(color: AppColors.bodyText),
               textAlign: TextAlign.center,
             ),
