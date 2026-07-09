@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_colors.dart';
-import '../../../core/network/profiles_service.dart';
+import '../../../core/network/profiles_api_service.dart';
 import 'section_header.dart';
 
 class FeaturedAlumniSection extends StatefulWidget {
@@ -14,33 +17,96 @@ class FeaturedAlumniSection extends StatefulWidget {
 }
 
 class _FeaturedAlumniSectionState extends State<FeaturedAlumniSection> {
-  final _service = ProfilesService();
-  List<ProfileSummary> _profiles = [];
+  final _api = ProfilesApiService();
+  final _pageController = PageController(viewportFraction: 0.85);
+  Timer? _autoScrollTimer;
 
-  static const _fallback = [
-    (
-      '“KMC shaped my career. The bonds I formed here remain my strongest support system.”',
-      'Dr. Ramesh Reddy',
-      'Chief Cardiologist, AIIMS Delhi · Batch 1992',
-      'https://i.pravatar.cc/200?img=12',
-    ),
-  ];
+  List<_AlumniCardData> _profiles = [];
+  bool _loading = true;
+  String? _error;
+  int _currentPage = 0;
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _loadProfiles();
   }
 
-  Future<void> _load() async {
-    final profiles = await _service.fetchFeatured();
-    if (!mounted) return;
-    setState(() => _profiles = profiles.take(3).toList());
+  @override
+  void dispose() {
+    _autoScrollTimer?.cancel();
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadProfiles() async {
+    try {
+      final profiles = await _api.fetchFeatured();
+      if (!mounted) return;
+      final mapped = profiles.map(_mapProfile).toList();
+      setState(() {
+        _profiles = mapped;
+        _loading = false;
+        _error = mapped.isEmpty ? 'No featured alumni yet.' : null;
+      });
+      if (mapped.length > 1) _startAutoScroll();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = 'Unable to load featured alumni.';
+      });
+    }
+  }
+
+  void _startAutoScroll() {
+    _autoScrollTimer?.cancel();
+    _autoScrollTimer = Timer.periodic(const Duration(seconds: 6), (_) {
+      if (!mounted || _profiles.length < 2) return;
+      final next = (_currentPage + 1) % _profiles.length;
+      _pageController.animateToPage(
+        next,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+      );
+    });
+  }
+
+  _AlumniCardData _mapProfile(FeaturedProfile profile) {
+    final parts = <String>[];
+    if (profile.currentTitle != null && profile.currentTitle!.isNotEmpty) {
+      parts.add(profile.currentTitle!);
+    }
+    if (profile.organization != null && profile.organization!.isNotEmpty) {
+      parts.add(profile.organization!);
+    }
+    parts.add('Batch ${profile.batchYear}');
+
+    final quote = profile.bio != null && profile.bio!.isNotEmpty
+        ? profile.bio!
+        : 'Proud KMC graduate.';
+
+    return _AlumniCardData(
+      id: profile.id,
+      name: profile.fullName,
+      quote: quote,
+      roleLine: parts.join(' · '),
+      photoUrl: profile.photoUrl,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final useApi = _profiles.isNotEmpty;
+    if (_loading) {
+      return const SizedBox(
+        height: 200,
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_error != null || _profiles.isEmpty) {
+      return const SizedBox.shrink();
+    }
 
     return Container(
       width: double.infinity,
@@ -51,62 +117,46 @@ class _FeaturedAlumniSectionState extends State<FeaturedAlumniSection> {
           constraints: const BoxConstraints(maxWidth: 1200),
           child: Column(
             children: [
-              const SectionHeader(
+              SectionHeader(
                 eyebrow: 'Featured Alumni',
                 regularTitle: 'From Warangal ',
-                italicTitle: 'to',
-                titleSuffix: ' the world.',
+                italicTitle: 'to the world.',
               ),
               const SizedBox(height: 40),
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final isWide = constraints.maxWidth > 900;
-                  if (useApi) {
-                    final cards = _profiles
-                        .map((p) => _AlumniCard.fromProfile(p))
-                        .toList();
-                    if (isWide) {
-                      return Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          for (var i = 0; i < cards.length; i++) ...[
-                            if (i > 0) const SizedBox(width: 20),
-                            Expanded(child: cards[i]),
-                          ],
-                        ],
-                      );
-                    }
-                    return Column(
-                      children: [
-                        for (final card in cards) ...[
-                          card,
-                          const SizedBox(height: 20),
-                        ],
-                      ],
+              SizedBox(
+                height: 280,
+                child: PageView.builder(
+                  controller: _pageController,
+                  itemCount: _profiles.length,
+                  onPageChanged: (index) => setState(() => _currentPage = index),
+                  itemBuilder: (context, index) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      child: _AlumniCard(data: _profiles[index]),
                     );
-                  }
-
-                  if (isWide) {
-                    return Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        for (var i = 0; i < _fallback.length; i++) ...[
-                          if (i > 0) const SizedBox(width: 20),
-                          Expanded(child: _AlumniCard(data: _fallback[i])),
-                        ],
-                      ],
-                    );
-                  }
-                  return Column(
-                    children: [
-                      for (final person in _fallback) ...[
-                        _AlumniCard(data: person),
-                        const SizedBox(height: 20),
-                      ],
-                    ],
-                  );
-                },
+                  },
+                ),
               ),
+              if (_profiles.length > 1) ...[
+                const SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    for (var i = 0; i < _profiles.length; i++)
+                      Container(
+                        width: 8,
+                        height: 8,
+                        margin: const EdgeInsets.symmetric(horizontal: 4),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: i == _currentPage
+                              ? AppColors.primary
+                              : AppColors.border,
+                        ),
+                      ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),
@@ -115,90 +165,109 @@ class _FeaturedAlumniSectionState extends State<FeaturedAlumniSection> {
   }
 }
 
+class _AlumniCardData {
+  const _AlumniCardData({
+    this.id,
+    required this.name,
+    required this.quote,
+    required this.roleLine,
+    this.photoUrl,
+  });
+
+  final String? id;
+  final String name;
+  final String quote;
+  final String roleLine;
+  final String? photoUrl;
+}
+
 class _AlumniCard extends StatelessWidget {
-  const _AlumniCard({this.data, this.profile});
+  const _AlumniCard({required this.data});
 
-  final (String, String, String, String)? data;
-  final ProfileSummary? profile;
-
-  factory _AlumniCard.fromProfile(ProfileSummary profile) {
-    return _AlumniCard(profile: profile);
-  }
+  final _AlumniCardData data;
 
   @override
   Widget build(BuildContext context) {
-    final quote = data?.$1 ??
-        '“Proud KMC graduate making a difference in medicine and community.”';
-    final name = profile?.fullName ?? data?.$2 ?? '';
-    final subtitle = profile != null
-        ? '${profile!.currentTitle ?? profile!.organization ?? 'Alumni'} · Batch ${profile!.batchYear}'
-        : data?.$3 ?? '';
-    final photo = profile?.photoUrl ?? data?.$4;
-
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            quote,
-            style: GoogleFonts.fraunces(
-              fontSize: 18,
-              height: 1.6,
-              fontStyle: FontStyle.italic,
-              color: AppColors.heading,
-            ),
+    return Material(
+      color: AppColors.card,
+      borderRadius: BorderRadius.circular(16),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: data.id != null ? () => context.go('/profiles/${data.id}') : null,
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.border),
           ),
-          const SizedBox(height: 20),
-          const Divider(color: AppColors.border, height: 1),
-          const SizedBox(height: 20),
-          Row(
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              ClipOval(
-                child: photo != null
-                    ? CachedNetworkImage(
-                        imageUrl: photo,
-                        width: 48,
-                        height: 48,
-                        fit: BoxFit.cover,
-                        errorWidget: (_, _, _) => _avatarFallback(),
-                      )
-                    : _avatarFallback(),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      name,
-                      style: GoogleFonts.inter(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.heading,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle,
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
-                        height: 1.5,
-                        color: AppColors.bodyText,
-                      ),
-                    ),
-                  ],
+              Text(
+                '“${data.quote}”',
+                style: GoogleFonts.fraunces(
+                  fontSize: 18,
+                  height: 1.6,
+                  fontStyle: FontStyle.italic,
+                  color: AppColors.heading,
                 ),
+                maxLines: 4,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const Spacer(),
+              const Divider(color: AppColors.border, height: 1),
+              const SizedBox(height: 20),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppColors.secondary, width: 2),
+                    ),
+                    child: ClipOval(
+                      child: data.photoUrl != null
+                          ? CachedNetworkImage(
+                              imageUrl: data.photoUrl!,
+                              width: 48,
+                              height: 48,
+                              fit: BoxFit.cover,
+                              errorWidget: (context, url, error) =>
+                                  _avatarFallback(),
+                            )
+                          : _avatarFallback(),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          data.name,
+                          style: GoogleFonts.inter(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.heading,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          data.roleLine,
+                          style: GoogleFonts.inter(
+                            fontSize: 14,
+                            height: 1.5,
+                            color: AppColors.bodyText,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }

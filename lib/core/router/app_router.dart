@@ -1,179 +1,243 @@
 import 'package:go_router/go_router.dart';
 
 import '../auth/auth_session.dart';
-import '../auth/role_helpers.dart';
+import '../auth/role_utils.dart';
 import '../../features/about/presentation/about_screen.dart';
-import '../../features/admin/presentation/admin_screens.dart';
-import '../../features/auth/presentation/forgot_password_screen.dart';
-import '../../features/auth/presentation/reset_password_screen.dart';
+import '../../features/admin/presentation/admin_dashboard_screen.dart';
+import '../../features/admin/presentation/admin_members_screen.dart';
+import '../../features/admin/presentation/admin_verifications_screen.dart';
+import '../../features/admin/widgets/admin_shell.dart';
+import '../../features/admin/widgets/admin_shell_host.dart';
 import '../../features/auth/presentation/sign_in_screen.dart';
-import '../../features/dashboard/presentation/dashboard_member_screens.dart';
+import '../../features/dashboard/presentation/announcements_screen.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
+import '../../features/dashboard/presentation/dashboard_connect_screen.dart';
+import '../../features/dashboard/presentation/dashboard_gallery_screen.dart';
+import '../../features/dashboard/presentation/dashboard_events_screen.dart';
+import '../../features/dashboard/presentation/my_payments_screen.dart';
+import '../../features/dashboard/presentation/my_membership_screen.dart';
+import '../../features/dashboard/presentation/settings_screen.dart';
+import '../../features/dashboard/presentation/my_profile_screen.dart';
+import '../../features/dashboard/widgets/dashboard_shell_host.dart';
+import '../../features/directory/presentation/directory_screen.dart';
+import '../../features/directory/presentation/profile_detail_screen.dart';
+import '../../features/events/presentation/event_detail_screen.dart';
 import '../../features/events/presentation/events_screen.dart';
 import '../../features/gallery/presentation/gallery_screen.dart';
 import '../../features/home/presentation/home_screen.dart';
 import '../../features/membership/presentation/membership_screen.dart';
-import '../../features/profiles/presentation/directory_screen.dart';
 import '../../features/splash/presentation/splash_screen.dart';
 
-late final GoRouter appRouter;
-
-void configureRouter() {
-  appRouter = GoRouter(
-    initialLocation: '/splash',
-    refreshListenable: authSession,
-    redirect: (context, state) {
-      if (!authSession.bootstrapped) return null;
-
-      final path = state.uri.path;
-      final isMemberArea =
-          path == '/dashboard' || path.startsWith('/dashboard/');
-      final isAdminArea = path == '/admin' || path.startsWith('/admin/');
-
-      if (isMemberArea && !authSession.isAuthenticated) {
-        return '/auth';
-      }
-
-      if (isAdminArea) {
-        if (!authSession.isAuthenticated) return '/auth';
-        if (!canAccessAdmin) return '/dashboard';
-        if (path == '/admin' && !canViewAnalytics) {
-          if (isVerifierUser) return '/admin/verifications';
-          if (isStaffUser) return '/admin/events';
-        }
-      }
-
-      if (authSession.isAuthenticated && path == '/auth') {
-        return '/dashboard';
-      }
-
-      if (authSession.isAuthenticated && path == '/splash') {
-        return '/dashboard';
-      }
-
-      return null;
-    },
-    routes: [
-      GoRoute(
-        path: '/splash',
-        builder: (context, state) => const SplashScreen(),
-      ),
-      GoRoute(
-        path: '/',
-        builder: (context, state) => const HomeScreen(),
-      ),
-      GoRoute(
-        path: '/about',
-        builder: (context, state) => const AboutScreen(),
-      ),
-      GoRoute(
-        path: '/events',
-        builder: (context, state) => const EventsScreen(),
-        routes: [
-          GoRoute(
-            path: ':slug',
-            builder: (context, state) => EventDetailScreen(
-              slug: state.pathParameters['slug']!,
-            ),
-          ),
-        ],
-      ),
-      GoRoute(
-        path: '/gallery',
-        builder: (context, state) => const GalleryScreen(),
-        routes: [
-          GoRoute(
-            path: ':slug',
-            builder: (context, state) => GalleryAlbumScreen(
-              slug: state.pathParameters['slug']!,
-            ),
-          ),
-        ],
-      ),
-      GoRoute(
-        path: '/profiles',
-        builder: (context, state) => const DirectoryScreen(),
-        routes: [
-          GoRoute(
-            path: ':profileId',
-            builder: (context, state) => ProfileDetailScreen(
-              profileId: state.pathParameters['profileId']!,
-            ),
-          ),
-        ],
-      ),
-      GoRoute(
-        path: '/auth',
-        builder: (context, state) => const SignInScreen(),
-        routes: [
-          GoRoute(
-            path: 'forgot-password',
-            builder: (context, state) => const ForgotPasswordScreen(),
-          ),
-          GoRoute(
-            path: 'reset-password',
-            builder: (context, state) => ResetPasswordScreen(
-              initialToken: state.uri.queryParameters['token'],
-            ),
-          ),
-        ],
-      ),
-      GoRoute(
-        path: '/membership',
-        builder: (context, state) => const MembershipScreen(),
-      ),
-      GoRoute(
-        path: '/dashboard',
-        builder: (context, state) => const DashboardScreen(),
-        routes: [
-          GoRoute(
-            path: 'profile',
-            builder: (context, state) => const DashboardProfileScreen(),
-          ),
-          GoRoute(
-            path: 'membership',
-            builder: (context, state) => const DashboardMembershipScreen(),
-          ),
-          GoRoute(
-            path: 'announcements',
-            builder: (context, state) => const DashboardAnnouncementsScreen(),
-            routes: [
-              GoRoute(
-                path: ':id',
-                builder: (context, state) => DashboardAnnouncementDetailScreen(
-                  id: state.pathParameters['id']!,
-                ),
-              ),
-            ],
-          ),
-          GoRoute(
-            path: 'events',
-            builder: (context, state) => const DashboardMyEventsScreen(),
-          ),
-        ],
-      ),
-      GoRoute(
-        path: '/admin',
-        builder: (context, state) => const AdminHomeScreen(),
-        routes: [
-          GoRoute(
-            path: 'verifications',
-            builder: (context, state) => const AdminVerificationsScreen(),
-          ),
-          GoRoute(
-            path: 'members',
-            builder: (context, state) => const AdminMembersScreen(),
-          ),
-          GoRoute(
-            path: 'events',
-            builder: (context, state) => const AdminEventsScreen(),
-          ),
-          GoRoute(
-            path: 'gallery',
-            builder: (context, state) => const AdminGalleryScreen(),
-          ),
-        ],
-      ),
-    ],
-  );
+bool _requiresAuth(String location) {
+  return location.startsWith('/dashboard') ||
+      location.startsWith('/admin') ||
+      location == '/announcements' ||
+      location == '/my-events' ||
+      location == '/my-profile' ||
+      location == '/my-membership' ||
+      location == '/my-payments' ||
+      location == '/my-gallery' ||
+      location == '/connect' ||
+      location == '/settings';
 }
+
+bool _canAccessAdminPath(String location, String? role) {
+  if (!isStaffRole(role)) return false;
+  if (location == '/admin' || location.startsWith('/admin/analytics')) {
+    return canViewAdminAnalytics(role);
+  }
+  if (location.startsWith('/admin/verifications')) {
+    return canReviewVerifications(role);
+  }
+  if (location.startsWith('/admin/members')) {
+    return canManageMembers(role);
+  }
+  return isStaffRole(role);
+}
+
+final GoRouter appRouter = GoRouter(
+  initialLocation: '/splash',
+  refreshListenable: AuthSession.instance,
+  redirect: (context, state) {
+    final location = state.matchedLocation;
+    final isAuthenticated = AuthSession.instance.isAuthenticated;
+    final role = AuthSession.instance.currentUser?.role;
+
+    if (location == '/splash') return null;
+
+    if (_requiresAuth(location) && !isAuthenticated) {
+      return '/auth';
+    }
+
+    if (location.startsWith('/admin')) {
+      if (!isAuthenticated) return '/auth';
+      if (!_canAccessAdminPath(location, role)) {
+        if (canReviewVerifications(role)) return '/admin/verifications';
+        return '/dashboard';
+      }
+    }
+
+    if (location == '/admin' &&
+        isAuthenticated &&
+        !canViewAdminAnalytics(role) &&
+        canReviewVerifications(role)) {
+      return '/admin/verifications';
+    }
+
+    if (location == '/auth' && isAuthenticated) {
+      return homeRouteForRole(role);
+    }
+
+    return null;
+  },
+  routes: [
+    GoRoute(
+      path: '/splash',
+      builder: (context, state) => const SplashScreen(),
+    ),
+    GoRoute(
+      path: '/',
+      builder: (context, state) => const HomeScreen(),
+    ),
+    GoRoute(
+      path: '/about',
+      builder: (context, state) => const AboutScreen(),
+    ),
+    GoRoute(
+      path: '/directory',
+      builder: (context, state) => const DirectoryScreen(),
+    ),
+    GoRoute(
+      path: '/profiles/:id',
+      builder: (context, state) => ProfileDetailScreen(
+        profileId: state.pathParameters['id']!,
+      ),
+    ),
+    GoRoute(
+      path: '/events',
+      builder: (context, state) => const EventsScreen(),
+      routes: [
+        GoRoute(
+          path: ':slug',
+          builder: (context, state) => EventDetailScreen(
+            slug: state.pathParameters['slug']!,
+          ),
+        ),
+      ],
+    ),
+    GoRoute(
+      path: '/gallery',
+      builder: (context, state) => const GalleryScreen(),
+      routes: [
+        GoRoute(
+          path: ':slug',
+          builder: (context, state) => GalleryAlbumScreen(
+            slug: state.pathParameters['slug']!,
+          ),
+        ),
+      ],
+    ),
+    GoRoute(
+      path: '/auth',
+      builder: (context, state) => const SignInScreen(),
+    ),
+    GoRoute(
+      path: '/membership',
+      builder: (context, state) => const MembershipScreen(),
+    ),
+    ShellRoute(
+      builder: (context, state, child) => AdminShellHost(child: child),
+      routes: [
+        GoRoute(
+          path: '/admin',
+          pageBuilder: (context, state) => adminPage(
+            key: state.pageKey,
+            child: const AdminDashboardScreen(),
+          ),
+        ),
+        GoRoute(
+          path: '/admin/verifications',
+          pageBuilder: (context, state) => adminPage(
+            key: state.pageKey,
+            child: const AdminVerificationsScreen(),
+          ),
+        ),
+        GoRoute(
+          path: '/admin/members',
+          pageBuilder: (context, state) => adminPage(
+            key: state.pageKey,
+            child: const AdminMembersScreen(),
+          ),
+        ),
+      ],
+    ),
+    ShellRoute(
+      builder: (context, state, child) => DashboardShellHost(child: child),
+      routes: [
+        GoRoute(
+          path: '/dashboard',
+          pageBuilder: (context, state) => dashboardPage(
+            key: state.pageKey,
+            child: const DashboardScreen(),
+          ),
+        ),
+        GoRoute(
+          path: '/my-profile',
+          pageBuilder: (context, state) => dashboardPage(
+            key: state.pageKey,
+            child: const MyProfileScreen(),
+          ),
+        ),
+        GoRoute(
+          path: '/my-membership',
+          pageBuilder: (context, state) => dashboardPage(
+            key: state.pageKey,
+            child: const MyMembershipScreen(),
+          ),
+        ),
+        GoRoute(
+          path: '/my-payments',
+          pageBuilder: (context, state) => dashboardPage(
+            key: state.pageKey,
+            child: const MyPaymentsScreen(),
+          ),
+        ),
+        GoRoute(
+          path: '/announcements',
+          pageBuilder: (context, state) => dashboardPage(
+            key: state.pageKey,
+            child: const AnnouncementsScreen(),
+          ),
+        ),
+        GoRoute(
+          path: '/my-events',
+          pageBuilder: (context, state) => dashboardPage(
+            key: state.pageKey,
+            child: const DashboardEventsScreen(),
+          ),
+        ),
+        GoRoute(
+          path: '/my-gallery',
+          pageBuilder: (context, state) => dashboardPage(
+            key: state.pageKey,
+            child: const DashboardGalleryScreen(),
+          ),
+        ),
+        GoRoute(
+          path: '/connect',
+          pageBuilder: (context, state) => dashboardPage(
+            key: state.pageKey,
+            child: const DashboardConnectScreen(),
+          ),
+        ),
+        GoRoute(
+          path: '/settings',
+          pageBuilder: (context, state) => dashboardPage(
+            key: state.pageKey,
+            child: const SettingsScreen(),
+          ),
+        ),
+      ],
+    ),
+  ],
+);

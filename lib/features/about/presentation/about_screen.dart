@@ -17,22 +17,24 @@ class AboutScreen extends StatefulWidget {
 
 class _AboutScreenState extends State<AboutScreen> {
   final _cmsService = CmsService();
-  List<CmsMilestone> _milestones = CmsMilestone.fallback;
+  AboutContent? _content;
 
   @override
   void initState() {
     super.initState();
-    _loadMilestones();
+    _loadAbout();
   }
 
-  Future<void> _loadMilestones() async {
-    final milestones = await _cmsService.fetchMilestones();
+  Future<void> _loadAbout() async {
+    final content = await _cmsService.fetchAbout();
     if (!mounted) return;
-    setState(() => _milestones = milestones);
+    setState(() => _content = content);
   }
 
   @override
   Widget build(BuildContext context) {
+    final content = _content ?? AboutContent.fallback;
+
     return PublicLayout(
       child: SingleChildScrollView(
         child: Column(
@@ -62,16 +64,30 @@ class _AboutScreenState extends State<AboutScreen> {
                     children: [
                       TwoColumnSection(
                         heading: 'Our mission',
-                        child: Text(
-                          'We connect KMC alumni, practicing doctors, researchers, '
-                          'academicians, and healthcare leaders across the globe — '
-                          'fostering mentorship, reunions, and lifelong association '
-                          'with our alma mater.',
-                          style: GoogleFonts.inter(
-                            fontSize: 17,
-                            height: 1.8,
-                            color: AppColors.bodyText,
-                          ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (content.fromApi)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: Text(
+                                  'Live content from API',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.success,
+                                  ),
+                                ),
+                              ),
+                            Text(
+                              content.mission,
+                              style: GoogleFonts.inter(
+                                fontSize: 17,
+                                height: 1.8,
+                                color: AppColors.bodyText,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                       TwoColumnSection(
@@ -79,15 +95,12 @@ class _AboutScreenState extends State<AboutScreen> {
                         showDivider: false,
                         child: Column(
                           children: [
-                            for (var i = 0; i < _milestones.length; i++) ...[
+                            for (var i = 0; i < content.milestones.length; i++) ...[
                               if (i > 0) const SizedBox(height: 28),
                               _MilestoneEntry(
-                                key: ValueKey(
-                                  'about-milestone-${_milestones[i].year}',
-                                ),
-                                year: _milestones[i].year,
-                                title: _milestones[i].title,
-                                description: _milestones[i].description,
+                                year: content.milestones[i].year,
+                                title: content.milestones[i].title,
+                                description: content.milestones[i].description,
                               ),
                             ],
                           ],
@@ -108,7 +121,6 @@ class _AboutScreenState extends State<AboutScreen> {
 
 class _MilestoneEntry extends StatelessWidget {
   const _MilestoneEntry({
-    super.key,
     required this.year,
     required this.title,
     required this.description,

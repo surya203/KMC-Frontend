@@ -2,7 +2,7 @@ import 'api_client.dart';
 
 class HealthService {
   HealthService({ApiClient? apiClient})
-      : _apiClient = apiClient ?? ApiClient.instance;
+      : _apiClient = apiClient ?? ApiClient();
 
   final ApiClient _apiClient;
 

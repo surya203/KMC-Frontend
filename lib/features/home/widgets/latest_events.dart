@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_colors.dart';
-import '../../../core/network/events_service.dart';
+import '../../../core/network/events_api_service.dart';
 import '../../../core/widgets/event_card.dart';
 import 'section_header.dart';
 
@@ -14,25 +15,32 @@ class LatestEvents extends StatefulWidget {
 }
 
 class _LatestEventsState extends State<LatestEvents> {
-  final _service = EventsService();
-  List<EventSummary> _events = [];
+  final _api = EventsApiService();
+  EventItem? _event;
+  bool _loading = true;
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _loadEvent();
   }
 
-  Future<void> _load() async {
-    final events = await _service.fetchUpcoming();
-    if (!mounted) return;
-    setState(() => _events = events.take(1).toList());
+  Future<void> _loadEvent() async {
+    try {
+      final events = await _api.fetchEvents(upcoming: true);
+      if (!mounted) return;
+      setState(() {
+        _event = events.isNotEmpty ? events.first : null;
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final event = _events.isNotEmpty ? _events.first : null;
-
     return Container(
       width: double.infinity,
       color: AppColors.muted,
@@ -52,21 +60,34 @@ class _LatestEventsState extends State<LatestEvents> {
                 onAction: () => context.go('/events'),
               ),
               const SizedBox(height: 40),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 520),
-                  child: EventCard(
-                    event: event,
-                    onTap: event != null
-                        ? () => context.go('/events/${event.slug}')
-                        : () => context.go('/events'),
-                    onRegister: event != null
-                        ? () => context.go('/events/${event.slug}')
-                        : () => context.go('/events'),
+              if (_loading)
+                const SizedBox(
+                  height: 200,
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              else if (_event != null)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 520),
+                    child: EventCard(
+                      title: _event!.title,
+                      dateLabel: _event!.displayDate,
+                      venueLabel: _event!.displayVenue,
+                      registeredCount: _event!.registeredCount,
+                      coverImageUrl: _event!.coverImageUrl,
+                      registrationOpen: _event!.registrationOpen,
+                      isRegistered: _event!.isRegistered ?? false,
+                      onTap: () => context.go('/events/${_event!.slug}'),
+                      onRegister: () => context.go('/events/${_event!.slug}'),
+                    ),
                   ),
+                )
+              else
+                Text(
+                  'No upcoming events yet. Check back soon.',
+                  style: GoogleFonts.inter(color: AppColors.bodyText),
                 ),
-              ),
             ],
           ),
         ),
