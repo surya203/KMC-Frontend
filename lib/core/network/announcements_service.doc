@@ -1,18 +1,16 @@
-SHAIK RESHMA - Jul 6, 2026
-
+﻿
 File Name: announcements_service.dart
 
 1. Modification Done:
 
-   * Created API calls to list announcements, read detail (marks as read), create, update, and unpublish (delete) announcements.
-   * Added summary and detail models including read/unread state.
+   * Added category fields on list/detail models (category, categoryLabel, authorRoleLabel, authorId).
+   * Added fetchCategories(), fetchAnnouncements(category), submitContact().
+   * Create/update announcements use category instead of author_role dropdown.
 
 2. Purpose of This Modification:
 
-   * Phase 3 member dashboard must show President/Treasurer/Office updates.
-   * Executives create and edit announcements; admins can unpublish them per handbook.
+   * Announcements v2: five categories, Contact Me for members, publisher badge on cards.
 
 3. How This Modification Is Involved in the Flow:
 
-   * Used by `DashboardAnnouncementsScreen` and `DashboardAnnouncementDetailScreen`.
-   * Create/edit buttons appear for executive users; delete for admin users.
+   * Used by DashboardAnnouncementsScreen (filters, create/edit) and DashboardAnnouncementDetailScreen (Contact Me).

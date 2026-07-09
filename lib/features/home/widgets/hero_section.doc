@@ -1,11 +1,10 @@
-SHAIK RESHMA - Jul 2, 2026
-
+﻿
 File Name: hero_section.dart
 
 1. Modification Done:
 
-   * Wired “Join Alumni Network” button to navigate to `/membership`.
-   * Wired “Explore Platform” button to navigate to `/about`.
+   * Wired â€œJoin Alumni Networkâ€ button to navigate to `/membership`.
+   * Wired â€œExplore Platformâ€ button to navigate to `/about`.
    * Replaced hero background `Image.asset` with `SafeAssetImage` to avoid crashes when `hero.jpg` is missing.
    * Fixed class structure after routing imports were added.
 

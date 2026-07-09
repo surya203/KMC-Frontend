@@ -112,17 +112,29 @@ class AuthUser {
     required this.id,
     required this.email,
     required this.role,
+    this.fullName,
+    this.membershipNumber,
   });
 
   final String id;
   final String email;
   final String role;
+  final String? fullName;
+  final String? membershipNumber;
 
   factory AuthUser.fromJson(Map<String, dynamic> json) {
+    final profile = json['profile'];
+    final membership = json['membership'];
     return AuthUser(
       id: '${json['id']}',
       email: '${json['email']}',
       role: '${json['role']}',
+      fullName: profile is Map<String, dynamic>
+          ? profile['full_name'] as String?
+          : null,
+      membershipNumber: membership is Map<String, dynamic>
+          ? membership['membership_number'] as String?
+          : null,
     );
   }
 }
@@ -203,12 +215,9 @@ class AuthService {
         '${AppConfig.apiPrefix}/auth/me',
       );
       if (response.statusCode == 200 && response.data != null) {
-        final user = UserMe.fromJson(response.data!);
-        _currentUser = AuthUser(
-          id: user.id,
-          email: user.email,
-          role: user.role,
-        );
+        final data = response.data!;
+        final user = UserMe.fromJson(data);
+        _currentUser = AuthUser.fromJson(data);
         return user;
       }
       throw const ApiException('Could not load your profile.');

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/auth/auth_session.dart';
+import '../../../core/auth/role_utils.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/announcements_api_service.dart';
 
@@ -15,6 +17,20 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
   final _api = AnnouncementsApiService();
 
   List<AnnouncementItem> _items = [];
+  List<AnnouncementCategory> _categories = const [
+    AnnouncementCategory(slug: 'job_opportunities', label: 'Job Opportunities'),
+    AnnouncementCategory(
+      slug: 'hospital_training',
+      label: 'Hospital Training',
+    ),
+    AnnouncementCategory(slug: 'cme_programs', label: 'CME Programs'),
+    AnnouncementCategory(
+      slug: 'medical_workshops',
+      label: 'Medical Workshops',
+    ),
+    AnnouncementCategory(slug: 'alumni_updates', label: 'Alumni Updates'),
+  ];
+  String? _selectedCategory;
   String? _error;
   bool _loading = true;
   String? _loadingDetailId;
@@ -34,7 +50,14 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
     });
 
     try {
-      final items = await _api.fetchAnnouncements();
+      final categories = await _api.fetchCategories();
+      if (categories.isNotEmpty) _categories = categories;
+    } catch (_) {
+      // Keep fallback categories.
+    }
+
+    try {
+      final items = await _api.fetchAnnouncements(category: _selectedCategory);
       if (!mounted) return;
       setState(() {
         _items = items;
@@ -69,12 +92,17 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
         _loadingDetailId = null;
         final index = _items.indexWhere((e) => e.id == item.id);
         if (index >= 0 && !item.isRead) {
+          final current = _items[index];
           _items[index] = AnnouncementItem(
-            id: item.id,
-            title: item.title,
-            authorRole: item.authorRole,
-            publishedAt: item.publishedAt,
-            expiresAt: item.expiresAt,
+            id: current.id,
+            title: current.title,
+            category: current.category,
+            categoryLabel: current.categoryLabel,
+            authorRole: current.authorRole,
+            authorRoleLabel: current.authorRoleLabel,
+            authorId: current.authorId,
+            publishedAt: current.publishedAt,
+            expiresAt: current.expiresAt,
             isRead: true,
           );
         }
@@ -82,10 +110,269 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _loadingDetailId = null);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
-      );
+      _showMessage(e.toString());
     }
+  }
+
+  Future<void> _createAnnouncement() async {
+    final titleController = TextEditingController();
+    final bodyController = TextEditingController();
+    var category = _categories.first.slug;
+
+    final submitted = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('New announcement'),
+          content: SizedBox(
+            width: 420,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: titleController,
+                  decoration: const InputDecoration(labelText: 'Title'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: bodyController,
+                  maxLines: 5,
+                  decoration: const InputDecoration(labelText: 'Body'),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: category,
+                  decoration: const InputDecoration(labelText: 'Category'),
+                  items: [
+                    for (final item in _categories)
+                      DropdownMenuItem(
+                        value: item.slug,
+                        child: Text(item.label),
+                      ),
+                  ],
+                  onChanged: (value) =>
+                      setDialogState(() => category = value ?? category),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Publish'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (submitted != true) return;
+    if (titleController.text.trim().isEmpty ||
+        bodyController.text.trim().isEmpty) {
+      _showMessage('Title and body are required.');
+      return;
+    }
+
+    try {
+      await _api.createAnnouncement(
+        title: titleController.text.trim(),
+        body: bodyController.text.trim(),
+        category: category,
+      );
+      await _load();
+      _showMessage('Announcement published.');
+    } catch (e) {
+      _showMessage(e.toString());
+    }
+  }
+
+  Future<void> _editAnnouncement(AnnouncementItem item) async {
+    AnnouncementDetail detail;
+    try {
+      detail = await _api.fetchAnnouncementById(item.id);
+    } catch (e) {
+      _showMessage(e.toString());
+      return;
+    }
+    if (!mounted) return;
+
+    final titleController = TextEditingController(text: detail.title);
+    final bodyController = TextEditingController(text: detail.body);
+    var category = detail.category;
+
+    final submitted = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Edit announcement'),
+          content: SizedBox(
+            width: 420,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: titleController,
+                  decoration: const InputDecoration(labelText: 'Title'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: bodyController,
+                  maxLines: 5,
+                  decoration: const InputDecoration(labelText: 'Body'),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: category,
+                  decoration: const InputDecoration(labelText: 'Category'),
+                  items: [
+                    for (final item in _categories)
+                      DropdownMenuItem(
+                        value: item.slug,
+                        child: Text(item.label),
+                      ),
+                  ],
+                  onChanged: (value) =>
+                      setDialogState(() => category = value ?? category),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (submitted != true) return;
+
+    try {
+      await _api.updateAnnouncement(
+        id: item.id,
+        title: titleController.text.trim(),
+        body: bodyController.text.trim(),
+        category: category,
+      );
+      await _load();
+      _showMessage('Announcement updated.');
+    } catch (e) {
+      _showMessage(e.toString());
+    }
+  }
+
+  Future<void> _deleteAnnouncement(AnnouncementItem item) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Unpublish announcement'),
+        content: Text('Remove "${item.title}" from the member feed?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Unpublish'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      await _api.deleteAnnouncement(item.id);
+      await _load();
+      _showMessage('Announcement unpublished.');
+    } catch (e) {
+      _showMessage(e.toString());
+    }
+  }
+
+  Future<void> _contactAuthor(AnnouncementDetail detail) async {
+    final user = AuthSession.instance.currentUser;
+    final nameController = TextEditingController(text: user?.fullName ?? '');
+    final membershipController = TextEditingController(
+      text: user?.membershipNumber ?? '',
+    );
+    final detailsController = TextEditingController();
+
+    final submitted = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Contact Me'),
+        content: SizedBox(
+          width: 420,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(labelText: 'Full name'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: membershipController,
+                decoration: const InputDecoration(
+                  labelText: 'Membership number',
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: detailsController,
+                maxLines: 4,
+                decoration: const InputDecoration(
+                  labelText: 'Contact details',
+                  hintText: 'Phone, email, or how to reach you',
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Send'),
+          ),
+        ],
+      ),
+    );
+
+    if (submitted != true || !mounted) return;
+
+    try {
+      final message = await _api.submitContact(
+        announcementId: detail.id,
+        fullName: nameController.text.trim(),
+        membershipNumber: membershipController.text.trim(),
+        contactDetails: detailsController.text.trim(),
+      );
+      _showMessage(message);
+    } catch (e) {
+      _showMessage(e.toString());
+    }
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
   }
 
   @override
@@ -102,21 +389,62 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Announcements',
-                style: GoogleFonts.fraunces(
-                  fontSize: 36,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.heading,
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Announcements',
+                          style: GoogleFonts.fraunces(
+                            fontSize: 36,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.heading,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Office bearer messages and important notices.',
+                          style: GoogleFonts.inter(
+                            fontSize: 15,
+                            color: AppColors.bodyText,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (isAnnouncementPublisherUser)
+                    ElevatedButton.icon(
+                      onPressed: _createAnnouncement,
+                      icon: const Icon(Icons.campaign_outlined),
+                      label: const Text('New announcement'),
+                    ),
+                ],
               ),
-              const SizedBox(height: 6),
-              Text(
-                'Office bearer messages and important notices.',
-                style: GoogleFonts.inter(
-                  fontSize: 15,
-                  color: AppColors.bodyText,
-                ),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  FilterChip(
+                    label: const Text('All'),
+                    selected: _selectedCategory == null,
+                    onSelected: (_) {
+                      setState(() => _selectedCategory = null);
+                      _load();
+                    },
+                  ),
+                  for (final category in _categories)
+                    FilterChip(
+                      label: Text(category.label),
+                      selected: _selectedCategory == category.slug,
+                      onSelected: (_) {
+                        setState(() => _selectedCategory = category.slug);
+                        _load();
+                      },
+                    ),
+                ],
               ),
               const SizedBox(height: 20),
               if (_error != null) ...[
@@ -145,6 +473,17 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                     detail: _expandedId == item.id ? _expandedDetail : null,
                     loadingDetail: _loadingDetailId == item.id,
                     onTap: () => _toggleDetail(item),
+                    onEdit: canEditAnnouncementForUser(item.authorId)
+                        ? () => _editAnnouncement(item)
+                        : null,
+                    onDelete: isAdminUser ? () => _deleteAnnouncement(item) : null,
+                    onContact: _expandedDetail != null &&
+                            _expandedId == item.id &&
+                            _expandedDetail!.contactEnabled &&
+                            _expandedDetail!.authorId !=
+                                AuthSession.instance.currentUser?.id
+                        ? () => _contactAuthor(_expandedDetail!)
+                        : null,
                   ),
                   const SizedBox(height: 12),
                 ],
@@ -163,6 +502,9 @@ class _AnnouncementCard extends StatelessWidget {
     required this.onTap,
     this.detail,
     this.loadingDetail = false,
+    this.onEdit,
+    this.onDelete,
+    this.onContact,
   });
 
   final AnnouncementItem item;
@@ -170,6 +512,9 @@ class _AnnouncementCard extends StatelessWidget {
   final bool loadingDetail;
   final AnnouncementDetail? detail;
   final VoidCallback onTap;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
+  final VoidCallback? onContact;
 
   @override
   Widget build(BuildContext context) {
@@ -195,7 +540,7 @@ class _AnnouncementCard extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      item.authorRole.toUpperCase(),
+                      item.authorRoleLabel.toUpperCase(),
                       style: GoogleFonts.inter(
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
@@ -223,6 +568,18 @@ class _AnnouncementCard extends StatelessWidget {
                         ),
                       ),
                     ),
+                  if (onEdit != null)
+                    IconButton(
+                      tooltip: 'Edit',
+                      icon: const Icon(Icons.edit_outlined),
+                      onPressed: onEdit,
+                    ),
+                  if (onDelete != null)
+                    IconButton(
+                      tooltip: 'Unpublish',
+                      icon: const Icon(Icons.delete_outline),
+                      onPressed: onDelete,
+                    ),
                 ],
               ),
               const SizedBox(height: 8),
@@ -235,12 +592,22 @@ class _AnnouncementCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 6),
-              Text(
-                _formatDate(item.publishedAt),
-                style: GoogleFonts.inter(
-                  fontSize: 13,
-                  color: AppColors.mutedText,
-                ),
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: [
+                  Chip(
+                    label: Text(item.categoryLabel),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  Text(
+                    _formatDate(item.publishedAt),
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      color: AppColors.mutedText,
+                    ),
+                  ),
+                ],
               ),
               if (loadingDetail) ...[
                 const SizedBox(height: 16),
@@ -257,6 +624,14 @@ class _AnnouncementCard extends StatelessWidget {
                     color: AppColors.bodyText,
                   ),
                 ),
+                if (onContact != null) ...[
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    onPressed: onContact,
+                    icon: const Icon(Icons.mail_outline),
+                    label: const Text('Contact Me'),
+                  ),
+                ],
               ],
             ],
           ),
