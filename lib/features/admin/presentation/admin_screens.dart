@@ -309,7 +309,17 @@ class _AdminMembersScreenState extends State<AdminMembersScreen> {
       builder: (context) => SimpleDialog(
         title: const Text('Assign role'),
         children: [
-          for (final role in ['member', 'staff', 'executive', 'verifier', 'admin'])
+          for (final role in [
+            'member',
+            'staff',
+            'executive',
+            'verifier',
+            'president',
+            'vice_president',
+            'secretary',
+            'treasurer',
+            'admin',
+          ])
             SimpleDialogOption(
               onPressed: () => Navigator.pop(context, role),
               child: Text(role),

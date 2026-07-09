@@ -56,12 +56,14 @@ class MembershipSummary {
     required this.planName,
     required this.planSlug,
     required this.votingRights,
+    this.membershipNumber,
   });
 
   final String status;
   final String planName;
   final String planSlug;
   final bool votingRights;
+  final String? membershipNumber;
 
   factory MembershipSummary.fromJson(Map<String, dynamic> json) {
     return MembershipSummary(
@@ -69,6 +71,7 @@ class MembershipSummary {
       planName: '${json['plan_name']}',
       planSlug: '${json['plan_slug']}',
       votingRights: json['voting_rights'] == true,
+      membershipNumber: json['membership_number'] as String?,
     );
   }
 }

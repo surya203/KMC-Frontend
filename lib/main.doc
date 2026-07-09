@@ -1,5 +1,4 @@
-SHAIK RESHMA - Jul 2, 2026
-
+﻿
 File Name: main.dart
 
 1. Modification Done:
@@ -16,12 +15,11 @@ File Name: main.dart
 3. How This Modification Is Involved in the Flow:
 
    * This is the application entry point. Every user session starts here.
-   * Flow: `main()` → load `.env` → `KMCApp` → `appRouter` → `/splash` → `/` (Home) and other routes.
+   * Flow: `main()` â†’ load `.env` â†’ `KMCApp` â†’ `appRouter` â†’ `/splash` â†’ `/` (Home) and other routes.
    * Connects theme (`app_theme.dart`), routing (`app_router.dart`), and configuration used by the API and public pages.
 
 ---
 
-SHAIK RESHMA - Jul 6, 2026
 
 File Name: main.dart
 
@@ -32,7 +30,7 @@ File Name: main.dart
 
 2. Purpose of This Modification:
 
-   * Phase 2–4 require persistent login and role-aware routing from the first screen load.
+   * Phase 2â€“4 require persistent login and role-aware routing from the first screen load.
 
 3. How This Modification Is Involved in the Flow:
 

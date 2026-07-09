@@ -1,12 +1,11 @@
-SHAIK RESHMA - Jul 2, 2026
-
+﻿
 File Name: about_screen.dart
 
 1. Modification Done:
 
    * Created the About page for the KMC Alumni Connect public site.
    * Added a hero banner with page title and short introduction.
-   * Added “Our Mission” section explaining the platform’s purpose.
+   * Added â€œOur Missionâ€ section explaining the platformâ€™s purpose.
    * Added a milestones timeline for years 1959, 1985, 2008, and 2025.
    * Included the shared footer at the bottom of the page.
 
@@ -17,13 +16,12 @@ File Name: about_screen.dart
 
 3. How This Modification Is Involved in the Flow:
 
-   * Accessible from header nav, mobile drawer, footer links, and hero “Explore Platform” button.
+   * Accessible from header nav, mobile drawer, footer links, and hero â€œExplore Platformâ€ button.
    * Registered in `app_router.dart` at path `/about`.
    * Uses `public_layout.dart` for consistent navigation with Home and other public pages.
 
 ---
 
-SHAIK RESHMA - Jul 6, 2026
 
 File Name: about_screen.dart
 

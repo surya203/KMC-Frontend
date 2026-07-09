@@ -1,5 +1,4 @@
-SHAIK RESHMA - Jul 2, 2026
-
+﻿
 File Name: public_layout.dart
 
 1. Modification Done:
@@ -19,11 +18,10 @@ File Name: public_layout.dart
 
    * Wraps Home, About, Events, Gallery, Sign-in, and Membership screens.
    * All top navigation and mobile drawer items route through `go_router` paths.
-   * Users see the same KMC branding and menu on every public page, similar to the handbook’s AppShell requirement.
+   * Users see the same KMC branding and menu on every public page, similar to the handbookâ€™s AppShell requirement.
 
 ---
 
-SHAIK RESHMA - Jul 6, 2026
 
 File Name: public_layout.dart
 

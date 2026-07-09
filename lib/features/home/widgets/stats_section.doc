@@ -1,12 +1,11 @@
-SHAIK RESHMA - Jul 2, 2026
-
+﻿
 File Name: stats_section.dart
 
 1. Modification Done:
 
    * Updated stats section to accept dynamic `CommunityStats` data instead of only hard-coded numbers.
    * Displays four cards: Alumni, Batches, Upcoming Event, and Global Members.
-   * Shows a small “Live stats from API” label when data is loaded from the backend.
+   * Shows a small â€œLive stats from APIâ€ label when data is loaded from the backend.
    * Falls back to handbook default values when API data is not available.
 
 2. Purpose of This Modification:

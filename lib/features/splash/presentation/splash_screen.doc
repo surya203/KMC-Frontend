@@ -1,5 +1,4 @@
-SHAIK RESHMA - Jul 2, 2026
-
+﻿
 File Name: splash_screen.dart
 
 1. Modification Done:
@@ -17,4 +16,4 @@ File Name: splash_screen.dart
 
    * First screen users see at route `/splash` after app launch.
    * After 3 seconds, automatically redirects to `/` (Home).
-   * Connects app startup (`main.dart` → `app_router.dart`) to the main marketing experience.
+   * Connects app startup (`main.dart` â†’ `app_router.dart`) to the main marketing experience.

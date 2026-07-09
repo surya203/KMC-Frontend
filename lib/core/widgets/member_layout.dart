@@ -23,6 +23,7 @@ class MemberLayout extends StatelessWidget {
   static const _links = [
     ('Overview', '/dashboard'),
     ('Profile', '/dashboard/profile'),
+    ('Membership', '/dashboard/membership'),
     ('Announcements', '/dashboard/announcements'),
     ('My events', '/dashboard/events'),
   ];

@@ -1,5 +1,4 @@
-SHAIK RESHMA - Jul 2, 2026
-
+﻿
 File Name: app_router.dart
 
 1. Modification Done:
@@ -17,11 +16,10 @@ File Name: app_router.dart
 
    * Registered in `main.dart` via `MaterialApp.router`.
    * Header, drawer, footer links, and hero buttons use `context.go()` to these routes.
-   * User flow: `/splash` (3 seconds) → `/` (Home) → user can navigate to `/about`, `/events`, `/gallery`, `/auth`, `/membership`.
+   * User flow: `/splash` (3 seconds) â†’ `/` (Home) â†’ user can navigate to `/about`, `/events`, `/gallery`, `/auth`, `/membership`.
 
 ---
 
-SHAIK RESHMA - Jul 6, 2026
 
 File Name: app_router.dart
 
@@ -33,10 +31,28 @@ File Name: app_router.dart
 
 2. Purpose of This Modification:
 
-   * Phases 2–4 require many new URLs for auth, membership, member features, and admin tools with correct access control.
+   * Phases 2â€“4 require many new URLs for auth, membership, member features, and admin tools with correct access control.
 
 3. How This Modification Is Involved in the Flow:
 
    * Central entry for all navigation after Phase 1 public pages.
    * Works with `role_helpers.dart` for admin redirects and with `auth_session.dart` for member protection.
+
+---
+
+
+File Name: app_router.dart
+
+1. Modification Done:
+
+   * Added `/dashboard/membership` route for member membership record and donations page.
+
+2. Purpose of This Modification:
+
+   * Members need a dedicated URL for membership number, payment history, and donate flow.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Linked from Membership tab in `member_layout.dart`.
+   * Renders `DashboardMembershipScreen` inside member shell.
 

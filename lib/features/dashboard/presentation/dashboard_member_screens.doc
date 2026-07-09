@@ -1,17 +1,17 @@
-SHAIK RESHMA - Jul 6, 2026
-
+﻿
 File Name: dashboard_member_screens.dart
 
 1. Modification Done:
 
-   * Created member sub-screens: Profile editor with photo upload, Announcements list/detail with executive create/edit and admin unpublish, and My events registrations list.
-   * Profile form saves text fields and uploads photo via file picker.
+   * Announcements v2: category filter chips, create/edit with category dropdown, Contact Me dialog on detail.
+   * Added DashboardMembershipScreen: membership record fields and Donate dialog (general or project + category dropdown).
+   * Edit/delete rules: canEditAnnouncement(authorId); admin unpublish.
 
 2. Purpose of This Modification:
 
-   * Phase 3 handbook dashboard features: edit own profile, read announcements, see registered reunions.
+   * Phase 3â€“4 dashboard: profile, announcements with apply/contact, membership record and donations.
 
 3. How This Modification Is Involved in the Flow:
 
-   * Routes under `/dashboard/profile`, `/dashboard/announcements`, `/dashboard/events` in `app_router.dart`.
-   * Uses `profiles_service`, `announcements_service`, and `events_service`.
+   * Routes: /dashboard/profile, /dashboard/membership, /dashboard/announcements, /dashboard/events.
+   * Uses profiles_service, announcements_service, membership_service, events_service, razorpay_checkout.

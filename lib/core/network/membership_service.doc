@@ -1,17 +1,18 @@
-SHAIK RESHMA - Jul 6, 2026
-
+﻿
 File Name: membership_service.dart
 
 1. Modification Done:
 
-   * Created API call to fetch available membership plans from `/membership/plans`.
-   * Added a `MembershipPlan` model with display price and fallback Life plan for offline use.
+   * Added MembershipRecord model (membership number, registration/payment dates, fee, general/project donations).
+   * Added fetchMyMembership(), fetchDonationCategories(), fetchMyDonations().
+   * Added createDonationCheckout() and completeDonation() for Razorpay donate flow.
+   * Kept fetchPlans() for Join Network wizard.
 
 2. Purpose of This Modification:
 
-   * Step 1 of the Join Network wizard must show real plan names and prices from the backend.
+   * Membership dashboard: full record view and donate (general or one project category).
 
 3. How This Modification Is Involved in the Flow:
 
-   * Called on load by `membership_screen.dart`.
-   * Plan data is shown in `plan_card.dart` and used when saving the selected plan to the registration draft.
+   * fetchPlans â†’ membership_screen.dart (registration wizard).
+   * fetchMyMembership / donations â†’ DashboardMembershipScreen.

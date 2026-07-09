@@ -1,18 +1,17 @@
-SHAIK RESHMA - Jul 2, 2026
-
+﻿
 File Name: events_screen.dart
 
 1. Modification Done:
 
    * Created a placeholder Events page for Phase 1 navigation.
    * Added page header with title and description.
-   * Shows sample content for “2nd KMC Alumni Meet” (date and venue from handbook).
+   * Shows sample content for â€œ2nd KMC Alumni Meetâ€ (date and venue from handbook).
    * Notes that the full events list will connect to the API in Phase 3.
 
 2. Purpose of This Modification:
 
    * Phase 1 requires all public nav links to render a real page, even if full API integration comes later.
-   * Gives testers a destination when clicking “Events” in the menu.
+   * Gives testers a destination when clicking â€œEventsâ€ in the menu.
 
 3. How This Modification Is Involved in the Flow:
 
@@ -22,7 +21,6 @@ File Name: events_screen.dart
 
 ---
 
-SHAIK RESHMA - Jul 6, 2026
 
 File Name: events_screen.dart
 

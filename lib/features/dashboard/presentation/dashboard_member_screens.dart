@@ -3,12 +3,15 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/auth/auth_session.dart';
 import '../../../core/auth/role_helpers.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/network/announcements_service.dart';
 import '../../../core/network/events_service.dart';
+import '../../../core/network/membership_service.dart';
 import '../../../core/network/profiles_service.dart';
+import '../../../core/payments/razorpay_checkout.dart';
 import '../../../core/widgets/member_layout.dart';
 
 class DashboardProfileScreen extends StatefulWidget {
@@ -212,6 +215,8 @@ class _DashboardAnnouncementsScreenState
     extends State<DashboardAnnouncementsScreen> {
   final _service = AnnouncementsService();
   List<AnnouncementSummary> _items = [];
+  List<AnnouncementCategory> _categories = [];
+  String? _selectedCategory;
   bool _loading = true;
 
   @override
@@ -221,18 +226,93 @@ class _DashboardAnnouncementsScreenState
   }
 
   Future<void> _load() async {
-    final items = await _service.fetchAnnouncements();
-    if (!mounted) return;
-    setState(() {
-      _items = items;
-      _loading = false;
-    });
+    setState(() => _loading = true);
+
+    // Prefer API categories; keep a local fallback so the page still renders.
+    var categories = _categories.isNotEmpty
+        ? _categories
+        : const [
+            AnnouncementCategory(
+              slug: 'job_opportunities',
+              label: 'Job Opportunities',
+            ),
+            AnnouncementCategory(
+              slug: 'hospital_training',
+              label: 'Hospital Training',
+            ),
+            AnnouncementCategory(
+              slug: 'cme_programs',
+              label: 'CME Programs',
+            ),
+            AnnouncementCategory(
+              slug: 'medical_workshops',
+              label: 'Medical Workshops',
+            ),
+            AnnouncementCategory(
+              slug: 'alumni_updates',
+              label: 'Alumni Updates',
+            ),
+          ];
+
+    try {
+      categories = await _service.fetchCategories();
+    } on ApiException {
+      // Keep fallback categories.
+    }
+
+    try {
+      final items = await _service.fetchAnnouncements(
+        category: _selectedCategory,
+      );
+      if (!mounted) return;
+      setState(() {
+        _categories = categories;
+        _items = items;
+        _loading = false;
+      });
+    } on ApiException catch (error) {
+      // One retry — uvicorn --reload briefly drops connections.
+      try {
+        await Future<void>.delayed(const Duration(milliseconds: 600));
+        final items = await _service.fetchAnnouncements(
+          category: _selectedCategory,
+        );
+        if (!mounted) return;
+        setState(() {
+          _categories = categories;
+          _items = items;
+          _loading = false;
+        });
+        return;
+      } on ApiException {
+        if (!mounted) return;
+        setState(() {
+          _categories = categories;
+          _loading = false;
+        });
+        _showMessage(error.message);
+      }
+    }
   }
 
   Future<void> _createAnnouncement() async {
+    if (_categories.isEmpty) {
+      try {
+        _categories = await _service.fetchCategories();
+      } on ApiException catch (error) {
+        _showMessage(error.message);
+        return;
+      }
+    }
+    if (!mounted) return;
+    if (_categories.isEmpty) {
+      _showMessage('Categories are not available yet.');
+      return;
+    }
+
     final titleController = TextEditingController();
     final bodyController = TextEditingController();
-    var authorRole = 'office';
+    var category = _categories.first.slug;
 
     final submitted = await showDialog<bool>(
       context: context,
@@ -258,22 +338,18 @@ class _DashboardAnnouncementsScreenState
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  key: const ValueKey('announcement-role-field'),
-                  initialValue: authorRole,
-                  decoration: const InputDecoration(labelText: 'Author role'),
-                  items: const [
-                    DropdownMenuItem(
-                      value: 'president',
-                      child: Text('President'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'treasurer',
-                      child: Text('Treasurer'),
-                    ),
-                    DropdownMenuItem(value: 'office', child: Text('Office')),
+                  key: const ValueKey('announcement-category-field'),
+                  initialValue: category,
+                  decoration: const InputDecoration(labelText: 'Category'),
+                  items: [
+                    for (final item in _categories)
+                      DropdownMenuItem(
+                        value: item.slug,
+                        child: Text(item.label),
+                      ),
                   ],
                   onChanged: (value) =>
-                      setDialogState(() => authorRole = value ?? 'office'),
+                      setDialogState(() => category = value ?? category),
                 ),
               ],
             ),
@@ -304,7 +380,7 @@ class _DashboardAnnouncementsScreenState
       await _service.createAnnouncement(
         title: titleController.text.trim(),
         body: bodyController.text.trim(),
-        authorRole: authorRole,
+        category: category,
       );
       await _load();
       _showMessage('Announcement published.');
@@ -323,44 +399,72 @@ class _DashboardAnnouncementsScreenState
     }
     if (!mounted) return;
 
+    if (_categories.isEmpty) {
+      try {
+        _categories = await _service.fetchCategories();
+      } on ApiException catch (error) {
+        _showMessage(error.message);
+        return;
+      }
+    }
+    if (!mounted) return;
+
     final titleController = TextEditingController(text: detail.title);
     final bodyController = TextEditingController(text: detail.body);
+    var category = detail.category;
 
     final submitted = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Edit announcement'),
-        content: SizedBox(
-          width: 420,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                key: const ValueKey('announcement-edit-title-field'),
-                controller: titleController,
-                decoration: const InputDecoration(labelText: 'Title'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                key: const ValueKey('announcement-edit-body-field'),
-                controller: bodyController,
-                maxLines: 5,
-                decoration: const InputDecoration(labelText: 'Body'),
-              ),
-            ],
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Edit announcement'),
+          content: SizedBox(
+            width: 420,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  key: const ValueKey('announcement-edit-title-field'),
+                  controller: titleController,
+                  decoration: const InputDecoration(labelText: 'Title'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  key: const ValueKey('announcement-edit-body-field'),
+                  controller: bodyController,
+                  maxLines: 5,
+                  decoration: const InputDecoration(labelText: 'Body'),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  key: const ValueKey('announcement-edit-category-field'),
+                  initialValue: category,
+                  decoration: const InputDecoration(labelText: 'Category'),
+                  items: [
+                    for (final item in _categories)
+                      DropdownMenuItem(
+                        value: item.slug,
+                        child: Text(item.label),
+                      ),
+                  ],
+                  onChanged: (value) =>
+                      setDialogState(() => category = value ?? category),
+                ),
+              ],
+            ),
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              key: const ValueKey('announcement-edit-save-button'),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Save'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            key: const ValueKey('announcement-edit-save-button'),
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Save'),
-          ),
-        ],
       ),
     );
 
@@ -376,6 +480,7 @@ class _DashboardAnnouncementsScreenState
         id: item.id,
         title: titleController.text.trim(),
         body: bodyController.text.trim(),
+        category: category,
       );
       await _load();
       _showMessage('Announcement updated.');
@@ -427,7 +532,7 @@ class _DashboardAnnouncementsScreenState
       title: 'Announcements',
       child: Column(
         children: [
-          if (isExecutiveUser)
+          if (isAnnouncementPublisher)
             Align(
               alignment: Alignment.centerRight,
               child: Padding(
@@ -438,6 +543,33 @@ class _DashboardAnnouncementsScreenState
                   icon: const Icon(Icons.campaign_outlined),
                   label: const Text('New announcement'),
                 ),
+              ),
+            ),
+          if (_categories.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  FilterChip(
+                    label: const Text('All'),
+                    selected: _selectedCategory == null,
+                    onSelected: (_) {
+                      setState(() => _selectedCategory = null);
+                      _load();
+                    },
+                  ),
+                  for (final category in _categories)
+                    FilterChip(
+                      label: Text(category.label),
+                      selected: _selectedCategory == category.slug,
+                      onSelected: (_) {
+                        setState(() => _selectedCategory = category.slug);
+                        _load();
+                      },
+                    ),
+                ],
               ),
             ),
           Expanded(
@@ -454,7 +586,9 @@ class _DashboardAnnouncementsScreenState
                           return ListTile(
                             key: ValueKey('announcement-${item.id}'),
                             title: Text(item.title),
-                            subtitle: Text(item.authorRole),
+                            subtitle: Text(
+                              '${item.categoryLabel} · ${item.authorRoleLabel}',
+                            ),
                             trailing: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
@@ -463,7 +597,7 @@ class _DashboardAnnouncementsScreenState
                                     Icons.fiber_manual_record,
                                     size: 10,
                                   ),
-                                if (isExecutiveUser)
+                                if (canEditAnnouncement(item.authorId))
                                   IconButton(
                                     key: ValueKey(
                                       'announcement-edit-${item.id}',
@@ -518,16 +652,123 @@ class _DashboardAnnouncementDetailScreenState
   }
 
   Future<void> _load() async {
-    final item = await _service.fetchById(widget.id);
-    if (!mounted) return;
-    setState(() {
-      _item = item;
-      _loading = false;
-    });
+    try {
+      final item = await _service.fetchById(widget.id);
+      if (!mounted) return;
+      setState(() {
+        _item = item;
+        _loading = false;
+      });
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+    }
+  }
+
+  Future<void> _contactAuthor() async {
+    final item = _item;
+    if (item == null) return;
+
+    final user = authSession.user;
+    final nameController = TextEditingController(
+      text: user?.profile?.fullName ?? '',
+    );
+    final membershipController = TextEditingController(
+      text: user?.membership?.membershipNumber ?? '',
+    );
+    final detailsController = TextEditingController();
+
+    final submitted = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Contact Me'),
+        content: SizedBox(
+          width: 420,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                key: const ValueKey('announcement-contact-name-field'),
+                controller: nameController,
+                decoration: const InputDecoration(labelText: 'Full name'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                key: const ValueKey('announcement-contact-membership-field'),
+                controller: membershipController,
+                decoration: const InputDecoration(
+                  labelText: 'Membership number',
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                key: const ValueKey('announcement-contact-details-field'),
+                controller: detailsController,
+                maxLines: 4,
+                decoration: const InputDecoration(
+                  labelText: 'Contact details',
+                  hintText: 'Phone, email, or how to reach you',
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            key: const ValueKey('announcement-contact-submit-button'),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Send'),
+          ),
+        ],
+      ),
+    );
+
+    if (submitted != true || !mounted) return;
+    if (nameController.text.trim().isEmpty ||
+        membershipController.text.trim().isEmpty ||
+        detailsController.text.trim().length < 10) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Full name, membership number, and contact details are required.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    try {
+      final message = await _service.submitContact(
+        announcementId: item.id,
+        fullName: nameController.text.trim(),
+        membershipNumber: membershipController.text.trim(),
+        contactDetails: detailsController.text.trim(),
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final item = _item;
+    final isOwnAnnouncement = item != null &&
+        item.authorId == authSession.user?.id;
+
     return MemberLayout(
       currentPath: '/dashboard/announcements',
       title: 'Announcement',
@@ -535,17 +776,35 @@ class _DashboardAnnouncementDetailScreenState
           ? const Center(child: CircularProgressIndicator())
           : Padding(
               padding: const EdgeInsets.all(24),
-              child: _item == null
+              child: item == null
                   ? const Text('Not found')
                   : Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          _item!.title,
+                          item.title,
                           style: GoogleFonts.fraunces(fontSize: 28),
                         ),
+                        const SizedBox(height: 12),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            Chip(label: Text(item.categoryLabel)),
+                            Chip(label: Text(item.authorRoleLabel)),
+                          ],
+                        ),
                         const SizedBox(height: 16),
-                        Text(_item!.body),
+                        Text(item.body),
+                        if (item.contactEnabled && !isOwnAnnouncement) ...[
+                          const SizedBox(height: 24),
+                          ElevatedButton.icon(
+                            key: const ValueKey('announcement-contact-button'),
+                            onPressed: _contactAuthor,
+                            icon: const Icon(Icons.mail_outline),
+                            label: const Text('Contact Me'),
+                          ),
+                        ],
                       ],
                     ),
             ),
@@ -602,6 +861,410 @@ class _DashboardMyEventsScreenState extends State<DashboardMyEventsScreen> {
                 );
               },
             ),
+    );
+  }
+}
+
+class DashboardMembershipScreen extends StatefulWidget {
+  const DashboardMembershipScreen({super.key});
+
+  @override
+  State<DashboardMembershipScreen> createState() =>
+      _DashboardMembershipScreenState();
+}
+
+class _DashboardMembershipScreenState extends State<DashboardMembershipScreen> {
+  final _service = MembershipService();
+  MembershipRecord? _record;
+  List<DonationCategory> _categories = [];
+  List<DonationRecord> _donations = [];
+  bool _loading = true;
+  bool _donating = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    try {
+      final record = await _service.fetchMyMembership();
+      var categories = <DonationCategory>[];
+      var donations = <DonationRecord>[];
+      try {
+        categories = await _service.fetchDonationCategories();
+        donations = await _service.fetchMyDonations();
+      } on ApiException {
+        // Record should still show even if donations table is not migrated yet.
+      }
+      if (!mounted) return;
+      setState(() {
+        _record = record;
+        _categories = categories;
+        _donations = donations;
+        _loading = false;
+      });
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+    }
+  }
+
+  String _formatDate(String? iso) {
+    if (iso == null || iso.isEmpty) return '—';
+    final parsed = DateTime.tryParse(iso);
+    if (parsed == null) return iso;
+    final local = parsed.toLocal();
+    return '${local.day.toString().padLeft(2, '0')}/'
+        '${local.month.toString().padLeft(2, '0')}/'
+        '${local.year}';
+  }
+
+  Future<void> _openDonateDialog() async {
+    if (_categories.isEmpty) {
+      try {
+        _categories = await _service.fetchDonationCategories();
+      } on ApiException catch (error) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error.message)),
+        );
+        return;
+      }
+    }
+    if (!mounted) return;
+
+    final amountController = TextEditingController();
+    var donationType = 'general';
+    String? projectCategory =
+        _categories.isEmpty ? null : _categories.first.slug;
+
+    final submitted = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          final maxHeight = MediaQuery.of(context).size.height * 0.7;
+          return AlertDialog(
+            title: const Text('Make a donation'),
+            content: SizedBox(
+              width: 420,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxHeight: maxHeight),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Donate as a general donation, or to exactly one project.',
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          color: AppColors.bodyText,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        key: const ValueKey('donation-amount-field'),
+                        controller: amountController,
+                        keyboardType:
+                            const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: const InputDecoration(
+                          labelText: 'Amount (₹)',
+                          hintText: 'e.g. 500',
+                          isDense: true,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      RadioListTile<String>(
+                        key: const ValueKey('donation-type-general'),
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('General Donation'),
+                        value: 'general',
+                        groupValue: donationType,
+                        onChanged: (value) => setDialogState(
+                          () => donationType = value ?? 'general',
+                        ),
+                      ),
+                      RadioListTile<String>(
+                        key: const ValueKey('donation-type-project'),
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Project Donation'),
+                        value: 'project',
+                        groupValue: donationType,
+                        onChanged: (value) => setDialogState(
+                          () => donationType = value ?? 'project',
+                        ),
+                      ),
+                      if (donationType == 'project') ...[
+                        const SizedBox(height: 4),
+                        DropdownButtonFormField<String>(
+                          key: const ValueKey(
+                            'donation-project-category-field',
+                          ),
+                          initialValue: projectCategory,
+                          isExpanded: true,
+                          decoration: const InputDecoration(
+                            labelText: 'Project category (one only)',
+                            isDense: true,
+                          ),
+                          items: [
+                            for (final category in _categories)
+                              DropdownMenuItem(
+                                value: category.slug,
+                                child: Text(
+                                  category.label,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                          ],
+                          onChanged: (value) => setDialogState(
+                            () => projectCategory = value,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                key: const ValueKey('donation-continue-button'),
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Continue to pay'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    if (submitted != true || !mounted) return;
+
+    final rupees = double.tryParse(amountController.text.trim());
+    if (rupees == null || rupees < 1) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter an amount of at least ₹1.')),
+      );
+      return;
+    }
+    if (donationType == 'project' &&
+        (projectCategory == null || projectCategory!.isEmpty)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Choose exactly one project category.')),
+      );
+      return;
+    }
+
+    final amountPaise = (rupees * 100).round();
+    setState(() => _donating = true);
+
+    try {
+      final checkout = await _service.createDonationCheckout(
+        amountPaise: amountPaise,
+        donationType: donationType,
+        projectCategory:
+            donationType == 'project' ? projectCategory : null,
+      );
+
+      if (checkout.keyId.isNotEmpty) {
+        final paid = await openRazorpayCheckout(
+          keyId: checkout.keyId,
+          orderId: checkout.orderId,
+          amountPaise: checkout.amountPaise,
+          currency: checkout.currency,
+          description: donationType == 'general'
+              ? 'General donation'
+              : 'Donation: ${checkout.projectCategoryLabel ?? projectCategory}',
+          prefillEmail: authSession.user?.email,
+        );
+        if (!paid) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Donation payment was cancelled.')),
+          );
+          return;
+        }
+      }
+
+      final message = await _service.completeDonation(checkout.orderId);
+      await _load();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+    } finally {
+      if (mounted) setState(() => _donating = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final record = _record;
+
+    return MemberLayout(
+      currentPath: '/dashboard/membership',
+      title: 'Membership',
+      child: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : record == null
+              ? const Center(child: Text('Membership record not found.'))
+              : ListView(
+                  padding: const EdgeInsets.all(24),
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Membership record',
+                            style: GoogleFonts.fraunces(fontSize: 28),
+                          ),
+                        ),
+                        ElevatedButton.icon(
+                          key: const ValueKey('membership-donate-button'),
+                          onPressed: _donating ? null : _openDonateDialog,
+                          icon: _donating
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.volunteer_activism_outlined),
+                          label: Text(_donating ? 'Processing…' : 'Donate'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      record.planName,
+                      style: GoogleFonts.inter(
+                        color: AppColors.bodyText,
+                        fontSize: 15,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    _MembershipField(
+                      label: 'Membership Number',
+                      value: record.membershipNumber ?? '—',
+                    ),
+                    _MembershipField(
+                      label: 'Registration Date',
+                      value: _formatDate(record.registrationDate),
+                    ),
+                    _MembershipField(
+                      label: 'Payment Date',
+                      value: _formatDate(record.paymentDate),
+                    ),
+                    _MembershipField(
+                      label: 'Fee',
+                      value: record.feeDisplay,
+                    ),
+                    _MembershipField(
+                      label: 'General Donation',
+                      value: record.generalDonationDisplay,
+                    ),
+                    _MembershipField(
+                      label: 'Project Donation',
+                      value: record.projectDonationDisplay,
+                    ),
+                    if (record.projectDonations.isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      Text(
+                        'Project donations by category',
+                        style: GoogleFonts.inter(
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.heading,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      for (final item in record.projectDonations)
+                        _MembershipField(
+                          label: item.label,
+                          value: '₹${(item.totalPaise / 100).toStringAsFixed(
+                            item.totalPaise % 100 == 0 ? 0 : 2,
+                          )}',
+                        ),
+                    ],
+                    if (_donations.isNotEmpty) ...[
+                      const SizedBox(height: 28),
+                      Text(
+                        'Donation history',
+                        style: GoogleFonts.inter(
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.heading,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      for (final donation in _donations)
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(donation.title),
+                          subtitle: Text(
+                            '${donation.status} · ${_formatDate(donation.capturedAt ?? donation.createdAt)}',
+                          ),
+                          trailing: Text(donation.amountDisplay),
+                        ),
+                    ],
+                  ],
+                ),
+    );
+  }
+}
+
+class _MembershipField extends StatelessWidget {
+  const _MembershipField({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 180,
+            child: Text(
+              label,
+              style: GoogleFonts.inter(
+                color: AppColors.mutedText,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: GoogleFonts.inter(
+                color: AppColors.heading,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

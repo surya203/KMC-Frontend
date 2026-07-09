@@ -131,6 +131,10 @@ void configureRouter() {
             builder: (context, state) => const DashboardProfileScreen(),
           ),
           GoRoute(
+            path: 'membership',
+            builder: (context, state) => const DashboardMembershipScreen(),
+          ),
+          GoRoute(
             path: 'announcements',
             builder: (context, state) => const DashboardAnnouncementsScreen(),
             routes: [
