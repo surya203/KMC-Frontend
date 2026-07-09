@@ -25,6 +25,8 @@ class MemberLayout extends StatelessWidget {
     ('Profile', '/dashboard/profile'),
     ('Announcements', '/dashboard/announcements'),
     ('My events', '/dashboard/events'),
+    ('Notifications', '/dashboard/notifications'),
+    ('Gallery', '/gallery'),
   ];
 
   @override
@@ -104,7 +106,11 @@ class MemberLayout extends StatelessWidget {
                     child: ChoiceChip(
                       key: ValueKey('member-nav-${link.$1.toLowerCase().replaceAll(' ', '-')}'),
                       label: Text(link.$1),
-                      selected: currentPath == link.$2,
+                      selected: currentPath == link.$2 ||
+                          (link.$2 == '/gallery' &&
+                              currentPath.startsWith('/gallery')) ||
+                          (link.$2 == '/dashboard/events' &&
+                              currentPath.startsWith('/dashboard/events')),
                       onSelected: (_) => context.go(link.$2),
                     ),
                   ),

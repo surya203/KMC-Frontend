@@ -7,7 +7,6 @@ import '../../../core/auth/role_helpers.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/network/announcements_service.dart';
-import '../../../core/network/events_service.dart';
 import '../../../core/network/profiles_service.dart';
 import '../../../core/widgets/member_layout.dart';
 
@@ -548,59 +547,6 @@ class _DashboardAnnouncementDetailScreenState
                         Text(_item!.body),
                       ],
                     ),
-            ),
-    );
-  }
-}
-
-class DashboardMyEventsScreen extends StatefulWidget {
-  const DashboardMyEventsScreen({super.key});
-
-  @override
-  State<DashboardMyEventsScreen> createState() =>
-      _DashboardMyEventsScreenState();
-}
-
-class _DashboardMyEventsScreenState extends State<DashboardMyEventsScreen> {
-  final _service = EventsService();
-  List<MyEventRegistration> _events = [];
-  bool _loading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    final events = await _service.fetchMyRegistrations();
-    if (!mounted) return;
-    setState(() {
-      _events = events;
-      _loading = false;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return MemberLayout(
-      currentPath: '/dashboard/events',
-      title: 'My events',
-      child: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : ListView.separated(
-              padding: const EdgeInsets.all(24),
-              itemCount: _events.length,
-              separatorBuilder: (_, _) => const Divider(),
-              itemBuilder: (context, index) {
-                final event = _events[index];
-                return ListTile(
-                  key: ValueKey('my-event-${event.eventId}'),
-                  title: Text(event.title),
-                  subtitle: Text('Registered · ${event.registeredCount} total'),
-                  onTap: () => context.go('/events/${event.slug}'),
-                );
-              },
             ),
     );
   }

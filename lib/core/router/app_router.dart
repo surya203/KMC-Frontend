@@ -10,6 +10,7 @@ import '../../features/auth/presentation/sign_in_screen.dart';
 import '../../features/dashboard/presentation/dashboard_member_screens.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
 import '../../features/events/presentation/events_screen.dart';
+import '../../features/events/presentation/member_events_screens.dart';
 import '../../features/gallery/presentation/gallery_screen.dart';
 import '../../features/home/presentation/home_screen.dart';
 import '../../features/membership/presentation/membership_screen.dart';
@@ -28,9 +29,14 @@ void configureRouter() {
       final path = state.uri.path;
       final isMemberArea =
           path == '/dashboard' || path.startsWith('/dashboard/');
+      final isGalleryArea = path == '/gallery' || path.startsWith('/gallery/');
       final isAdminArea = path == '/admin' || path.startsWith('/admin/');
 
       if (isMemberArea && !authSession.isAuthenticated) {
+        return '/auth';
+      }
+
+      if (isGalleryArea && !authSession.isAuthenticated) {
         return '/auth';
       }
 
@@ -145,6 +151,18 @@ void configureRouter() {
           GoRoute(
             path: 'events',
             builder: (context, state) => const DashboardMyEventsScreen(),
+            routes: [
+              GoRoute(
+                path: ':slug',
+                builder: (context, state) => MemberEventDetailScreen(
+                  slug: state.pathParameters['slug']!,
+                ),
+              ),
+            ],
+          ),
+          GoRoute(
+            path: 'notifications',
+            builder: (context, state) => const DashboardNotificationsScreen(),
           ),
         ],
       ),
@@ -163,10 +181,6 @@ void configureRouter() {
           GoRoute(
             path: 'events',
             builder: (context, state) => const AdminEventsScreen(),
-          ),
-          GoRoute(
-            path: 'gallery',
-            builder: (context, state) => const AdminGalleryScreen(),
           ),
         ],
       ),

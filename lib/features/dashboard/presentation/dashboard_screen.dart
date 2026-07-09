@@ -52,6 +52,11 @@ class DashboardScreen extends StatelessWidget {
                       onTap: () => context.go('/dashboard/events'),
                     ),
                     _QuickLink(
+                      key: const ValueKey('dashboard-gallery-link'),
+                      label: 'Gallery',
+                      onTap: () => context.go('/gallery'),
+                    ),
+                    _QuickLink(
                       key: const ValueKey('dashboard-browse-events'),
                       label: 'Browse events',
                       onTap: () => context.go('/events'),

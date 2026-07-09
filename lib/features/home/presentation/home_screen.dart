@@ -6,7 +6,6 @@ import '../../../core/widgets/public_layout.dart';
 import '../widgets/api_status_banner.dart';
 import '../widgets/footer_section.dart';
 import '../widgets/featured_alumni_section.dart';
-import '../widgets/gallery_preview.dart';
 import '../widgets/hero_section.dart';
 import '../widgets/latest_events.dart';
 import '../widgets/platform_features_section.dart';
@@ -59,7 +58,6 @@ class _HomeScreenState extends State<HomeScreen> {
             const PlatformFeaturesSection(),
             const FeaturedAlumniSection(),
             const LatestEvents(),
-            const GalleryPreview(),
             const ReconnectSection(),
             const FooterSection(),
           ],

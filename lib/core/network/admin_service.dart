@@ -4,7 +4,6 @@ import '../config/app_config.dart';
 import 'api_client.dart';
 import 'api_exception.dart';
 import 'events_service.dart';
-import 'gallery_service.dart';
 
 class AnalyticsOverview {
   const AnalyticsOverview({
@@ -275,65 +274,6 @@ class AdminService {
   Future<void> deleteEvent(String eventId) async {
     await _apiClient.dio.delete(
       '${AppConfig.apiPrefix}/admin/events/$eventId',
-    );
-  }
-
-  Future<List<GalleryAlbum>> fetchAdminAlbums() async {
-    final response = await _apiClient.get<List<dynamic>>(
-      '${AppConfig.apiPrefix}/admin/gallery/albums',
-    );
-    final albums = response.data;
-    if (response.statusCode == 200 && albums != null) {
-      return [
-        for (final item in albums)
-          if (item is Map<String, dynamic>) GalleryAlbum.fromJson(item),
-      ];
-    }
-    return const [];
-  }
-
-  Future<void> createAlbum({
-    required String slug,
-    required String title,
-    String? description,
-    bool publish = true,
-  }) async {
-    await _apiClient.post<Map<String, dynamic>>(
-      '${AppConfig.apiPrefix}/admin/gallery/albums',
-      data: {
-        'slug': slug,
-        'title': title,
-        'description': ?description,
-        'publish': publish,
-      },
-    );
-  }
-
-  Future<void> updateAlbum(String albumId, Map<String, dynamic> body) async {
-    await _apiClient.patch<Map<String, dynamic>>(
-      '${AppConfig.apiPrefix}/admin/gallery/albums/$albumId',
-      data: body,
-    );
-  }
-
-  Future<void> deleteAlbum(String albumId) async {
-    await _apiClient.dio.delete(
-      '${AppConfig.apiPrefix}/admin/gallery/albums/$albumId',
-    );
-  }
-
-  Future<void> uploadGalleryMedia({
-    required String albumId,
-    required List<int> bytes,
-    required String filename,
-  }) async {
-    final formData = FormData.fromMap({
-      'album_id': albumId,
-      'files': MultipartFile.fromBytes(bytes, filename: filename),
-    });
-    await _apiClient.postMultipart<Map<String, dynamic>>(
-      '${AppConfig.apiPrefix}/admin/gallery/media',
-      data: formData,
     );
   }
 }

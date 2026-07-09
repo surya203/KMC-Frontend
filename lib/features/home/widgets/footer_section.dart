@@ -154,7 +154,6 @@ class FooterSection extends StatelessWidget {
         const SizedBox(height: 26),
         _footerLink(context, 'About', '/about'),
         _footerLink(context, 'Events', '/events'),
-        _footerLink(context, 'Gallery', '/gallery'),
         _footerLink(context, 'MY KMC', '/auth'),
       ],
     );

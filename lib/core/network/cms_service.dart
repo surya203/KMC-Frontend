@@ -133,15 +133,4 @@ class CmsService {
     }
     return CmsMilestone.fallback;
   }
-
-  static const galleryAlbums = [
-    ('Grand Get-Together 2026', 'assets/images/gallery_01.webp'),
-    ('Tricolour Stage Tribute', 'assets/images/gallery_02.webp'),
-    ('Felicitation on Stage', 'assets/images/gallery_03.webp'),
-    ('Alumni Speeches', 'assets/images/gallery_04.webp'),
-    ("Chief Patron's Address", 'assets/images/gallery_05.webp'),
-    ('Young Alumna Speaks', 'assets/images/gallery_06.webp'),
-    ('Alumnae of KMC', 'assets/images/gallery_07.webp'),
-    ('Welcome Desk', 'assets/images/gallery_08.webp'),
-  ];
 }

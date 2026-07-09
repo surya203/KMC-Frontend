@@ -24,7 +24,6 @@ class AdminLayout extends StatelessWidget {
       if (isVerifierUser) ('Verifications', '/admin/verifications'),
       if (canManageMembers) ('Members', '/admin/members'),
       if (isStaffUser) ('Events', '/admin/events'),
-      if (isStaffUser) ('Gallery', '/admin/gallery'),
     ];
 
     return Scaffold(

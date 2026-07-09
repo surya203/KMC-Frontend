@@ -6,7 +6,7 @@ import '../constants/app_colors.dart';
 import '../network/events_service.dart';
 import '../utils/date_format.dart';
 import 'cover_image.dart';
-import 'safe_asset_image.dart';
+import 'event_hero_image.dart';
 
 class EventCard extends StatelessWidget {
   const EventCard({
@@ -15,20 +15,22 @@ class EventCard extends StatelessWidget {
     this.onTap,
     this.onRegister,
     this.showRegisterButton = true,
+    this.showHeroImage = true,
+    this.heroAssetPath,
   });
 
   final EventSummary? event;
   final VoidCallback? onTap;
   final VoidCallback? onRegister;
   final bool showRegisterButton;
+  final bool showHeroImage;
+  final String? heroAssetPath;
 
   @override
   Widget build(BuildContext context) {
     final data = event;
-    final title = data?.title ?? '2nd KMC Alumni Meet';
-    final dateLabel = data != null
-        ? formatEventDate(data.startsAt)
-        : '6 Jun 2027';
+    final title = _displayTitle(data);
+    final dateLabel = _displayDate(data);
     final location = data?.locationLabel ?? 'HITEX Novotel, Hyderabad';
     final count = data?.registeredCount ?? 0;
 
@@ -41,16 +43,18 @@ class EventCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            data != null
-                ? CoverImage(imageUrl: data.coverImageUrl)
-                : const SizedBox(
-                    height: 240,
-                    child: SafeAssetImage(
-                      assetPath: AppAssets.eventBanner,
-                      fit: BoxFit.cover,
-                      expandToFill: true,
-                    ),
-                  ),
+            if (showHeroImage)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                child: heroAssetPath != null || data == null
+                    ? EventHeroImage(
+                        height: 320,
+                        borderRadius: 16,
+                        assetPath:
+                            heroAssetPath ?? AppAssets.eventsUpcomingHero,
+                      )
+                    : CoverImage(imageUrl: data.coverImageUrl),
+              ),
             Padding(
               padding: const EdgeInsets.all(24),
               child: Column(
@@ -127,6 +131,21 @@ class EventCard extends StatelessWidget {
       ),
     );
   }
+}
+
+String _displayTitle(EventSummary? data) {
+  if (data == null) return 'Scientific Sessions';
+  if (data.slug == '2nd-kmc-alumni-meet' ||
+      data.title == '2nd KMC Alumni Meet') {
+    return 'Scientific Sessions';
+  }
+  return data.title;
+}
+
+String _displayDate(EventSummary? data) {
+  if (data == null) return '5 Jun 2027';
+  if (data.slug == '2nd-kmc-alumni-meet') return '5 Jun 2027';
+  return formatEventDate(data.startsAt);
 }
 
 class _MetaRow extends StatelessWidget {

@@ -16,7 +16,6 @@ class PublicAppBar extends StatelessWidget implements PreferredSizeWidget {
     ('Home', '/'),
     ('About', '/about'),
     ('Events', '/events'),
-    ('Gallery', '/gallery'),
   ];
 
   String get _myKmcPath => authSession.memberDestination;
@@ -314,12 +313,6 @@ class PublicDrawer extends StatelessWidget {
                   key: const ValueKey('drawer-events'),
                   label: 'Events',
                   path: '/events',
-                  currentPath: currentPath,
-                ),
-                _DrawerTile(
-                  key: const ValueKey('drawer-gallery'),
-                  label: 'Gallery',
-                  path: '/gallery',
                   currentPath: currentPath,
                 ),
                 _DrawerTile(
