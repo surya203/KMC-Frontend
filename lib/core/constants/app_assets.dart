@@ -5,14 +5,7 @@ class AppAssets {
   static const String hero = 'assets/images/hero_lovable.webp';
   static const String eventBanner = 'assets/images/event_banner.webp';
 
-  static const galleryImages = [
-    'assets/images/gallery_01.webp',
-    'assets/images/gallery_02.webp',
-    'assets/images/gallery_03.webp',
-    'assets/images/gallery_04.webp',
-    'assets/images/gallery_05.webp',
-    'assets/images/gallery_06.webp',
-    'assets/images/gallery_07.webp',
-    'assets/images/gallery_08.webp',
-  ];
+  /// Replace `assets/images/events_upcoming_hero.png` with your event banner.
+  static const String eventsUpcomingHero =
+      'assets/images/events_upcoming_hero.png';
 }

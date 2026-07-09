@@ -141,14 +141,8 @@ class _EventGrid extends StatelessWidget {
         for (final event in events)
           SizedBox(
             width: 520,
-            child: EventCard(
-              title: event.title,
-              dateLabel: event.displayDate,
-              venueLabel: event.displayVenue,
-              registeredCount: event.registeredCount,
-              coverImageUrl: event.coverImageUrl,
-              registrationOpen: event.registrationOpen,
-              isRegistered: event.isRegistered ?? false,
+            child: EventCard.fromEventItem(
+              event,
               onTap: () => context.go('/events/${event.slug}'),
               onRegister: () => context.go('/events/${event.slug}'),
             ),

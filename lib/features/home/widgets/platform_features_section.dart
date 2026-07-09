@@ -34,12 +34,6 @@ class PlatformFeaturesSection extends StatelessWidget {
       '/events',
     ),
     (
-      Icons.photo_library_outlined,
-      'Alumni Gallery',
-      'Decades of memories, curated and searchable.',
-      '/gallery',
-    ),
-    (
       Icons.notifications_active_outlined,
       'Smart Notifications',
       'Stay informed across web, email, and mobile.',
