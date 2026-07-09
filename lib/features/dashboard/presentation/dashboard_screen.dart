@@ -112,8 +112,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         membership: _membership,
                       ),
                       const SizedBox(height: 18),
-                      const _DashboardQuickLinks(),
-                      const SizedBox(height: 18),
                       if (_error != null) _InlineError(message: _error!),
                       _StatsGrid(
                         membership: _membership,
@@ -297,7 +295,7 @@ class _HeroCard extends StatelessWidget {
             runSpacing: 10,
             children: [
               OutlinedButton(
-                onPressed: () => context.go('/dashboard/profile'),
+                onPressed: () => context.go('/my-profile'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.white,
                   side: const BorderSide(color: Color(0x66FFFFFF)),
@@ -305,7 +303,7 @@ class _HeroCard extends StatelessWidget {
                 child: const Text('View Profile'),
               ),
               ElevatedButton(
-                onPressed: () => context.go('/dashboard/events'),
+                onPressed: () => context.go('/my-events'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.secondary,
                   foregroundColor: AppColors.primary,
@@ -668,7 +666,7 @@ class _UpcomingReunionsCard extends StatelessWidget {
               ),
               const Spacer(),
               TextButton(
-                onPressed: () => context.go('/dashboard/events'),
+                onPressed: () => context.go('/my-events'),
                 child: const Text('View all'),
               ),
             ],
@@ -795,7 +793,7 @@ class _RecentNotificationsCard extends StatelessWidget {
                       fontSize: 12,
                     ),
                   ),
-                  onTap: () => context.go('/dashboard/announcements'),
+                  onTap: () => context.go('/announcements'),
                 ),
               ),
             ],
@@ -829,7 +827,7 @@ class _LatestAnnouncementsSection extends StatelessWidget {
             ),
             const Spacer(),
             TextButton(
-              onPressed: () => context.go('/dashboard/announcements'),
+              onPressed: () => context.go('/announcements'),
               child: const Text('View all'),
             ),
           ],
@@ -878,7 +876,7 @@ class _AnnouncementTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: () => context.go('/dashboard/announcements'),
+      onTap: () => context.go('/announcements'),
       borderRadius: BorderRadius.circular(14),
       child: Container(
         padding: const EdgeInsets.all(18),
@@ -986,71 +984,6 @@ class _InlineError extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
         ),
         child: Text(message, style: GoogleFonts.inter(color: AppColors.warning)),
-      ),
-    );
-  }
-}
-
-class _DashboardQuickLinks extends StatelessWidget {
-  const _DashboardQuickLinks();
-
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 12,
-      runSpacing: 12,
-      children: [
-        _QuickLink(
-          key: const ValueKey('dashboard-profile-link'),
-          label: 'Edit profile',
-          onTap: () => context.go('/dashboard/profile'),
-        ),
-        _QuickLink(
-          key: const ValueKey('dashboard-announcements-link'),
-          label: 'Announcements',
-          onTap: () => context.go('/dashboard/announcements'),
-        ),
-        _QuickLink(
-          key: const ValueKey('dashboard-my-events-link'),
-          label: 'My events',
-          onTap: () => context.go('/dashboard/events'),
-        ),
-        _QuickLink(
-          key: const ValueKey('dashboard-gallery-link'),
-          label: 'Gallery',
-          onTap: () => context.go('/gallery'),
-        ),
-        _QuickLink(
-          key: const ValueKey('dashboard-browse-events'),
-          label: 'Browse events',
-          onTap: () => context.go('/events'),
-        ),
-        _QuickLink(
-          label: 'Alumni directory',
-          onTap: () => context.go('/profiles'),
-        ),
-      ],
-    );
-  }
-}
-
-class _QuickLink extends StatelessWidget {
-  const _QuickLink({
-    super.key,
-    required this.label,
-    required this.onTap,
-  });
-
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return OutlinedButton(
-      onPressed: onTap,
-      child: Text(
-        label,
-        style: GoogleFonts.inter(fontWeight: FontWeight.w600),
       ),
     );
   }

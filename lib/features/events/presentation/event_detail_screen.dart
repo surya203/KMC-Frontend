@@ -196,8 +196,14 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        EventCard.fromEventItem(
-          event,
+        EventCard(
+          title: event.title,
+          dateLabel: event.displayDate,
+          venueLabel: event.displayVenue,
+          registeredCount: event.registeredCount,
+          coverImageUrl: event.coverImageUrl,
+          registrationOpen: event.registrationOpen,
+          isRegistered: event.isRegistered ?? false,
           onRegister: _registering || (event.isRegistered ?? false)
               ? null
               : _register,

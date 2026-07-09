@@ -39,6 +39,10 @@ class QuickActions extends StatelessWidget {
                 title: "Events",
               ),
               ActionCard(
+                icon: Icons.photo_library,
+                title: "Gallery",
+              ),
+              ActionCard(
                 icon: Icons.work,
                 title: "Jobs",
               ),

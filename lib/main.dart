@@ -11,8 +11,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   GoogleFonts.config.allowRuntimeFetching = true;
   await dotenv.load(fileName: '.env', isOptional: true);
-  configureRouter();
-  await authSession.bootstrap();
+  await AuthSession.instance.initialize();
   await GoogleFonts.pendingFonts([
     GoogleFonts.fraunces(fontWeight: FontWeight.w600),
     GoogleFonts.fraunces(
