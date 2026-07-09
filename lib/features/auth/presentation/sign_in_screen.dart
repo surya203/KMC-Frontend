@@ -30,10 +30,12 @@ class _SignInScreenState extends State<SignInScreen> {
     super.didChangeDependencies();
     if (_emailPrefilled) return;
     final email = GoRouterState.of(context).uri.queryParameters['email'];
-    if (email != null && email.isNotEmpty) {
+    if (email == null || email.isEmpty) return;
+    _emailPrefilled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       _emailController.text = email;
-      _emailPrefilled = true;
-    }
+    });
   }
 
   @override
@@ -72,6 +74,26 @@ class _SignInScreenState extends State<SignInScreen> {
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  Future<void> _showForgotPasswordDialog() async {
+    final email = _emailController.text.trim();
+    if (email.isEmpty) {
+      setState(() => _errorMessage = 'Enter your email first, then tap Forgot password.');
+      return;
+    }
+
+    final newPassword = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => _ForgotPasswordDialog(
+        email: email,
+        authService: _authService,
+      ),
+    );
+
+    if (!mounted || newPassword == null) return;
+    _passwordController.text = newPassword;
+    setState(() => _errorMessage = 'Password updated. You can sign in now.');
   }
 
   @override
@@ -180,6 +202,19 @@ class _SignInScreenState extends State<SignInScreen> {
                             const SizedBox(height: 20),
                             Center(
                               child: TextButton(
+                                onPressed: _isLoading ? null : _showForgotPasswordDialog,
+                                child: Text(
+                                  'Forgot password?',
+                                  style: GoogleFonts.inter(
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.heading,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Center(
+                              child: TextButton(
                                 onPressed: () => context.go('/membership'),
                                 child: Text.rich(
                                   TextSpan(
@@ -213,6 +248,137 @@ class _SignInScreenState extends State<SignInScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _ForgotPasswordDialog extends StatefulWidget {
+  const _ForgotPasswordDialog({
+    required this.email,
+    required this.authService,
+  });
+
+  final String email;
+  final AuthService authService;
+
+  @override
+  State<_ForgotPasswordDialog> createState() => _ForgotPasswordDialogState();
+}
+
+class _ForgotPasswordDialogState extends State<_ForgotPasswordDialog> {
+  final _tokenController = TextEditingController();
+  final _passwordController = TextEditingController();
+  String? _statusMessage;
+  bool _busy = false;
+
+  @override
+  void dispose() {
+    _tokenController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _requestReset() async {
+    setState(() {
+      _busy = true;
+      _statusMessage = 'Sending reset instructions...';
+    });
+    try {
+      final result = await widget.authService.forgotPassword(email: widget.email);
+      if (!mounted) return;
+      setState(() {
+        _statusMessage = result.message;
+        if (result.debugResetToken != null) {
+          _tokenController.text = result.debugResetToken!;
+        }
+      });
+    } on AuthException catch (e) {
+      if (!mounted) return;
+      setState(() => _statusMessage = e.message);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _applyReset() async {
+    final token = _tokenController.text.trim();
+    final password = _passwordController.text;
+    if (token.isEmpty || password.length < 8) {
+      setState(() {
+        _statusMessage = 'Enter the reset token and a password (8+ characters).';
+      });
+      return;
+    }
+
+    setState(() {
+      _busy = true;
+      _statusMessage = 'Updating password...';
+    });
+    try {
+      await widget.authService.resetPassword(token: token, newPassword: password);
+      if (!mounted) return;
+      Navigator.of(context).pop(password);
+    } on AuthException catch (e) {
+      if (!mounted) return;
+      setState(() => _statusMessage = e.message);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Reset password'),
+      content: SizedBox(
+        width: 420,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('Email: ${widget.email}'),
+            const SizedBox(height: 12),
+            OutlinedButton(
+              onPressed: _busy ? null : _requestReset,
+              child: const Text('Send reset link'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _tokenController,
+              decoration: const InputDecoration(
+                labelText: 'Reset token',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _passwordController,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: 'New password',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            if (_statusMessage != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                _statusMessage!,
+                style: const TextStyle(fontSize: 13),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _busy ? null : () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _busy ? null : _applyReset,
+          child: const Text('Set new password'),
+        ),
+      ],
     );
   }
 }
