@@ -5,6 +5,7 @@ import '../../../core/auth/auth_session.dart';
 import '../../../core/auth/role_utils.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/announcements_api_service.dart';
+import '../../../core/utils/membership_number_format.dart';
 
 class AnnouncementsScreen extends StatefulWidget {
   const AnnouncementsScreen({super.key});
@@ -304,7 +305,12 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
     final user = AuthSession.instance.currentUser;
     final nameController = TextEditingController(text: user?.fullName ?? '');
     final membershipController = TextEditingController(
-      text: user?.membershipNumber ?? '',
+      text: MembershipNumberFormat.displayOrFallback(
+        storedMembershipNumber: user?.membershipNumber,
+        batchYear: user?.batchYear,
+        fullName: user?.fullName,
+        fallback: user?.membershipNumber ?? '',
+      ),
     );
     final detailsController = TextEditingController();
 

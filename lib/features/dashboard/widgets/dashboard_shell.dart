@@ -1,30 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/search/app_search_result.dart';
+import '../../../core/search/app_search_service.dart';
 import '../../../core/constants/app_assets.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/safe_asset_image.dart';
-
-class DashboardNavItem {
-  const DashboardNavItem(this.label, this.icon, this.path);
-
-  final String label;
-  final IconData icon;
-  final String path;
-}
-
-const dashboardNavItems = <DashboardNavItem>[
-  DashboardNavItem('Dashboard', Icons.grid_view_rounded, '/dashboard'),
-  DashboardNavItem('My Profile', Icons.person_outline_rounded, '/my-profile'),
-  DashboardNavItem('Membership', Icons.workspace_premium_outlined, '/my-membership'),
-  DashboardNavItem('Events', Icons.event_outlined, '/my-events'),
-  DashboardNavItem('Gallery', Icons.photo_library_outlined, '/my-gallery'),
-  DashboardNavItem('Announcements', Icons.campaign_outlined, '/announcements'),
-  DashboardNavItem('Connect', Icons.people_outline_rounded, '/connect'),
-  DashboardNavItem('Payments', Icons.payments_outlined, '/my-payments'),
-  DashboardNavItem('Settings', Icons.settings_outlined, '/settings'),
-];
+import 'dashboard_nav_items.dart';
 
 class DashboardShell extends StatelessWidget {
   const DashboardShell({
@@ -34,8 +19,8 @@ class DashboardShell extends StatelessWidget {
     required this.child,
     required this.onSignOut,
     required this.searchController,
+    required this.searchService,
     this.profileName,
-    this.onSearchTap,
   });
 
   final String currentPath;
@@ -43,8 +28,8 @@ class DashboardShell extends StatelessWidget {
   final Widget child;
   final VoidCallback onSignOut;
   final TextEditingController searchController;
+  final AppSearchService searchService;
   final String? profileName;
-  final VoidCallback? onSearchTap;
 
   @override
   Widget build(BuildContext context) {
@@ -78,11 +63,11 @@ class DashboardShell extends StatelessWidget {
                   DashboardTopBar(
                     title: title,
                     searchController: searchController,
+                    searchService: searchService,
                     profileName: profileName,
                     onMenuTap: isDesktop
                         ? null
                         : () => Scaffold.of(scaffoldContext).openDrawer(),
-                    onSearchTap: onSearchTap ?? () => context.go('/connect'),
                   ),
                   Expanded(
                     child: ColoredBox(
@@ -163,7 +148,7 @@ class DashboardSidebar extends StatelessWidget {
                   for (final item in dashboardNavItems)
                     _SidebarNavTile(
                       item: item,
-                      active: item.path == currentPath,
+                      active: dashboardNavItemIsActive(item.path, currentPath),
                       currentPath: currentPath,
                     ),
                 ],
@@ -241,82 +226,400 @@ class _SidebarNavTile extends StatelessWidget {
   }
 }
 
-class DashboardTopBar extends StatelessWidget {
+class DashboardTopBar extends StatefulWidget {
   const DashboardTopBar({
     super.key,
     required this.title,
     required this.searchController,
-    required this.onSearchTap,
+    required this.searchService,
+    required this.onMenuTap,
     this.profileName,
-    this.onMenuTap,
   });
 
   final String title;
   final TextEditingController searchController;
-  final VoidCallback onSearchTap;
-  final String? profileName;
+  final AppSearchService searchService;
   final VoidCallback? onMenuTap;
+  final String? profileName;
+
+  @override
+  State<DashboardTopBar> createState() => _DashboardTopBarState();
+}
+
+class _DashboardTopBarState extends State<DashboardTopBar> {
+  bool _searchExpanded = false;
+  bool _searching = false;
+  bool _hasSearched = false;
+  List<AppSearchResult> _results = [];
+  final _searchFocusNode = FocusNode();
+  Timer? _debounce;
+  int _searchGeneration = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.searchController.addListener(_onQueryChanged);
+  }
+
+  @override
+  void didUpdateWidget(covariant DashboardTopBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.title != widget.title && _searchExpanded) {
+      _collapseSearch();
+    }
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    widget.searchController.removeListener(_onQueryChanged);
+    _searchFocusNode.dispose();
+    super.dispose();
+  }
+
+  void _onQueryChanged() {
+    final query = widget.searchController.text.trim();
+
+    if (!_searchExpanded && query.isNotEmpty) {
+      setState(() => _searchExpanded = true);
+    }
+
+    _debounce?.cancel();
+
+    if (query.length < 2) {
+      setState(() {
+        _results = [];
+        _hasSearched = false;
+        _searching = false;
+      });
+      return;
+    }
+
+    // Drop stale rows immediately so taps cannot use the previous query.
+    setState(() {
+      _results = [];
+      _searching = true;
+      _hasSearched = false;
+    });
+
+    _debounce = Timer(const Duration(milliseconds: 300), _runSearch);
+  }
+
+  void _expandSearch() {
+    setState(() => _searchExpanded = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _searchFocusNode.requestFocus();
+    });
+  }
+
+  void _collapseSearch({bool clearQuery = false}) {
+    _debounce?.cancel();
+    if (clearQuery) widget.searchController.clear();
+    _searchFocusNode.unfocus();
+    setState(() {
+      _searchExpanded = false;
+      _results = [];
+      _hasSearched = false;
+      _searching = false;
+    });
+  }
+
+  Future<void> _runSearch() async {
+    final query = widget.searchController.text.trim();
+    if (query.length < 2) {
+      if (!mounted) return;
+      setState(() {
+        _results = [];
+        _hasSearched = false;
+        _searching = false;
+      });
+      return;
+    }
+
+    final generation = ++_searchGeneration;
+    setState(() {
+      _searching = true;
+      _hasSearched = true;
+    });
+
+    final results = await widget.searchService.search(query);
+    if (!mounted || generation != _searchGeneration) return;
+
+    setState(() {
+      _results = results;
+      _searching = false;
+    });
+  }
+
+  Future<void> _submitSearch() async {
+    await _runSearch();
+    if (!mounted) return;
+
+    final query = widget.searchController.text.trim();
+    if (query.length < 2) return;
+
+    if (_results.isEmpty) {
+      setState(() => _hasSearched = true);
+      return;
+    }
+
+    final target = _pickBestResult(query);
+    if (target != null) {
+      _openResult(target);
+    }
+  }
+
+  AppSearchResult? _pickBestResult(String query) {
+    if (_results.isEmpty) return null;
+
+    final q = query.toLowerCase();
+
+    for (final result in _results) {
+      if (result.type == AppSearchResultType.page &&
+          result.title.toLowerCase() == q) {
+        return result;
+      }
+    }
+
+    for (final result in _results) {
+      if (result.type == AppSearchResultType.page &&
+          result.title.toLowerCase().startsWith(q)) {
+        return result;
+      }
+    }
+
+    final pageResults = _results
+        .where((result) => result.type == AppSearchResultType.page)
+        .toList();
+    if (pageResults.length == 1 && pageResults.first.score >= 60) {
+      return pageResults.first;
+    }
+
+    if (_results.length == 1) return _results.first;
+
+    return null;
+  }
+
+  void _openResult(AppSearchResult result) {
+    final scaffold = Scaffold.maybeOf(context);
+    if (scaffold?.isDrawerOpen ?? false) {
+      Navigator.of(context).pop();
+    }
+    context.go(result.route);
+    _collapseSearch(clearQuery: true);
+  }
+
+  InputDecoration _searchDecoration() {
+    return InputDecoration(
+      hintText: 'Search alumni, events, pages...',
+      prefixIcon: const Icon(Icons.search, size: 20),
+      filled: true,
+      fillColor: AppColors.background,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: AppColors.border),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: AppColors.border),
+      ),
+      isDense: true,
+      contentPadding: const EdgeInsets.symmetric(vertical: 10),
+    );
+  }
+
+  Widget _buildResultsPanel() {
+    final query = widget.searchController.text.trim();
+    if (query.length < 2) return const SizedBox.shrink();
+
+    if (_searching) {
+      return const Padding(
+        padding: EdgeInsets.only(top: 8),
+        child: LinearProgressIndicator(minHeight: 2),
+      );
+    }
+
+    if (_hasSearched && _results.isEmpty) {
+      return Container(
+        width: double.infinity,
+        margin: const EdgeInsets.only(top: 8),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Text(
+          'No results for "$query"',
+          style: GoogleFonts.inter(color: AppColors.bodyText),
+        ),
+      );
+    }
+
+    if (_results.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 8),
+      constraints: const BoxConstraints(maxHeight: 280),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ListView.separated(
+        shrinkWrap: true,
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        itemCount: _results.length,
+        separatorBuilder: (context, index) =>
+            const Divider(height: 1, indent: 56),
+        itemBuilder: (context, index) {
+          final result = _results[index];
+          return Material(
+            color: Colors.transparent,
+            child: ListTile(
+              dense: true,
+              leading: CircleAvatar(
+                radius: 16,
+                backgroundColor: AppColors.background,
+                child: Icon(result.icon, size: 18, color: AppColors.primary),
+              ),
+              title: Text(
+                result.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.inter(
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.heading,
+                  fontSize: 14,
+                ),
+              ),
+              subtitle: Text(
+                result.subtitle ?? result.typeLabel,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.inter(
+                  color: AppColors.bodyText,
+                  fontSize: 12,
+                ),
+              ),
+              onTap: () => _openResult(result),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  bool get _showSearchField {
+    final isCompact = MediaQuery.sizeOf(context).width < 700;
+    return isCompact ? _searchExpanded : true;
+  }
 
   @override
   Widget build(BuildContext context) {
-    final initial = (profileName?.isNotEmpty == true)
-        ? profileName!.trim()[0].toUpperCase()
+    final width = MediaQuery.sizeOf(context).width;
+    final isCompact = width < 700;
+    final initial = (widget.profileName?.isNotEmpty == true)
+        ? widget.profileName!.trim()[0].toUpperCase()
         : 'K';
 
-    return Container(
-      height: 72,
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: AppColors.border)),
-      ),
-      child: Row(
-        children: [
-          if (onMenuTap != null)
-            IconButton(onPressed: onMenuTap, icon: const Icon(Icons.menu)),
-          Text(
-            title,
-            style: GoogleFonts.fraunces(
-              fontWeight: FontWeight.w600,
-              color: AppColors.heading,
-              fontSize: 30,
+    return Material(
+      color: Colors.white,
+      child: Container(
+        padding: EdgeInsets.fromLTRB(
+          isCompact ? 8 : 20,
+          isCompact ? 8 : 12,
+          isCompact ? 12 : 20,
+          isCompact ? 8 : 12,
+        ),
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: AppColors.border)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                if (widget.onMenuTap != null)
+                  IconButton(
+                    onPressed: widget.onMenuTap,
+                    icon: const Icon(Icons.menu),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                Expanded(
+                  child: Text(
+                    widget.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.fraunces(
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.heading,
+                      fontSize: isCompact ? 22 : 30,
+                    ),
+                  ),
+                ),
+                if (isCompact)
+                  IconButton(
+                    onPressed: _searchExpanded ? _collapseSearch : _expandSearch,
+                    icon: Icon(
+                      _searchExpanded ? Icons.close : Icons.search,
+                      size: 22,
+                    ),
+                    visualDensity: VisualDensity.compact,
+                  )
+                else
+                  const SizedBox(width: 12),
+                IconButton(
+                  onPressed: () => context.go('/announcements'),
+                  icon: const Icon(Icons.notifications_none_rounded),
+                  visualDensity: VisualDensity.compact,
+                ),
+                CircleAvatar(
+                  radius: isCompact ? 14 : 16,
+                  backgroundColor: AppColors.primary,
+                  child: Text(
+                    initial,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: isCompact ? 12 : 14,
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ),
-          const Spacer(),
-          SizedBox(
-            width: 280,
-            child: TextField(
-              controller: searchController,
-              onSubmitted: (_) => onSearchTap(),
-              decoration: InputDecoration(
-                hintText: 'Search alumni, events...',
-                prefixIcon: const Icon(Icons.search, size: 20),
-                filled: true,
-                fillColor: AppColors.background,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: AppColors.border),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: AppColors.border),
-                ),
-                isDense: true,
+            if (!isCompact && _showSearchField) ...[
+              const SizedBox(height: 10),
+              TextField(
+                controller: widget.searchController,
+                focusNode: _searchFocusNode,
+                onSubmitted: (_) => _submitSearch(),
+                textInputAction: TextInputAction.search,
+                decoration: _searchDecoration(),
               ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          IconButton(
-            onPressed: () => context.go('/announcements'),
-            icon: const Icon(Icons.notifications_none_rounded),
-          ),
-          const SizedBox(width: 4),
-          CircleAvatar(
-            radius: 16,
-            backgroundColor: AppColors.primary,
-            child: Text(initial, style: const TextStyle(color: Colors.white)),
-          ),
-        ],
+              _buildResultsPanel(),
+            ],
+            if (isCompact && _searchExpanded) ...[
+              const SizedBox(height: 8),
+              TextField(
+                controller: widget.searchController,
+                focusNode: _searchFocusNode,
+                onSubmitted: (_) => _submitSearch(),
+                textInputAction: TextInputAction.search,
+                decoration: _searchDecoration(),
+              ),
+              _buildResultsPanel(),
+            ],
+          ],
+        ),
       ),
     );
   }

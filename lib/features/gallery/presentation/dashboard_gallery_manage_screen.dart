@@ -129,31 +129,6 @@ class _DashboardGalleryManageScreenState
     });
   }
 
-  Future<void> _editAlbum() async {
-    final album = _album;
-    if (album == null) return;
-
-    final values = await showEditAlbumDialog(
-      context,
-      initialTitle: album.title,
-      initialDescription: album.description,
-    );
-    if (values == null) return;
-
-    await _runBusy(() async {
-      await _api.updateAlbum(
-        albumId: album.id,
-        title: values.title,
-        description: values.description,
-      );
-      await _load();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Album updated.')),
-      );
-    });
-  }
-
   Future<void> _deletePhoto(GalleryMediaItem item) async {
     final album = _album;
     if (album == null) return;
@@ -351,16 +326,6 @@ class _DashboardGalleryManageScreenState
               spacing: 8,
               runSpacing: 8,
               children: [
-                OutlinedButton.icon(
-                  onPressed: () => context.go('/gallery/${album.slug}'),
-                  icon: const Icon(Icons.visibility_outlined, size: 18),
-                  label: const Text('View album'),
-                ),
-                OutlinedButton.icon(
-                  onPressed: _editAlbum,
-                  icon: const Icon(Icons.edit_outlined, size: 18),
-                  label: const Text('Edit'),
-                ),
                 ElevatedButton.icon(
                   onPressed: _uploadPhotos,
                   icon: const Icon(Icons.upload_outlined, size: 18),
@@ -469,10 +434,14 @@ class _DashboardGalleryManageScreenState
                 ),
               ),
             ),
-            OutlinedButton.icon(
+            ElevatedButton.icon(
               onPressed: _addDriveLink,
               icon: const Icon(Icons.add_link, size: 18),
               label: const Text('Add link'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.secondary,
+                foregroundColor: AppColors.primary,
+              ),
             ),
           ],
         ),

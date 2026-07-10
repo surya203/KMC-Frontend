@@ -26,15 +26,31 @@ class _DashboardGalleryScreenState extends State<DashboardGalleryScreen> {
   @override
   void initState() {
     super.initState();
+    _ensureUserLoaded();
     _loadAlbums();
   }
 
-  String? get _currentUserId => AuthSession.instance.currentUser?.id;
+  Future<void> _ensureUserLoaded() async {
+    if (!AuthSession.instance.isAuthenticated) return;
+    if (AuthSession.instance.currentUser != null) return;
+    try {
+      await AuthSession.instance.authService.fetchMe();
+      if (mounted) setState(() {});
+    } catch (_) {}
+  }
 
-  bool _isOwner(GalleryAlbum album) {
-    final ownerId = album.createdBy;
-    final userId = _currentUserId;
-    return ownerId != null && userId != null && ownerId == userId;
+  bool get _isSignedIn => AuthSession.instance.isAuthenticated;
+
+  void _handleAlbumAction(String action, GalleryAlbum album) {
+    switch (action) {
+      case 'view':
+      case 'manage':
+        context.go('/my-gallery/manage/${album.slug}');
+      case 'edit':
+        _editAlbum(album);
+      case 'delete':
+        _deleteAlbum(album);
+    }
   }
 
   Future<void> _loadAlbums() async {
@@ -149,57 +165,6 @@ class _DashboardGalleryScreenState extends State<DashboardGalleryScreen> {
     }
   }
 
-  void _showAlbumActions(GalleryAlbum album) {
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: AppColors.card,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.visibility_outlined),
-                title: const Text('View album'),
-                onTap: () {
-                  Navigator.pop(context);
-                  context.go('/my-gallery/manage/${album.slug}');
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.settings_outlined),
-                title: const Text('Manage photos & Drive'),
-                onTap: () {
-                  Navigator.pop(context);
-                  context.go('/my-gallery/manage/${album.slug}');
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.edit_outlined),
-                title: const Text('Edit album'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _editAlbum(album);
-                },
-              ),
-              ListTile(
-                leading: Icon(Icons.delete_outline, color: AppColors.error),
-                title: Text('Delete album', style: TextStyle(color: AppColors.error)),
-                onTap: () {
-                  Navigator.pop(context);
-                  _deleteAlbum(album);
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
   int _columnCount(double width) {
     if (width > 1100) return 4;
     if (width > 700) return 3;
@@ -220,24 +185,6 @@ class _DashboardGalleryScreenState extends State<DashboardGalleryScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Gallery',
-                    style: GoogleFonts.fraunces(
-                      fontSize: 36,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.heading,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Decades of memories from Kakatiya Medical College.',
-                    style: GoogleFonts.inter(
-                      fontSize: 15,
-                      color: AppColors.bodyText,
-                      height: 1.5,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
                   ElevatedButton.icon(
                     onPressed: _busy ? null : _createAlbum,
                     icon: const Icon(Icons.add_photo_alternate_outlined, size: 18),
@@ -273,14 +220,12 @@ class _DashboardGalleryScreenState extends State<DashboardGalleryScreen> {
                       itemCount: _albums.length,
                       itemBuilder: (context, index) {
                         final album = _albums[index];
-                        final isOwner = _isOwner(album);
                         return _GalleryAlbumCard(
                           album: album,
-                          isOwner: isOwner,
+                          showMenu: _isSignedIn,
                           onTap: () => context.go('/my-gallery/manage/${album.slug}'),
-                          onManage: isOwner
-                              ? () => _showAlbumActions(album)
-                              : null,
+                          onMenuAction: (action) =>
+                              _handleAlbumAction(action, album),
                         );
                       },
                     ),
@@ -305,14 +250,14 @@ class _GalleryAlbumCard extends StatelessWidget {
   const _GalleryAlbumCard({
     required this.album,
     required this.onTap,
-    this.isOwner = false,
-    this.onManage,
+    this.showMenu = false,
+    this.onMenuAction,
   });
 
   final GalleryAlbum album;
   final VoidCallback onTap;
-  final bool isOwner;
-  final VoidCallback? onManage;
+  final bool showMenu;
+  final void Function(String action)? onMenuAction;
 
   @override
   Widget build(BuildContext context) {
@@ -322,63 +267,131 @@ class _GalleryAlbumCard extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       elevation: 2,
       shadowColor: AppColors.shadow,
-      child: InkWell(
-        onTap: onTap,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            if (album.coverImageUrl != null)
-              CachedNetworkImage(
-                imageUrl: album.coverImageUrl!,
-                fit: BoxFit.cover,
-                errorWidget: (_, _, _) => Container(color: AppColors.muted),
-              )
-            else
-              Container(color: AppColors.muted),
-            if (isOwner && onManage != null)
-              Positioned(
-                top: 0,
-                right: 0,
-                child: IconButton(
-                  onPressed: onManage,
-                  icon: const Icon(Icons.more_vert, color: Colors.white),
-                  style: IconButton.styleFrom(
-                    backgroundColor: Colors.black54,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          InkWell(
+            onTap: onTap,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (album.coverImageUrl != null)
+                  CachedNetworkImage(
+                    imageUrl: album.coverImageUrl!,
+                    fit: BoxFit.cover,
+                    errorWidget: (_, _, _) => Container(color: AppColors.muted),
+                  )
+                else
+                  Container(color: AppColors.muted),
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: Container(
+                    padding: const EdgeInsets.fromLTRB(12, 32, 12, 12),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          Colors.black.withValues(alpha: 0.8),
+                        ],
+                      ),
+                    ),
+                    child: Text(
+                      album.title,
+                      style: GoogleFonts.inter(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                        color: Colors.white,
+                      ),
+                    ),
                   ),
-                  tooltip: 'Manage album',
                 ),
-              ),
+              ],
+            ),
+          ),
+          if (showMenu && onMenuAction != null)
             Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: Container(
-                padding: const EdgeInsets.fromLTRB(16, 40, 16, 16),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.transparent,
-                      Colors.black.withValues(alpha: 0.8),
-                    ],
+              top: 6,
+              right: 6,
+              child: Material(
+                color: Colors.black54,
+                borderRadius: BorderRadius.circular(14),
+                clipBehavior: Clip.antiAlias,
+                child: PopupMenuButton<String>(
+                  padding: EdgeInsets.zero,
+                  iconSize: 16,
+                  splashRadius: 16,
+                  constraints: const BoxConstraints(minWidth: 108, maxWidth: 120),
+                  tooltip: 'Album options',
+                  icon: const Icon(Icons.more_vert, color: Colors.white, size: 16),
+                  color: AppColors.card,
+                  elevation: 4,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                ),
-                child: Text(
-                  album.title,
-                  style: GoogleFonts.inter(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 15,
-                    color: Colors.white,
-                  ),
+                  offset: const Offset(0, 24),
+                  onSelected: onMenuAction,
+                  itemBuilder: (context) => [
+                    _albumMenuItem(
+                      value: 'view',
+                      icon: Icons.visibility_outlined,
+                      label: 'View',
+                    ),
+                    _albumMenuItem(
+                      value: 'manage',
+                      icon: Icons.settings_outlined,
+                      label: 'Manage',
+                    ),
+                    _albumMenuItem(
+                      value: 'edit',
+                      icon: Icons.edit_outlined,
+                      label: 'Edit',
+                    ),
+                    _albumMenuItem(
+                      value: 'delete',
+                      icon: Icons.delete_outline,
+                      label: 'Delete',
+                      isDestructive: true,
+                    ),
+                  ],
                 ),
               ),
             ),
-          ],
-        ),
+        ],
       ),
     );
   }
+}
+
+PopupMenuItem<String> _albumMenuItem({
+  required String value,
+  required IconData icon,
+  required String label,
+  bool isDestructive = false,
+}) {
+  final color = isDestructive ? AppColors.error : AppColors.heading;
+  return PopupMenuItem<String>(
+    value: value,
+    height: 32,
+    padding: const EdgeInsets.symmetric(horizontal: 10),
+    child: Row(
+      children: [
+        Icon(icon, size: 14, color: color),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: GoogleFonts.inter(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: color,
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 class _ErrorBanner extends StatelessWidget {

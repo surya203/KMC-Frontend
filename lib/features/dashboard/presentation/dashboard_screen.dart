@@ -8,6 +8,7 @@ import '../../../core/network/announcements_api_service.dart';
 import '../../../core/network/events_api_service.dart';
 import '../../../core/network/membership_api_service.dart';
 import '../../../core/network/profiles_api_service.dart';
+import '../../../core/utils/membership_number_format.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -99,8 +100,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return const Center(child: CircularProgressIndicator());
     }
 
+    final isCompact = MediaQuery.sizeOf(context).width < 700;
+
     return SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+              padding: EdgeInsets.fromLTRB(
+                isCompact ? 16 : 24,
+                isCompact ? 16 : 20,
+                isCompact ? 16 : 24,
+                24,
+              ),
               child: Center(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 1200),
@@ -115,6 +123,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       if (_error != null) _InlineError(message: _error!),
                       _StatsGrid(
                         membership: _membership,
+                        profile: _profile,
                         eventsAttended: _myEvents.length,
                         profileCompletion: _profileCompletion,
                         batchYear: _profile?.batchYear,
@@ -239,6 +248,18 @@ String _formatMembershipDate(DateTime date) {
   return '${months[date.month - 1]} ${date.year}';
 }
 
+String _membershipNumberLabel(
+  MemberMembership? membership,
+  MyProfile? profile,
+) {
+  return MembershipNumberFormat.displayOrFallback(
+    storedMembershipNumber: membership?.membershipNumber,
+    batchYear: profile?.batchYear,
+    fullName: profile?.fullName,
+    fallback: membership?.status == 'active' ? '—' : 'Pending',
+  );
+}
+
 class _HeroCard extends StatelessWidget {
   const _HeroCard({required this.profile, required this.membership});
 
@@ -247,6 +268,7 @@ class _HeroCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isCompact = MediaQuery.sizeOf(context).width < 700;
     final name = profile?.fullName ?? 'Member';
     final batch = profile?.batchYear;
     final spec = profile?.specialization;
@@ -258,7 +280,7 @@ class _HeroCard extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(28),
+      padding: EdgeInsets.all(isCompact ? 20 : 28),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
         gradient: const LinearGradient(
@@ -272,22 +294,32 @@ class _HeroCard extends StatelessWidget {
         children: [
           Text(
             'Welcome back,',
-            style: GoogleFonts.inter(color: Colors.white70, fontSize: 16),
+            style: GoogleFonts.inter(
+              color: Colors.white70,
+              fontSize: isCompact ? 14 : 16,
+            ),
           ),
           const SizedBox(height: 6),
           Text(
             name,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
             style: GoogleFonts.fraunces(
               color: Colors.white,
               fontWeight: FontWeight.w600,
-              fontSize: 52,
+              fontSize: isCompact ? 32 : 52,
               height: 1.1,
             ),
           ),
           const SizedBox(height: 6),
           Text(
             subtitleParts.join(' · '),
-            style: GoogleFonts.inter(color: Colors.white70, fontSize: 16),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.inter(
+              color: Colors.white70,
+              fontSize: isCompact ? 14 : 16,
+            ),
           ),
           const SizedBox(height: 18),
           Wrap(
@@ -308,7 +340,9 @@ class _HeroCard extends StatelessWidget {
                   backgroundColor: AppColors.secondary,
                   foregroundColor: AppColors.primary,
                 ),
-                child: const Text('Register for Annual Meet'),
+                child: Text(
+                  isCompact ? 'Annual Meet' : 'Register for Annual Meet',
+                ),
               ),
             ],
           ),
@@ -321,12 +355,14 @@ class _HeroCard extends StatelessWidget {
 class _StatsGrid extends StatelessWidget {
   const _StatsGrid({
     required this.membership,
+    required this.profile,
     required this.eventsAttended,
     required this.profileCompletion,
     this.batchYear,
   });
 
   final MemberMembership? membership;
+  final MyProfile? profile;
   final int eventsAttended;
   final int profileCompletion;
   final int? batchYear;
@@ -340,8 +376,8 @@ class _StatsGrid extends StatelessWidget {
     final items = [
       _StatCardData(
         icon: Icons.workspace_premium_outlined,
-        title: membership?.status == 'active' ? 'Active' : 'Pending',
-        subtitle: 'Membership',
+        title: _membershipNumberLabel(membership, profile),
+        subtitle: 'Membership Number',
       ),
       _StatCardData(
         icon: Icons.event_outlined,
@@ -364,9 +400,14 @@ class _StatsGrid extends StatelessWidget {
       builder: (context, constraints) {
         final crossAxisCount = constraints.maxWidth > 980
             ? 4
-            : constraints.maxWidth > 650
+            : constraints.maxWidth > 420
                 ? 2
                 : 1;
+        final aspectRatio = crossAxisCount == 4
+            ? 1.7
+            : crossAxisCount == 2
+                ? 1.45
+                : 2.4;
         return GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
@@ -375,7 +416,7 @@ class _StatsGrid extends StatelessWidget {
             crossAxisCount: crossAxisCount,
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
-            childAspectRatio: 1.7,
+            childAspectRatio: aspectRatio,
           ),
           itemBuilder: (context, i) => _StatCard(item: items[i]),
         );
@@ -395,8 +436,10 @@ class _SubscriptionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isCompact = MediaQuery.sizeOf(context).width < 700;
+
     return Container(
-      padding: const EdgeInsets.all(22),
+      padding: EdgeInsets.all(isCompact ? 18 : 22),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
@@ -436,8 +479,10 @@ class _SubscriptionCard extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             membership?.planName ?? 'Lifetime',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
             style: GoogleFonts.fraunces(
-              fontSize: 40,
+              fontSize: isCompact ? 28 : 40,
               fontWeight: FontWeight.w600,
               color: AppColors.heading,
             ),
@@ -677,53 +722,71 @@ class _UpcomingReunionsCard extends StatelessWidget {
               style: GoogleFonts.inter(color: AppColors.bodyText),
             )
           else
-            Row(
-              children: [
-                ClipRRect(
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final stackVertically = constraints.maxWidth < 480;
+                final image = ClipRRect(
                   borderRadius: BorderRadius.circular(10),
                   child: event.coverImageUrl != null
                       ? CachedNetworkImage(
                           imageUrl: event.coverImageUrl!,
-                          width: 96,
-                          height: 72,
+                          width: stackVertically ? double.infinity : 96,
+                          height: stackVertically ? 140 : 72,
                           fit: BoxFit.cover,
                         )
                       : Container(
-                          width: 96,
-                          height: 72,
+                          width: stackVertically ? double.infinity : 96,
+                          height: stackVertically ? 140 : 72,
                           color: AppColors.muted,
                           child: const Icon(Icons.event),
                         ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                );
+                final details = Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      event.title,
+                      style: GoogleFonts.inter(
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.heading,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${event.displayDate} · ${event.displayVenue}',
+                      style: GoogleFonts.inter(
+                        color: AppColors.bodyText,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    OutlinedButton(
+                      onPressed: () => context.go('/events/${event.slug}'),
+                      child: const Text('Register'),
+                    ),
+                  ],
+                );
+
+                if (stackVertically) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Text(
-                        event.title,
-                        style: GoogleFonts.inter(
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.heading,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${event.displayDate} · ${event.displayVenue}',
-                        style: GoogleFonts.inter(
-                          color: AppColors.bodyText,
-                          fontSize: 13,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      OutlinedButton(
-                        onPressed: () => context.go('/events/${event.slug}'),
-                        child: const Text('Register'),
-                      ),
+                      image,
+                      const SizedBox(height: 14),
+                      details,
                     ],
-                  ),
-                ),
-              ],
+                  );
+                }
+
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    image,
+                    const SizedBox(width: 14),
+                    Expanded(child: details),
+                  ],
+                );
+              },
             ),
         ],
       ),
@@ -820,7 +883,7 @@ class _LatestAnnouncementsSection extends StatelessWidget {
             Text(
               'Latest Announcements',
               style: GoogleFonts.fraunces(
-                fontSize: 28,
+                fontSize: MediaQuery.sizeOf(context).width < 700 ? 22 : 28,
                 fontWeight: FontWeight.w600,
                 color: AppColors.heading,
               ),
@@ -928,8 +991,10 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isCompact = MediaQuery.sizeOf(context).width < 700;
+
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: EdgeInsets.all(isCompact ? 14 : 18),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
@@ -939,28 +1004,38 @@ class _StatCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           CircleAvatar(
-            radius: 16,
+            radius: isCompact ? 14 : 16,
             backgroundColor: AppColors.background,
-            child: Icon(item.icon, size: 18, color: AppColors.heading),
+            child: Icon(
+              item.icon,
+              size: isCompact ? 16 : 18,
+              color: AppColors.heading,
+            ),
           ),
           const Spacer(),
           Text(
             item.title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
             style: GoogleFonts.fraunces(
               color: AppColors.heading,
-              fontSize: 44,
+              fontSize: item.title.length > 12
+                  ? (isCompact ? 22 : 28)
+                  : (isCompact ? 30 : 44),
               fontWeight: FontWeight.w600,
-              height: 1,
+              height: 1.1,
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            item.subtitle,
-            style: GoogleFonts.inter(
-              color: AppColors.bodyText,
-              fontSize: 14,
+          if (item.subtitle != null && item.subtitle!.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              item.subtitle!,
+              style: GoogleFonts.inter(
+                color: AppColors.bodyText,
+                fontSize: 14,
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -993,9 +1068,9 @@ class _StatCardData {
   const _StatCardData({
     required this.icon,
     required this.title,
-    required this.subtitle,
+    this.subtitle,
   });
   final IconData icon;
   final String title;
-  final String subtitle;
+  final String? subtitle;
 }

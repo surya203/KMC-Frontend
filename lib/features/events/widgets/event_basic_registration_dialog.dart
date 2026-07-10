@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/auth/auth_session.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/membership_number_format.dart';
 import '../../../core/utils/validators.dart';
 import '../../../core/network/events_api_service.dart';
 import '../../../core/network/profiles_api_service.dart';
@@ -59,15 +60,13 @@ class _EventBasicRegistrationDialogState
 
   Future<void> _prefill() async {
     final user = AuthSession.instance.currentUser;
+    MyProfile? profile;
     if (user != null) {
       _emailController.text = user.email;
       if (user.fullName != null) _nameController.text = user.fullName!;
-      if (user.membershipNumber != null) {
-        _membershipController.text = user.membershipNumber!;
-      }
     }
     try {
-      final profile = await ProfilesApiService().fetchMyProfile();
+      profile = await ProfilesApiService().fetchMyProfile();
       if (!mounted) return;
       if (_nameController.text.isEmpty) {
         _nameController.text = profile.fullName;
@@ -79,6 +78,14 @@ class _EventBasicRegistrationDialogState
           profile.phone != null &&
           profile.phone!.isNotEmpty) {
         _mobileController.text = profile.phone!;
+      }
+      final formatted = MembershipNumberFormat.display(
+        storedMembershipNumber: user?.membershipNumber,
+        batchYear: profile.batchYear,
+        fullName: profile.fullName,
+      );
+      if (formatted != null) {
+        _membershipController.text = formatted;
       }
       setState(() {});
     } catch (_) {}
