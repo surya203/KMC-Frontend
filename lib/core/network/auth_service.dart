@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 
+import '../auth/auth_refresh.dart';
 import '../config/app_config.dart';
-import 'api_client.dart';
 
 class AuthTokens {
   const AuthTokens({
@@ -65,9 +65,18 @@ class AuthException implements Exception {
 }
 
 class AuthService {
-  AuthService({ApiClient? apiClient}) : _apiClient = apiClient ?? ApiClient();
+  AuthService({Dio? dio})
+      : _dio = dio ??
+            Dio(
+              BaseOptions(
+                baseUrl: AppConfig.apiBaseUrl,
+                connectTimeout: const Duration(seconds: 10),
+                receiveTimeout: const Duration(seconds: 10),
+                headers: {'Content-Type': 'application/json'},
+              ),
+            );
 
-  final ApiClient _apiClient;
+  final Dio _dio;
 
   static AuthTokens? _tokens;
   static AuthUser? _currentUser;
@@ -97,7 +106,7 @@ class AuthService {
     required String password,
   }) async {
     try {
-      final response = await _apiClient.post<Map<String, dynamic>>(
+      final response = await _dio.post<Map<String, dynamic>>(
         '${AppConfig.apiPrefix}/auth/login',
         data: {'email': email, 'password': password},
       );
@@ -124,7 +133,7 @@ class AuthService {
     }
 
     try {
-      final response = await _apiClient.get<Map<String, dynamic>>(
+      final response = await _dio.get<Map<String, dynamic>>(
         '${AppConfig.apiPrefix}/auth/me',
         options: Options(headers: {'Authorization': header}),
       );
@@ -145,27 +154,9 @@ class AuthService {
   }
 
   Future<AuthTokens> refresh() async {
-    final refreshToken = _tokens?.refreshToken;
-    if (refreshToken == null) {
-      throw AuthException('No refresh token available.');
-    }
-
-    try {
-      final response = await _apiClient.post<Map<String, dynamic>>(
-        '${AppConfig.apiPrefix}/auth/refresh',
-        data: {'refresh_token': refreshToken},
-      );
-      if (response.statusCode == 200 && response.data != null) {
-        _tokens = AuthTokens.fromJson(response.data!);
-        return _tokens!;
-      }
-      throw AuthException('Session refresh failed (${response.statusCode}).');
-    } on DioException catch (e) {
-      logout();
-      throw AuthException(
-        e.response?.statusMessage ?? 'Session expired. Please sign in again.',
-      );
-    }
+    final tokens = await AuthRefresh.refreshIfNeeded();
+    if (tokens != null) return tokens;
+    throw AuthException('Session expired. Please sign in again.');
   }
 
   void logout() {
@@ -175,7 +166,7 @@ class AuthService {
 
   Future<ForgotPasswordResult> forgotPassword({required String email}) async {
     try {
-      final response = await _apiClient.post<Map<String, dynamic>>(
+      final response = await _dio.post<Map<String, dynamic>>(
         '${AppConfig.apiPrefix}/auth/forgot-password',
         data: {'email': email},
       );
@@ -203,7 +194,7 @@ class AuthService {
     required String newPassword,
   }) async {
     try {
-      await _apiClient.post<Map<String, dynamic>>(
+      await _dio.post<Map<String, dynamic>>(
         '${AppConfig.apiPrefix}/auth/reset-password',
         data: {
           'token': token,

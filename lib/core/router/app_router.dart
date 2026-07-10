@@ -19,7 +19,6 @@ import '../../features/dashboard/presentation/my_membership_screen.dart';
 import '../../features/dashboard/presentation/settings_screen.dart';
 import '../../features/dashboard/presentation/my_profile_screen.dart';
 import '../../features/dashboard/widgets/dashboard_shell_host.dart';
-import '../../features/directory/presentation/directory_screen.dart';
 import '../../features/directory/presentation/profile_detail_screen.dart';
 import '../../features/events/presentation/event_detail_screen.dart';
 import '../../features/events/presentation/events_screen.dart';
@@ -87,7 +86,6 @@ final GoRouter appRouter = GoRouter(
     if (location == '/auth' && isAuthenticated) {
       return homeRouteForRole(role);
     }
-
     return null;
   },
   routes: [
@@ -102,10 +100,6 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: '/about',
       builder: (context, state) => const AboutScreen(),
-    ),
-    GoRoute(
-      path: '/directory',
-      builder: (context, state) => const DirectoryScreen(),
     ),
     GoRoute(
       path: '/profiles/:id',

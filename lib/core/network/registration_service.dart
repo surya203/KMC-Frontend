@@ -186,12 +186,16 @@ class CompleteRegistrationResult {
     required this.email,
     required this.message,
     this.debugPassword,
+    this.receiptId,
+    this.receiptUrl,
   });
 
   final bool completed;
   final String email;
   final String message;
   final String? debugPassword;
+  final String? receiptId;
+  final String? receiptUrl;
 
   factory CompleteRegistrationResult.fromJson(Map<String, dynamic> json) {
     return CompleteRegistrationResult(
@@ -199,6 +203,8 @@ class CompleteRegistrationResult {
       email: json['email'] as String? ?? '',
       message: json['message'] as String? ?? '',
       debugPassword: json['debug_password'] as String?,
+      receiptId: json['receipt_id'] as String?,
+      receiptUrl: json['receipt_url'] as String?,
     );
   }
 }

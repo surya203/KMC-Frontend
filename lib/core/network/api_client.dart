@@ -1,9 +1,10 @@
 import 'package:dio/dio.dart';
 
 import '../config/app_config.dart';
+import 'auth_interceptor.dart';
 
 class ApiClient {
-  ApiClient({Dio? dio})
+  ApiClient._internal({Dio? dio})
       : _dio = dio ??
             Dio(
               BaseOptions(
@@ -12,7 +13,13 @@ class ApiClient {
                 receiveTimeout: const Duration(seconds: 10),
                 headers: {'Content-Type': 'application/json'},
               ),
-            );
+            ) {
+    _dio.interceptors.add(AuthInterceptor(_dio));
+  }
+
+  static final ApiClient instance = ApiClient._internal();
+
+  factory ApiClient() => instance;
 
   final Dio _dio;
 

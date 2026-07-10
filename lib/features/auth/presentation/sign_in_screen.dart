@@ -270,6 +270,7 @@ class _ForgotPasswordDialogState extends State<_ForgotPasswordDialog> {
   final _passwordController = TextEditingController();
   String? _statusMessage;
   bool _busy = false;
+  bool _obscureNewPassword = true;
 
   @override
   void dispose() {
@@ -329,41 +330,105 @@ class _ForgotPasswordDialogState extends State<_ForgotPasswordDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Reset password'),
+      title: Text(
+        'Reset password',
+        style: GoogleFonts.fraunces(
+          fontSize: 42,
+          fontWeight: FontWeight.w600,
+          color: AppColors.heading,
+        ),
+      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       content: SizedBox(
         width: 420,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Email: ${widget.email}'),
+            Text(
+              'Email: ${widget.email}',
+              style: GoogleFonts.inter(
+                fontSize: 16,
+                color: AppColors.heading,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
             const SizedBox(height: 12),
             OutlinedButton(
               onPressed: _busy ? null : _requestReset,
-              child: const Text('Send reset link'),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: AppColors.border),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+              child: Text(
+                'Send reset link',
+                style: GoogleFonts.inter(
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primary,
+                ),
+              ),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: _tokenController,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Reset token',
-                border: OutlineInputBorder(),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: AppColors.border),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+                ),
               ),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: _passwordController,
-              obscureText: true,
-              decoration: const InputDecoration(
+              obscureText: _obscureNewPassword,
+              decoration: InputDecoration(
                 labelText: 'New password',
-                border: OutlineInputBorder(),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: AppColors.border),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+                ),
+                suffixIcon: IconButton(
+                  onPressed: () {
+                    setState(() => _obscureNewPassword = !_obscureNewPassword);
+                  },
+                  tooltip: _obscureNewPassword ? 'Show password' : 'Hide password',
+                  icon: Icon(
+                    _obscureNewPassword
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                    color: AppColors.mutedText,
+                    size: 20,
+                  ),
+                ),
               ),
             ),
             if (_statusMessage != null) ...[
               const SizedBox(height: 12),
               Text(
                 _statusMessage!,
-                style: const TextStyle(fontSize: 13),
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  color: AppColors.bodyText,
+                ),
               ),
             ],
           ],

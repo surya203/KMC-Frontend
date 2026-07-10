@@ -2,13 +2,12 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../network/auth_service.dart';
+import 'auth_token_storage.dart';
 
 class AuthSession extends ChangeNotifier {
   AuthSession._();
   static final AuthSession instance = AuthSession._();
 
-  static const _accessTokenKey = 'auth_access_token';
-  static const _refreshTokenKey = 'auth_refresh_token';
   static const _draftIdKey = 'registration_draft_id';
 
   final AuthService _authService = AuthService();
@@ -19,13 +18,11 @@ class AuthSession extends ChangeNotifier {
 
   Future<void> initialize() async {
     if (_initialized) return;
-    final prefs = await SharedPreferences.getInstance();
-    final access = prefs.getString(_accessTokenKey);
-    final refresh = prefs.getString(_refreshTokenKey);
-    if (access != null && refresh != null) {
+    final stored = await AuthTokenStorage.load();
+    if (stored != null) {
       AuthService.restoreTokens(
-        accessToken: access,
-        refreshToken: refresh,
+        accessToken: stored.accessToken,
+        refreshToken: stored.refreshToken,
       );
       try {
         await _authService.fetchMe();
@@ -38,17 +35,13 @@ class AuthSession extends ChangeNotifier {
   }
 
   Future<void> saveLogin(AuthTokens tokens) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_accessTokenKey, tokens.accessToken);
-    await prefs.setString(_refreshTokenKey, tokens.refreshToken);
+    await AuthTokenStorage.save(tokens);
     notifyListeners();
   }
 
   Future<void> clearSession() async {
     _authService.logout();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_accessTokenKey);
-    await prefs.remove(_refreshTokenKey);
+    await AuthTokenStorage.clear();
     notifyListeners();
   }
 

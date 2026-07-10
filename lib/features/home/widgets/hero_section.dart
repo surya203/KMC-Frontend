@@ -31,7 +31,20 @@ class HeroSection extends StatelessWidget {
             fit: BoxFit.cover,
             expandToFill: true,
           ),
-          Container(color: AppColors.heroOverlay),
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  const Color(0xCC0B1736),
+                  AppColors.heroOverlay,
+                  const Color(0xB3162D5C),
+                ],
+                stops: const [0.0, 0.55, 1.0],
+              ),
+            ),
+          ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
