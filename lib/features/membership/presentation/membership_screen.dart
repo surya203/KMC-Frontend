@@ -561,9 +561,6 @@ class _PlanStep extends StatelessWidget {
     }
 
     final plan = selected ?? plans.first;
-    final subtitle = plan.slug == 'life'
-        ? 'One plan. Every benefit. Lifetime access.'
-        : (plan.description ?? 'One plan. Every benefit. Lifetime access.');
 
     return _Card(
       child: Column(
@@ -576,16 +573,6 @@ class _PlanStep extends StatelessWidget {
               fontSize: 32,
               fontWeight: FontWeight.w600,
               color: AppColors.heading,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            subtitle,
-            textAlign: TextAlign.center,
-            style: GoogleFonts.inter(
-              fontSize: 16,
-              height: 1.5,
-              color: AppColors.bodyText,
             ),
           ),
           const SizedBox(height: 28),
