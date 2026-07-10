@@ -141,7 +141,7 @@ class _DashboardConnectScreenState extends State<DashboardConnectScreen> {
         _officers = officers;
         _loading = false;
         _error = postsError != null
-            ? _formatError(postsError!)
+            ? _formatError(postsError)
             : officersError != null
                 ? 'Officer list unavailable. General Group posts still load below.'
                 : null;

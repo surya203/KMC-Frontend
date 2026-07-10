@@ -105,10 +105,14 @@ class _MembershipScreenState extends State<MembershipScreen> {
       final draftId = await AuthSession.instance.getDraftId();
       Future<RegistrationDraft?> draftFuture;
       if (draftId != null) {
-        draftFuture = _registration.getDraft(draftId).catchError((_) async {
-          await AuthSession.instance.clearDraftId();
-          return null;
-        });
+        draftFuture = () async {
+          try {
+            return await _registration.getDraft(draftId);
+          } catch (_) {
+            await AuthSession.instance.clearDraftId();
+            return null;
+          }
+        }();
       } else {
         draftFuture = Future<RegistrationDraft?>.value(null);
       }
@@ -2536,11 +2540,7 @@ class _FormField extends StatelessWidget {
     this.keyboard,
     this.hint,
     this.required = false,
-    this.obscureText = false,
-    this.suffixIcon,
-    this.prefixIcon,
     this.helperText,
-    this.mobileNumber = false,
   });
 
   final String label;
@@ -2548,11 +2548,7 @@ class _FormField extends StatelessWidget {
   final TextInputType? keyboard;
   final String? hint;
   final bool required;
-  final bool obscureText;
-  final Widget? suffixIcon;
-  final Widget? prefixIcon;
   final String? helperText;
-  final bool mobileNumber;
 
   @override
   Widget build(BuildContext context) {
@@ -2580,10 +2576,7 @@ class _FormField extends StatelessWidget {
         const SizedBox(height: 8),
         TextField(
           controller: controller,
-          keyboardType: mobileNumber ? TextInputType.number : keyboard,
-          obscureText: obscureText,
-          inputFormatters:
-              mobileNumber ? mobileNumberInputFormatters : null,
+          keyboardType: keyboard,
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: GoogleFonts.inter(
@@ -2613,8 +2606,6 @@ class _FormField extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
               borderSide: const BorderSide(color: AppColors.primary, width: 1.6),
             ),
-            prefixIcon: prefixIcon,
-            suffixIcon: suffixIcon,
           ),
         ),
       ],
