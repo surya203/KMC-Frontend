@@ -53,7 +53,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
   final _otpController = TextEditingController();
   PlatformFile? _profilePhoto;
   Uint8List? _profilePhotoBytes;
-  String? _debugOtp;
+  String? _otpStatusMessage;
 
   String get _fullName {
     final parts = [
@@ -239,8 +239,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
     if (phoneError != null) throw Exception(phoneError);
     final emailValidation = _validateEmail(email);
     if (emailValidation != null) throw Exception(emailValidation);
-    final passwordValidation = _validatePassword(password);
-    if (passwordValidation != null) throw Exception(passwordValidation);
+    if (password.isEmpty) throw Exception('Create your password.');
     if (confirmPassword != password) {
       throw Exception('Confirm password must match the password.');
     }
@@ -261,11 +260,14 @@ class _MembershipScreenState extends State<MembershipScreen> {
         'practice_location': practiceLocation,
         'email': email,
         'password': password,
-        'confirm_password': confirmPassword,
       },
     );
 
     if (_profilePhotoBytes != null) {
+      const maxPhotoBytes = 3 * 1024 * 1024;
+      if (_profilePhotoBytes!.length > maxPhotoBytes) {
+        throw Exception('Profile photo must be 3 MB or smaller.');
+      }
       await _registration.uploadDraftPhoto(
         draftId: draft.id,
         fileName: _profilePhoto?.name ?? 'profile-photo.jpg',
@@ -273,20 +275,20 @@ class _MembershipScreenState extends State<MembershipScreen> {
       );
     }
 
-    final debugOtp = await _registration.sendOtp(draft.id);
+    final otpMessage = await _registration.sendOtp(draft.id);
     if (!mounted) return;
     setState(() {
       _draft = updated;
       _step = 2;
-      _debugOtp = debugOtp.isEmpty ? null : debugOtp;
+      _otpStatusMessage = otpMessage;
     });
   }
 
   Future<void> _sendOtp() async {
     final draft = _draft;
     if (draft == null) return;
-    final debugOtp = await _registration.sendOtp(draft.id);
-    setState(() => _debugOtp = debugOtp.isEmpty ? null : debugOtp);
+    final otpMessage = await _registration.sendOtp(draft.id);
+    setState(() => _otpStatusMessage = otpMessage);
   }
 
   Future<void> _verifyOtp() async {
@@ -447,15 +449,24 @@ class _MembershipScreenState extends State<MembershipScreen> {
     );
     final file = result?.files.single;
     if (file == null || file.bytes == null) return;
+    if (file.bytes!.length > 3 * 1024 * 1024) {
+      setState(() => _error = 'Profile photo must be 3 MB or smaller.');
+      return;
+    }
     setState(() {
       _profilePhoto = file;
       _profilePhotoBytes = file.bytes;
+      _error = null;
     });
   }
 
   Future<void> _captureProfilePhoto() async {
     final captured = await captureImageWithLivePreview(context);
     if (captured == null) return;
+    if (captured.bytes.length > 3 * 1024 * 1024) {
+      setState(() => _error = 'Profile photo must be 3 MB or smaller.');
+      return;
+    }
     setState(() {
       _profilePhoto = PlatformFile(
         name: captured.fileName,
@@ -463,6 +474,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
         bytes: captured.bytes,
       );
       _profilePhotoBytes = captured.bytes;
+      _error = null;
     });
   }
 
@@ -494,7 +506,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
       2 => _VerifyStep(
           email: _emailController.text.trim(),
           otpController: _otpController,
-          debugOtp: _debugOtp,
+          statusMessage: _otpStatusMessage,
           onSendOtp: () => _runStep(_sendOtp),
           onVerifyOtp: () => _runStep(_verifyOtp),
           onUploadDocument: () => _runStep(_uploadDocument),
@@ -792,42 +804,35 @@ class _DetailsStepState extends State<_DetailsStep> {
             helperText: 'Use your active email for OTP and login',
           ),
           const SizedBox(height: 16),
-          _FormField(
-            label: 'Create Password',
-            controller: widget.passwordController,
-            required: true,
-            obscureText: _obscurePassword,
-            suffixIcon: IconButton(
-              icon: Icon(
-                _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-              ),
-              tooltip: _obscurePassword ? 'Show password' : 'Hide password',
-              onPressed: () {
-                setState(() => _obscurePassword = !_obscurePassword);
-              },
-            ),
-          ),
-          const SizedBox(height: 16),
-          _FormField(
-            label: 'Confirm Password',
-            controller: widget.confirmPasswordController,
-            required: true,
-            obscureText: _obscureConfirmPassword,
-            suffixIcon: IconButton(
-              icon: Icon(
-                _obscureConfirmPassword
-                    ? Icons.visibility_off_outlined
-                    : Icons.visibility_outlined,
-              ),
-              tooltip: _obscureConfirmPassword ? 'Show password' : 'Hide password',
-              onPressed: () {
-                setState(() => _obscureConfirmPassword = !_obscureConfirmPassword);
-              },
+          AutofillGroup(
+            child: Column(
+              children: [
+                _PasswordFormField(
+                  label: 'Create Password',
+                  controller: widget.passwordController,
+                  required: true,
+                  obscureText: _obscurePassword,
+                  autofillHints: const [AutofillHints.newPassword],
+                  onToggleVisibility: () {
+                    setState(() => _obscurePassword = !_obscurePassword);
+                  },
+                ),
+                const SizedBox(height: 16),
+                _PasswordFormField(
+                  label: 'Confirm Password',
+                  controller: widget.confirmPasswordController,
+                  required: true,
+                  obscureText: _obscureConfirmPassword,
+                  onToggleVisibility: () {
+                    setState(() => _obscureConfirmPassword = !_obscureConfirmPassword);
+                  },
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            'Password policy: at least 12 characters, include uppercase, lowercase, number, and special symbol.',
+            'Choose any password you prefer. Enter the same password in both fields.',
             style: GoogleFonts.inter(
               fontSize: 12,
               color: AppColors.mutedText,
@@ -921,7 +926,12 @@ class _ProfilePhotoFieldState extends State<_ProfilePhotoField> {
               decoration: BoxDecoration(
                 color: AppColors.muted,
                 borderRadius: BorderRadius.circular(44),
-                border: Border.all(color: AppColors.border),
+                border: Border.all(
+                  color: widget.photoBytes != null
+                      ? AppColors.success
+                      : AppColors.border,
+                  width: widget.photoBytes != null ? 2 : 1,
+                ),
                 image: widget.photoBytes != null
                     ? DecorationImage(
                         image: MemoryImage(widget.photoBytes!),
@@ -935,31 +945,60 @@ class _ProfilePhotoFieldState extends State<_ProfilePhotoField> {
             ),
             const SizedBox(width: 16),
             Expanded(
-              child: _showOptions
-                  ? Row(
-                      children: [
-                        IconButton.outlined(
-                          onPressed: _handleCapture,
-                          icon: const Icon(Icons.photo_camera_outlined),
-                          tooltip: 'Open camera',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _showOptions
+                      ? Row(
+                          children: [
+                            IconButton.outlined(
+                              onPressed: _handleCapture,
+                              icon: const Icon(Icons.photo_camera_outlined),
+                              tooltip: 'Open camera',
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: _handleUpload,
+                                icon: const Icon(Icons.upload_outlined, size: 18),
+                                label: const Text('Upload photo'),
+                              ),
+                            ),
+                          ],
+                        )
+                      : OutlinedButton.icon(
+                          onPressed: () => setState(() => _showOptions = true),
+                          icon: const Icon(Icons.add_a_photo_outlined, size: 18),
+                          label: Text(
+                            widget.photoBytes == null ? 'Add photo' : 'Change photo',
+                          ),
                         ),
-                        const SizedBox(width: 8),
+                  if (widget.photoBytes != null) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.check_circle,
+                          size: 16,
+                          color: AppColors.success,
+                        ),
+                        const SizedBox(width: 6),
                         Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: _handleUpload,
-                            icon: const Icon(Icons.upload_outlined, size: 18),
-                            label: const Text('Upload photo'),
+                          child: Text(
+                            widget.fileName ?? 'Photo ready',
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              color: AppColors.success,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
-                    )
-                  : OutlinedButton.icon(
-                      onPressed: () => setState(() => _showOptions = true),
-                      icon: const Icon(Icons.add_a_photo_outlined, size: 18),
-                      label: Text(
-                        widget.photoBytes == null ? 'Add photo' : 'Change photo',
-                      ),
                     ),
+                  ],
+                ],
+              ),
             ),
           ],
         ),
@@ -972,7 +1011,7 @@ class _VerifyStep extends StatelessWidget {
   const _VerifyStep({
     required this.email,
     required this.otpController,
-    required this.debugOtp,
+    required this.statusMessage,
     required this.onSendOtp,
     required this.onVerifyOtp,
     required this.onUploadDocument,
@@ -981,7 +1020,7 @@ class _VerifyStep extends StatelessWidget {
 
   final String email;
   final TextEditingController otpController;
-  final String? debugOtp;
+  final String? statusMessage;
   final VoidCallback onSendOtp;
   final VoidCallback onVerifyOtp;
   final VoidCallback onUploadDocument;
@@ -996,11 +1035,25 @@ class _VerifyStep extends StatelessWidget {
           Text('Verify your email', style: GoogleFonts.fraunces(fontSize: 24)),
           const SizedBox(height: 8),
           Text('We will send a 6-digit code to $email', style: GoogleFonts.inter()),
+          const SizedBox(height: 8),
+          Text(
+            'Check your inbox and spam folder after sending the code.',
+            style: GoogleFonts.inter(
+              fontSize: 13,
+              color: AppColors.mutedText,
+            ),
+          ),
           const SizedBox(height: 20),
           OutlinedButton(onPressed: onSendOtp, child: const Text('Send verification code')),
-          if (debugOtp != null) ...[
+          if (statusMessage != null) ...[
             const SizedBox(height: 12),
-            Text('Dev OTP: $debugOtp', style: GoogleFonts.inter(color: AppColors.success)),
+            Text(
+              statusMessage!,
+              style: GoogleFonts.inter(
+                color: AppColors.success,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ],
           const SizedBox(height: 16),
           _Field(label: 'Enter OTP', controller: otpController, keyboard: TextInputType.number),
@@ -1831,6 +1884,99 @@ class _Card extends StatelessWidget {
   }
 }
 
+class _PasswordFormField extends StatelessWidget {
+  const _PasswordFormField({
+    required this.label,
+    required this.controller,
+    required this.obscureText,
+    required this.onToggleVisibility,
+    this.autofillHints,
+    this.required = false,
+  });
+
+  final String label;
+  final TextEditingController controller;
+  final bool obscureText;
+  final VoidCallback onToggleVisibility;
+  final Iterable<String>? autofillHints;
+  final bool required;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        RichText(
+          text: TextSpan(
+            style: GoogleFonts.inter(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.2,
+              color: AppColors.mutedText,
+            ),
+            children: [
+              TextSpan(text: label.toUpperCase()),
+              if (required)
+                const TextSpan(
+                  text: ' *',
+                  style: TextStyle(color: AppColors.error),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: TextField(
+                controller: controller,
+                obscureText: obscureText,
+                autofillHints: autofillHints,
+                enableSuggestions: false,
+                autocorrect: false,
+                enableInteractiveSelection: true,
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: Colors.white,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: AppColors.border),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: AppColors.border),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(
+                      color: AppColors.primary,
+                      width: 1.6,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            IconButton(
+              onPressed: onToggleVisibility,
+              tooltip: obscureText ? 'Show password' : 'Hide password',
+              icon: Icon(
+                obscureText
+                    ? Icons.visibility_off_outlined
+                    : Icons.visibility_outlined,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
 class _FormField extends StatelessWidget {
   const _FormField({
     required this.label,
@@ -1924,24 +2070,6 @@ class _FormField extends StatelessWidget {
   }
 }
 
-String? _validatePassword(String password) {
-  if (password.isEmpty) return 'Create your password.';
-  if (password.length < 12) return 'Password must be at least 12 characters.';
-  if (!RegExp(r'[A-Z]').hasMatch(password)) {
-    return 'Password must include at least one uppercase letter.';
-  }
-  if (!RegExp(r'[a-z]').hasMatch(password)) {
-    return 'Password must include at least one lowercase letter.';
-  }
-  if (!RegExp(r'\d').hasMatch(password)) {
-    return 'Password must include at least one number.';
-  }
-  if (!RegExp(r'[!@#$%^&*(),.?":{}|<>_\-+=/\\[\]~`]').hasMatch(password)) {
-    return 'Password must include at least one special symbol.';
-  }
-  return null;
-}
-
 String? _validateEmail(String email) {
   if (email.isEmpty) return 'Enter your email address.';
   final normalized = email.trim();
@@ -1962,11 +2090,17 @@ String _friendlyErrorMessage(Object error) {
   if (lower.contains('value_error') && lower.contains('email')) {
     return 'Email format is invalid. Use format name@example.com.';
   }
-  if (lower.contains('confirm_password')) {
-    return 'Confirm password must match the password.';
+  if (lower.contains('confirm password must match')) {
+    return raw;
   }
-  if (lower.contains('password')) {
-    return 'Password does not meet policy. Use 12+ chars with uppercase, lowercase, number, and symbol.';
+  if (lower.startsWith('password must')) {
+    return raw;
+  }
+  if (lower.contains('profile photo')) {
+    return raw;
+  }
+  if (lower.contains('failed to upload profile photo')) {
+    return raw;
   }
   return raw;
 }

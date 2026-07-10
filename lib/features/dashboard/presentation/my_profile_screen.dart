@@ -9,6 +9,7 @@ import '../../../core/auth/auth_session.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/membership_api_service.dart';
 import '../../../core/network/profiles_api_service.dart';
+import '../../../core/utils/image_capture.dart';
 import '../../../core/utils/validators.dart';
 
 class MyProfileScreen extends StatefulWidget {
@@ -32,6 +33,7 @@ class _MyProfileScreenState extends State<MyProfileScreen>
   bool _editing = false;
   bool _saving = false;
   bool _uploadingPhoto = false;
+  bool _showPhotoOptions = false;
   String? _message;
 
   late final TextEditingController _currentTitle;
@@ -196,6 +198,8 @@ class _MyProfileScreenState extends State<MyProfileScreen>
     }
   }
 
+  static const _maxPhotoBytes = 3 * 1024 * 1024;
+
   Future<PlatformFile?> _pickImageFile() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.image,
@@ -222,27 +226,27 @@ class _MyProfileScreenState extends State<MyProfileScreen>
     throw Exception('Could not read image file. Try a smaller JPG or PNG.');
   }
 
-  Future<void> _pickPhoto() async {
+  Future<void> _uploadPhotoFile(PlatformFile file) async {
+    if (file.bytes == null || file.bytes!.isEmpty) {
+      throw Exception('Could not read image file.');
+    }
+    if (file.bytes!.length > _maxPhotoBytes) {
+      throw Exception('Profile photo must be 3 MB or smaller.');
+    }
+
+    setState(() {
+      _uploadingPhoto = true;
+      _showPhotoOptions = false;
+      _message = null;
+    });
+
     try {
-      final file = await _pickImageFile();
-      if (file == null) return;
-
-      setState(() {
-        _uploadingPhoto = true;
-        _message = null;
-      });
-
-      final photoUrl = await _profilesApi.uploadProfilePhoto(file);
+      await _profilesApi.uploadProfilePhoto(file);
       final profile = await _profilesApi.fetchMyProfile();
       if (!mounted) return;
       setState(() {
-        _profile = profile.copyWith(
-          photoUrl: profile.photoUrl?.isNotEmpty == true
-              ? profile.photoUrl
-              : photoUrl,
-        );
+        _profile = profile;
         _uploadingPhoto = false;
-        _message = 'Photo updated.';
       });
       _showFeedback('Photo updated.');
     } catch (e) {
@@ -251,6 +255,35 @@ class _MyProfileScreenState extends State<MyProfileScreen>
         _uploadingPhoto = false;
         _message = e.toString();
       });
+      _showFeedback(e.toString(), isError: true);
+    }
+  }
+
+  Future<void> _pickPhotoFromGallery() async {
+    try {
+      final file = await _pickImageFile();
+      if (file == null) return;
+      await _uploadPhotoFile(file);
+    } catch (e) {
+      if (!mounted) return;
+      _showFeedback(e.toString(), isError: true);
+    }
+  }
+
+  Future<void> _capturePhoto() async {
+    setState(() => _showPhotoOptions = false);
+    try {
+      final captured = await captureImageWithLivePreview(context);
+      if (captured == null) return;
+      await _uploadPhotoFile(
+        PlatformFile(
+          name: captured.fileName,
+          size: captured.bytes.length,
+          bytes: captured.bytes,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
       _showFeedback(e.toString(), isError: true);
     }
   }
@@ -288,12 +321,6 @@ class _MyProfileScreenState extends State<MyProfileScreen>
     final at = email.indexOf('@');
     if (at > 0) return email.substring(0, at);
     return email;
-  }
-
-  String get _membershipLabel {
-    final plan = _membership?.planName ?? 'Life Member';
-    if (plan.toLowerCase().contains('life')) return 'Life Member';
-    return plan;
   }
 
   @override
@@ -408,103 +435,113 @@ class _MyProfileScreenState extends State<MyProfileScreen>
         : 'K';
 
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Stack(
-          children: [
-            ClipOval(
-              child: profile.photoUrl != null
-                  ? CachedNetworkImage(
-                      key: ValueKey(profile.photoUrl),
-                      imageUrl: profile.photoUrl!,
-                      width: 88,
-                      height: 88,
-                      fit: BoxFit.cover,
-                      errorWidget: (_, _, _) => _avatarPlaceholder(initial),
-                    )
-                  : _avatarPlaceholder(initial),
-            ),
-            Positioned(
-              right: 0,
-              bottom: 0,
-              child: Material(
-                color: AppColors.secondary,
-                shape: const CircleBorder(),
-                child: InkWell(
-                  customBorder: const CircleBorder(),
-                  onTap: _uploadingPhoto ? null : _pickPhoto,
-                  child: Padding(
-                    padding: const EdgeInsets.all(6),
-                    child: _uploadingPhoto
-                        ? const SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.camera_alt_outlined, size: 14),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(width: 18),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              profile.fullName,
-              style: GoogleFonts.fraunces(
-                fontSize: 28,
-                fontWeight: FontWeight.w600,
-                color: AppColors.heading,
-              ),
-            ),
-            const SizedBox(height: 8),
-            OutlinedButton.icon(
-              onPressed: _uploadingPhoto ? null : _pickPhoto,
-              icon: _uploadingPhoto
-                  ? const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.photo_camera_outlined, size: 16),
-              label: const Text('Change photo'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.heading,
-                side: const BorderSide(color: AppColors.border),
-              ),
-            ),
-            if (!_editing) const SizedBox(height: 8),
-            if (!_editing)
-              Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              decoration: BoxDecoration(
-                color: AppColors.secondary.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
+            SizedBox(
+              width: 96,
+              height: 96,
+              child: Stack(
+                clipBehavior: Clip.none,
                 children: [
-                  Icon(
-                    Icons.verified_outlined,
-                    size: 14,
-                    color: AppColors.secondary.withValues(alpha: 0.9),
+                  Positioned(
+                    left: 0,
+                    top: 0,
+                    child: ClipOval(
+                      child: SizedBox(
+                        width: 88,
+                        height: 88,
+                        child: profile.photoUrl != null
+                            ? CachedNetworkImage(
+                                key: ValueKey(profile.photoUrl),
+                                imageUrl: profile.photoUrl!,
+                                width: 88,
+                                height: 88,
+                                fit: BoxFit.cover,
+                                errorWidget: (_, _, _) =>
+                                    _avatarPlaceholder(initial),
+                              )
+                            : _avatarPlaceholder(initial),
+                      ),
+                    ),
                   ),
-                  const SizedBox(width: 6),
-                  Text(
-                    _membershipLabel,
-                    style: GoogleFonts.inter(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.heading,
+                  Positioned(
+                    right: 0,
+                    bottom: 0,
+                    child: Material(
+                      elevation: 2,
+                      color: AppColors.secondary,
+                      shape: const CircleBorder(
+                        side: BorderSide(color: Colors.white, width: 2),
+                      ),
+                      child: InkWell(
+                        customBorder: const CircleBorder(),
+                        onTap: _uploadingPhoto
+                            ? null
+                            : () => setState(() => _showPhotoOptions = true),
+                        child: SizedBox(
+                          width: 30,
+                          height: 30,
+                          child: Center(
+                            child: _uploadingPhoto
+                                ? const SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Icon(
+                                    Icons.camera_alt,
+                                    size: 16,
+                                    color: Colors.white,
+                                  ),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
+            if (_showPhotoOptions) ...[
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  IconButton.outlined(
+                    onPressed: _uploadingPhoto ? null : _capturePhoto,
+                    icon: const Icon(Icons.photo_camera_outlined),
+                    tooltip: 'Open camera',
+                  ),
+                  const SizedBox(width: 8),
+                  OutlinedButton.icon(
+                    onPressed: _uploadingPhoto ? null : _pickPhotoFromGallery,
+                    icon: const Icon(Icons.upload_outlined, size: 18),
+                    label: const Text('Upload photo'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.heading,
+                      side: const BorderSide(color: AppColors.border),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ],
+        ),
+        const SizedBox(width: 18),
+        Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Text(
+            profile.fullName,
+            style: GoogleFonts.fraunces(
+              fontSize: 28,
+              fontWeight: FontWeight.w600,
+              color: AppColors.heading,
+            ),
+          ),
         ),
       ],
     );
