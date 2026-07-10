@@ -90,16 +90,14 @@ class _MyMembershipScreenState extends State<MyMembershipScreen> {
   }
 
   Future<void> _openDonateDialog() async {
-    if (_categories.isEmpty) {
-      try {
-        _categories = await _api.fetchDonationCategories();
-      } catch (e) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString())),
-        );
-        return;
-      }
+    try {
+      _categories = await _api.fetchDonationCategories();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString())),
+      );
+      return;
     }
     if (!mounted) return;
 

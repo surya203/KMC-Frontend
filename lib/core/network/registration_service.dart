@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:http_parser/http_parser.dart';
 
 import '../config/app_config.dart';
 import 'api_client.dart';
@@ -87,7 +88,8 @@ class RegistrationService {
       );
       final data = response.data;
       if (data == null) throw RegistrationException('Failed to send OTP.');
-      return data['debug_otp'] as String? ?? '';
+      return data['message'] as String? ??
+          'Verification code sent to your email.';
     } on DioException catch (e) {
       throw RegistrationException(_readDetail(e));
     }
@@ -118,10 +120,14 @@ class RegistrationService {
   }) async {
     try {
       final formData = FormData.fromMap({
-        'file': MultipartFile.fromBytes(bytes, filename: fileName),
+        'file': MultipartFile.fromBytes(
+          bytes,
+          filename: fileName,
+          contentType: _imageContentType(fileName),
+        ),
       });
       await _apiClient.dio.post(
-        '${AppConfig.apiBaseUrl}${AppConfig.apiPrefix}/auth/register/draft/$draftId/photo',
+        '${AppConfig.apiPrefix}/auth/register/draft/$draftId/photo',
         data: formData,
       );
     } on DioException catch (e) {
@@ -195,6 +201,17 @@ class RegistrationService {
       return '${detail['detail']}';
     }
     return e.response?.statusMessage ?? 'Registration request failed.';
+  }
+
+  MediaType _imageContentType(String fileName) {
+    final lower = fileName.toLowerCase();
+    if (lower.endsWith('.png')) {
+      return MediaType('image', 'png');
+    }
+    if (lower.endsWith('.webp')) {
+      return MediaType('image', 'webp');
+    }
+    return MediaType('image', 'jpeg');
   }
 }
 
