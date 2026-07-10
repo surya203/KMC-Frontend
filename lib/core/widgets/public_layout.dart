@@ -12,13 +12,8 @@ class PublicAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   final VoidCallback? onMenuPressed;
 
-  static const _navItems = [
-    ('Home', '/'),
-    ('About', '/about'),
-    ('Events', '/events'),
-    ('Gallery', '/gallery'),
-    ('MY KMC', '/membership'),
-  ];
+  static const _headerPadding = 16.0;
+  static const _menuToLogoGap = 10.0;
 
   @override
   Widget build(BuildContext context) {
@@ -30,18 +25,39 @@ class PublicAppBar extends StatelessWidget implements PreferredSizeWidget {
         backgroundColor: Colors.white,
         elevation: 0,
         surfaceTintColor: Colors.white,
-        toolbarHeight: 72,
+        toolbarHeight: 70,
+        automaticallyImplyLeading: false,
         bottom: const PreferredSize(
           preferredSize: Size.fromHeight(1),
           child: Divider(height: 1, color: AppColors.border),
         ),
-        leading: IconButton(
-          icon: const Icon(Icons.menu, color: AppColors.primary),
-          onPressed: onMenuPressed,
-        ),
-        title: InkWell(
-          onTap: () => context.go('/'),
-          child: _BrandLockup(compact: true),
+        flexibleSpace: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: _headerPadding),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.menu, color: AppColors.primary),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints.tightFor(width: 24, height: 24),
+                  visualDensity: VisualDensity.compact,
+                  onPressed: onMenuPressed,
+                ),
+                const SizedBox(width: _menuToLogoGap),
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: GestureDetector(
+                      onTap: () => context.go('/'),
+                      behavior: HitTestBehavior.opaque,
+                      child: const _BrandLockup(compact: true),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       );
     }
@@ -50,7 +66,7 @@ class PublicAppBar extends StatelessWidget implements PreferredSizeWidget {
       backgroundColor: Colors.white,
       elevation: 0,
       surfaceTintColor: Colors.white,
-      toolbarHeight: 84,
+      toolbarHeight: 92,
       automaticallyImplyLeading: false,
       bottom: const PreferredSize(
         preferredSize: Size.fromHeight(1),
@@ -58,62 +74,43 @@ class PublicAppBar extends StatelessWidget implements PreferredSizeWidget {
       ),
       flexibleSpace: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 28),
+          padding: const EdgeInsets.symmetric(horizontal: _headerPadding),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Expanded(
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: InkWell(
-                    onTap: () => context.go('/'),
-                    child: const _BrandLockup(compact: false),
+              GestureDetector(
+                onTap: () => context.go('/'),
+                behavior: HitTestBehavior.opaque,
+                child: const _BrandLockup(compact: false),
+              ),
+              const Spacer(),
+              HoverLink(
+                label: 'Sign in',
+                fontSize: 14,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 12,
+                ),
+                isActive: isNavRouteActive(currentPath, '/auth'),
+                onTap: () => context.go('/auth'),
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton(
+                onPressed: () => context.go('/membership'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 22,
+                    vertical: 16,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
                   ),
                 ),
-              ),
-              Flexible(
-                flex: 2,
-                child: Align(
-                  alignment: Alignment.center,
-                  child: _CenterNavLinks(currentPath: currentPath),
-                ),
-              ),
-              Expanded(
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      HoverLink(
-                        label: 'Sign in',
-                        fontSize: 14,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 12,
-                        ),
-                        isActive: isNavRouteActive(currentPath, '/auth'),
-                        onTap: () => context.go('/auth'),
-                      ),
-                      const SizedBox(width: 8),
-                      ElevatedButton(
-                        onPressed: () => context.go('/membership'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 22,
-                            vertical: 16,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        child: Text(
-                          'Join Network',
-                          style: GoogleFonts.inter(fontWeight: FontWeight.w700),
-                        ),
-                      ),
-                    ],
-                  ),
+                child: Text(
+                  'Join Network',
+                  style: GoogleFonts.inter(fontWeight: FontWeight.w700),
                 ),
               ),
             ],
@@ -124,33 +121,7 @@ class PublicAppBar extends StatelessWidget implements PreferredSizeWidget {
   }
 
   @override
-  Size get preferredSize => const Size.fromHeight(85);
-}
-
-class _CenterNavLinks extends StatelessWidget {
-  const _CenterNavLinks({required this.currentPath});
-
-  final String currentPath;
-
-  static bool _isActive(String current, String path) =>
-      isNavRouteActive(current, path);
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        for (final item in PublicAppBar._navItems)
-          HoverLink(
-            label: item.$1,
-            fontSize: 14,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-            isActive: _isActive(currentPath, item.$2),
-            onTap: () => context.go(item.$2),
-          ),
-      ],
-    );
-  }
+  Size get preferredSize => const Size.fromHeight(93);
 }
 
 class _BrandLockup extends StatelessWidget {
@@ -158,43 +129,68 @@ class _BrandLockup extends StatelessWidget {
 
   final bool compact;
 
+  static const _logoToKmcGap = 8.0;
+  static const _kmcToSubtitleGap = 5.0;
+
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SafeAssetImage(
-          assetPath: AppAssets.logo,
-          height: compact ? 42 : 48,
-          width: compact ? 42 : 48,
-        ),
-        const SizedBox(width: 10),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'KMC',
-              style: GoogleFonts.fraunces(
-                fontSize: compact ? 20 : 22,
-                fontWeight: FontWeight.w700,
-                height: 1,
-                color: AppColors.primary,
+    final logoSize = compact ? 32.0 : 48.0;
+    // KMC slightly larger than the logo for stronger brand focus.
+    final kmcFontSize = compact ? 36.0 : 54.0;
+    final kmcWidth = logoSize * 1.85;
+    // Subtitle smaller so it reads as secondary text.
+    final subtitleSize = compact ? 9.5 : 11.0;
+
+    return IntrinsicWidth(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              SafeAssetImage(
+                assetPath: AppAssets.logo,
+                height: logoSize,
+                width: logoSize,
               ),
-            ),
-            Text(
-              'ALUMNI CONNECT',
-              style: GoogleFonts.inter(
-                fontSize: compact ? 10 : 11,
-                fontWeight: FontWeight.w600,
-                height: 1.1,
-                letterSpacing: 1.2,
-                color: AppColors.primary,
+              const SizedBox(width: _logoToKmcGap),
+              SizedBox(
+                height: logoSize,
+                width: kmcWidth,
+                child: FittedBox(
+                  fit: BoxFit.contain,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'KMC',
+                    style: GoogleFonts.fraunces(
+                      fontSize: kmcFontSize,
+                      fontWeight: FontWeight.w700,
+                      height: 1,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ),
               ),
+            ],
+          ),
+          const SizedBox(height: _kmcToSubtitleGap),
+          Text(
+            'ALUMNI CONNECT',
+            textAlign: TextAlign.left,
+            maxLines: 1,
+            overflow: TextOverflow.clip,
+            style: GoogleFonts.inter(
+              fontSize: subtitleSize,
+              fontWeight: FontWeight.w600,
+              height: 1.1,
+              letterSpacing: compact ? 1.0 : 1.2,
+              color: AppColors.primary,
             ),
-          ],
-        ),
-      ],
+          ),
+        ],
+      ),
     );
   }
 }
