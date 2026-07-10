@@ -14,6 +14,7 @@ import '../../../core/payment/razorpay_checkout.dart';
 import '../../../core/theme/heading_styles.dart';
 import '../../../core/utils/file_download.dart';
 import '../../../core/utils/image_capture.dart';
+import '../../../core/utils/membership_number_format.dart';
 import '../../../core/utils/validators.dart';
 import '../../../core/widgets/public_layout.dart';
 import '../../home/widgets/footer_section.dart';
@@ -519,6 +520,8 @@ class _MembershipScreenState extends State<MembershipScreen> {
         ),
       _ => _CompleteStep(
           result: _completion,
+          fullName: _fullName,
+          batchYear: int.tryParse(_batchYearController.text.trim()),
           membershipApi: _membershipApi,
           onSignIn: () {
             final email = _completion?.email ?? _emailController.text.trim();
@@ -1536,11 +1539,15 @@ class _BankDetailRow extends StatelessWidget {
 class _CompleteStep extends StatelessWidget {
   const _CompleteStep({
     required this.result,
+    required this.fullName,
+    required this.batchYear,
     required this.membershipApi,
     required this.onSignIn,
   });
 
   final CompleteRegistrationResult? result;
+  final String fullName;
+  final int? batchYear;
   final MembershipApiService membershipApi;
   final VoidCallback onSignIn;
 
@@ -1616,7 +1623,11 @@ class _CompleteStep extends StatelessWidget {
                 children: [
                   _CredentialRow(
                     label: 'MEMBERSHIP NO.',
-                    value: result!.membershipNumber!,
+                    value: MembershipNumberFormat.displayOrFallback(
+                      storedMembershipNumber: result!.membershipNumber,
+                      batchYear: batchYear,
+                      fullName: fullName,
+                    ),
                   ),
                   if (result?.receiptNumber != null) ...[
                     const SizedBox(height: 16),

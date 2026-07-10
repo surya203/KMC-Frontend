@@ -29,6 +29,7 @@ class AuthUser {
     required this.email,
     required this.role,
     this.fullName,
+    this.batchYear,
     this.membershipNumber,
   });
 
@@ -36,6 +37,7 @@ class AuthUser {
   final String email;
   final String role;
   final String? fullName;
+  final int? batchYear;
   final String? membershipNumber;
 
   factory AuthUser.fromJson(Map<String, dynamic> json) {
@@ -47,6 +49,9 @@ class AuthUser {
       role: json['role'] as String,
       fullName: profile is Map<String, dynamic>
           ? profile['full_name'] as String?
+          : null,
+      batchYear: profile is Map<String, dynamic>
+          ? profile['batch_year'] as int?
           : null,
       membershipNumber: membership is Map<String, dynamic>
           ? membership['membership_number'] as String?

@@ -17,26 +17,18 @@ class DashboardEventsScreen extends StatefulWidget {
 
 class _DashboardEventsScreenState extends State<DashboardEventsScreen> {
   final _api = EventsApiService();
-  final _searchController = TextEditingController();
 
   List<EventItem> _upcoming = [];
   List<EventItem> _past = [];
   List<MyEventRegistration> _myRegistrations = [];
   String? _error;
   bool _loading = true;
-  String _searchQuery = '';
   String? _registeringTrack;
 
   @override
   void initState() {
     super.initState();
     _loadEvents();
-  }
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
   }
 
   Future<void> _loadEvents() async {
@@ -71,21 +63,8 @@ class _DashboardEventsScreenState extends State<DashboardEventsScreen> {
     }
   }
 
-  bool _matchesSearch(EventItem event) {
-    if (_searchQuery.isEmpty) return true;
-    final q = _searchQuery.toLowerCase();
-    return event.title.toLowerCase().contains(q) ||
-        event.displayVenue.toLowerCase().contains(q) ||
-        (event.description?.toLowerCase().contains(q) ?? false);
-  }
-
-  List<EventItem> get _filteredUpcoming =>
-      _upcoming.where(_matchesSearch).toList();
-
-  List<EventItem> get _filteredPast => _past.where(_matchesSearch).toList();
-
   EventItem? get _primaryEvent =>
-      _filteredUpcoming.isNotEmpty ? _filteredUpcoming.first : null;
+      _upcoming.isNotEmpty ? _upcoming.first : null;
 
   Future<void> _registerForProgram(EventProgramCardData program) async {
     if (!program.event.registrationOpen) return;
@@ -138,22 +117,6 @@ class _DashboardEventsScreenState extends State<DashboardEventsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              DashboardEventsHero(coverImageUrl: primary?.coverImageUrl),
-              const SizedBox(height: 20),
-              TextField(
-                controller: _searchController,
-                decoration: InputDecoration(
-                  hintText: 'Search events by title or venue...',
-                  prefixIcon: const Icon(Icons.search),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  filled: true,
-                  fillColor: AppColors.card,
-                ),
-                onChanged: (value) =>
-                    setState(() => _searchQuery = value.trim()),
-              ),
               if (!_loading && _error == null && _myRegistrations.isNotEmpty) ...[
                 const SizedBox(height: 32),
                 Text(
@@ -183,9 +146,7 @@ class _DashboardEventsScreenState extends State<DashboardEventsScreen> {
                 _ErrorBanner(message: _error!, onRetry: _loadEvents)
               else if (programCards.isEmpty)
                 Text(
-                  _searchQuery.isEmpty
-                      ? 'No upcoming events yet. Check back soon.'
-                      : 'No upcoming events match your search.',
+                  'No upcoming events yet. Check back soon.',
                   style: GoogleFonts.inter(color: AppColors.bodyText),
                 )
               else
@@ -196,7 +157,7 @@ class _DashboardEventsScreenState extends State<DashboardEventsScreen> {
                   onRegister: _registerForProgram,
                   onOpenDetail: _openEventDetail,
                 ),
-              if (!_loading && _error == null && _filteredPast.isNotEmpty) ...[
+              if (!_loading && _error == null && _past.isNotEmpty) ...[
                 const SizedBox(height: 40),
                 Text(
                   'Past events',
@@ -208,7 +169,7 @@ class _DashboardEventsScreenState extends State<DashboardEventsScreen> {
                 ),
                 const SizedBox(height: 20),
                 _PastEventGrid(
-                  events: _filteredPast,
+                  events: _past,
                   onOpen: _openEventDetail,
                 ),
               ],

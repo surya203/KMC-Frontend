@@ -6,7 +6,9 @@ import '../../../core/auth/auth_session.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/api_errors.dart';
 import '../../../core/network/membership_api_service.dart';
+import '../../../core/network/profiles_api_service.dart';
 import '../../../core/payment/razorpay_checkout.dart';
+import '../../../core/utils/membership_number_format.dart';
 
 class MyMembershipScreen extends StatefulWidget {
   const MyMembershipScreen({super.key});
@@ -17,8 +19,10 @@ class MyMembershipScreen extends StatefulWidget {
 
 class _MyMembershipScreenState extends State<MyMembershipScreen> {
   final _api = MembershipApiService();
+  final _profilesApi = ProfilesApiService();
 
   MemberMembership? _membership;
+  MyProfile? _profile;
   MembershipPlan? _plan;
   List<DonationCategory> _categories = [];
   List<DonationRecord> _donations = [];
@@ -42,6 +46,12 @@ class _MyMembershipScreenState extends State<MyMembershipScreen> {
 
     try {
       final membership = await _api.fetchMyMembership();
+      MyProfile? profile;
+      try {
+        profile = await _profilesApi.fetchMyProfile();
+      } catch (_) {
+        profile = null;
+      }
       MembershipPlan? plan;
       var categories = <DonationCategory>[];
       var donations = <DonationRecord>[];
@@ -59,6 +69,7 @@ class _MyMembershipScreenState extends State<MyMembershipScreen> {
       if (!mounted) return;
       setState(() {
         _membership = membership;
+        _profile = profile;
         _plan = plan;
         _categories = categories;
         _donations = donations;
@@ -350,7 +361,7 @@ class _MyMembershipScreenState extends State<MyMembershipScreen> {
               if (membership != null) ...[
                 _StatusCard(membership: membership),
                 const SizedBox(height: 16),
-                _RecordCard(membership: membership),
+                _RecordCard(membership: membership, profile: _profile),
                 const SizedBox(height: 16),
                 _PlanCard(membership: membership, plan: _plan),
                 if (membership.projectDonations.isNotEmpty) ...[
@@ -442,9 +453,10 @@ class _StatusCard extends StatelessWidget {
 }
 
 class _RecordCard extends StatelessWidget {
-  const _RecordCard({required this.membership});
+  const _RecordCard({required this.membership, this.profile});
 
   final MemberMembership membership;
+  final MyProfile? profile;
 
   @override
   Widget build(BuildContext context) {
@@ -469,7 +481,11 @@ class _RecordCard extends StatelessWidget {
           const SizedBox(height: 12),
           _Field(
             label: 'Membership Number',
-            value: membership.membershipNumber ?? '—',
+            value: MembershipNumberFormat.displayOrFallback(
+              storedMembershipNumber: membership.membershipNumber,
+              batchYear: profile?.batchYear,
+              fullName: profile?.fullName,
+            ),
           ),
           _Field(
             label: 'Registration Date',

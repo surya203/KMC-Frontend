@@ -7,6 +7,7 @@ import '../../../core/auth/auth_session.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/events_api_service.dart';
 import '../../../core/network/profiles_api_service.dart';
+import '../../../core/utils/membership_number_format.dart';
 import '../../../core/utils/validators.dart';
 import '../../../core/widgets/event_card.dart';
 
@@ -100,8 +101,9 @@ class _DashboardEventDetailScreenState extends State<DashboardEventDetailScreen>
       final event = await _eventsApi.fetchEventBySlug(widget.slug);
       if (!mounted) return;
       _prefillContactFields();
+      MyProfile? profile;
       try {
-        final profile = await _profilesApi.fetchMyProfile();
+        profile = await _profilesApi.fetchMyProfile();
         if (!mounted) return;
         _attendanceName.text = profile.fullName;
         _interestName.text = profile.fullName;
@@ -117,15 +119,7 @@ class _DashboardEventDetailScreenState extends State<DashboardEventDetailScreen>
       } catch (_) {
         // Profile optional for prefill.
       }
-      final user = AuthSession.instance.currentUser;
-      if (user != null) {
-        _attendanceEmail.text = user.email;
-        _interestEmail.text = user.email;
-        if (user.membershipNumber != null) {
-          _attendanceMembership.text = user.membershipNumber!;
-          _interestMembership.text = user.membershipNumber!;
-        }
-      }
+      _applyMembershipPrefill(profile: profile);
       if (event.programs.isNotEmpty) {
         _interestProgramTrack ??= event.programs.first;
       }
@@ -151,11 +145,20 @@ class _DashboardEventDetailScreenState extends State<DashboardEventDetailScreen>
         _attendanceName.text = user.fullName!;
         _interestName.text = user.fullName!;
       }
-      if (user.membershipNumber != null) {
-        _attendanceMembership.text = user.membershipNumber!;
-        _interestMembership.text = user.membershipNumber!;
-      }
     }
+    _applyMembershipPrefill();
+  }
+
+  void _applyMembershipPrefill({MyProfile? profile}) {
+    final user = AuthSession.instance.currentUser;
+    final formatted = MembershipNumberFormat.display(
+      storedMembershipNumber: user?.membershipNumber,
+      batchYear: profile?.batchYear ?? user?.batchYear,
+      fullName: profile?.fullName ?? user?.fullName,
+    );
+    if (formatted == null) return;
+    _attendanceMembership.text = formatted;
+    _interestMembership.text = formatted;
   }
 
   Future<void> _runBusy(Future<void> Function() action) async {

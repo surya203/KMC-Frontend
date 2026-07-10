@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/auth/auth_session.dart';
+import '../../../core/search/app_search_service.dart';
+import 'dashboard_nav_items.dart';
 import 'dashboard_shell.dart';
 
 /// Keeps sidebar + top bar mounted while only the inner [child] swaps.
@@ -16,6 +18,7 @@ class DashboardShellHost extends StatefulWidget {
 
 class _DashboardShellHostState extends State<DashboardShellHost> {
   final _searchController = TextEditingController();
+  final _searchService = AppSearchService();
 
   @override
   void dispose() {
@@ -37,17 +40,11 @@ class _DashboardShellHostState extends State<DashboardShellHost> {
       currentPath: location,
       title: dashboardTitleForPath(location),
       searchController: _searchController,
+      searchService: _searchService,
       onSignOut: _signOut,
       child: widget.child,
     );
   }
-}
-
-String dashboardTitleForPath(String path) {
-  for (final item in dashboardNavItems) {
-    if (item.path == path) return item.label;
-  }
-  return 'Dashboard';
 }
 
 Page<void> dashboardPage({
