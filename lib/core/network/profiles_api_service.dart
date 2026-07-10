@@ -415,6 +415,11 @@ class ProfilesApiService {
       }
       if (detail['message'] != null) return '${detail['message']}';
     }
+    if (e.type == DioExceptionType.connectionError ||
+        e.type == DioExceptionType.connectionTimeout ||
+        e.type == DioExceptionType.receiveTimeout) {
+      return 'Could not reach the server. Check that the backend is running.';
+    }
     return e.response?.statusMessage ?? 'Profile request failed.';
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/auth/auth_session.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/admin_api_service.dart';
 
@@ -26,10 +27,13 @@ class _AdminVerificationsScreenState extends State<AdminVerificationsScreen> {
     _load();
   }
 
-  Future<void> _load() async {
+  Future<void> _load({int attempt = 0}) async {
+    await AuthSession.instance.ensureReady();
+
+    if (!mounted) return;
     setState(() {
-      _loading = true;
-      _error = null;
+      _loading = attempt == 0;
+      if (attempt == 0) _error = null;
     });
 
     try {
@@ -38,14 +42,30 @@ class _AdminVerificationsScreenState extends State<AdminVerificationsScreen> {
       setState(() {
         _items = items;
         _loading = false;
+        _error = null;
       });
     } catch (e) {
+      if (attempt < 2 && _shouldRetry(e)) {
+        await Future<void>.delayed(
+          Duration(milliseconds: 450 * (attempt + 1)),
+        );
+        if (mounted) await _load(attempt: attempt + 1);
+        return;
+      }
       if (!mounted) return;
       setState(() {
         _error = e.toString();
         _loading = false;
       });
     }
+  }
+
+  bool _shouldRetry(Object error) {
+    final message = error.toString().toLowerCase();
+    return message.contains('admin request failed') ||
+        message.contains('could not reach') ||
+        message.contains('connection') ||
+        message.contains('timeout');
   }
 
   Future<void> _review(VerificationQueueItem item, String action) async {
@@ -56,6 +76,7 @@ class _AdminVerificationsScreenState extends State<AdminVerificationsScreen> {
     } else {
       final confirmed = await showDialog<bool>(
         context: context,
+        barrierDismissible: false,
         builder: (context) => AlertDialog(
           title: const Text('Approve profile?'),
           content: Text('Approve ${item.fullName} (Batch ${item.batchYear})?'),
@@ -82,18 +103,38 @@ class _AdminVerificationsScreenState extends State<AdminVerificationsScreen> {
         notes: notes,
       );
       if (!mounted) return;
+      setState(() {
+        _items = _items.where((entry) => entry.id != item.id).toList();
+      });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
+        SnackBar(
+          content: Text(message),
+          backgroundColor: action == 'approve'
+              ? const Color(0xFF1F6B3A)
+              : AppColors.heading,
+        ),
       );
       await _load();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
+        SnackBar(
+          content: Text(_formatError(e)),
+          backgroundColor: Colors.red.shade700,
+          duration: const Duration(seconds: 5),
+        ),
       );
     } finally {
       if (mounted) setState(() => _actingOnId = null);
     }
+  }
+
+  String _formatError(Object error) {
+    final text = error.toString();
+    if (text.startsWith('Exception: ')) {
+      return text.substring('Exception: '.length);
+    }
+    return text;
   }
 
   Future<String?> _promptNotes() async {
@@ -162,7 +203,10 @@ class _AdminVerificationsScreenState extends State<AdminVerificationsScreen> {
               ),
               const SizedBox(height: 20),
               if (_error != null) ...[
-                _ErrorBanner(message: _error!, onRetry: _load),
+                _ErrorBanner(
+                  message: _formatError(_error!),
+                  onRetry: _load,
+                ),
                 const SizedBox(height: 16),
               ],
               if (_items.isEmpty)

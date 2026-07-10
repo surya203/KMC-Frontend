@@ -182,25 +182,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               ],
                             );
                           }
-                          return IntrinsicHeight(
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                Expanded(
-                                  flex: 3,
-                                  child: _UpcomingReunionsCard(
-                                    events: _upcomingEvents,
-                                  ),
+                          return Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                flex: 3,
+                                child: _UpcomingReunionsCard(
+                                  events: _upcomingEvents,
                                 ),
-                                const SizedBox(width: 18),
-                                Expanded(
-                                  flex: 2,
-                                  child: _RecentNotificationsCard(
-                                    announcements: _announcements,
-                                  ),
+                              ),
+                              const SizedBox(width: 18),
+                              Expanded(
+                                flex: 2,
+                                child: _RecentNotificationsCard(
+                                  announcements: _announcements,
                                 ),
-                              ],
-                            ),
+                              ),
+                            ],
                           );
                         },
                       ),

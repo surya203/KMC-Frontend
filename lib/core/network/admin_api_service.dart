@@ -1,5 +1,7 @@
 import 'package:dio/dio.dart';
 
+import '../auth/auth_refresh.dart';
+import '../auth/auth_session.dart';
 import '../config/app_config.dart';
 import 'api_client.dart';
 import 'auth_service.dart';
@@ -206,11 +208,70 @@ class AdminApiService {
     return Options(headers: {'Authorization': header});
   }
 
+  Future<Response<Map<String, dynamic>>> _authenticatedGet(
+    String path, {
+    Map<String, dynamic>? queryParameters,
+    int attempt = 0,
+  }) async {
+    await AuthSession.instance.ensureReady();
+    try {
+      return await _apiClient.get<Map<String, dynamic>>(
+        path,
+        queryParameters: queryParameters,
+        options: _authOptions,
+      );
+    } on DioException catch (e) {
+      if (attempt < 2 && _shouldRetry(e)) {
+        if (e.response?.statusCode == 401 || e.response?.statusCode == 403) {
+          await AuthRefresh.refreshIfNeeded();
+        }
+        await Future<void>.delayed(
+          Duration(milliseconds: 450 * (attempt + 1)),
+        );
+        return _authenticatedGet(
+          path,
+          queryParameters: queryParameters,
+          attempt: attempt + 1,
+        );
+      }
+      rethrow;
+    }
+  }
+
+  Future<Response<Map<String, dynamic>>> _authenticatedPatch(
+    String path, {
+    Map<String, dynamic>? data,
+    int attempt = 0,
+  }) async {
+    await AuthSession.instance.ensureReady();
+    try {
+      return await _apiClient.patch<Map<String, dynamic>>(
+        path,
+        data: data,
+        options: _authOptions,
+      );
+    } on DioException catch (e) {
+      if (attempt < 2 && _shouldRetry(e)) {
+        if (e.response?.statusCode == 401 || e.response?.statusCode == 403) {
+          await AuthRefresh.refreshIfNeeded();
+        }
+        await Future<void>.delayed(
+          Duration(milliseconds: 450 * (attempt + 1)),
+        );
+        return _authenticatedPatch(
+          path,
+          data: data,
+          attempt: attempt + 1,
+        );
+      }
+      rethrow;
+    }
+  }
+
   Future<AnalyticsOverview> fetchAnalyticsOverview() async {
     try {
-      final response = await _apiClient.get<Map<String, dynamic>>(
+      final response = await _authenticatedGet(
         '${AppConfig.apiPrefix}/admin/analytics/overview',
-        options: _authOptions,
       );
       return AnalyticsOverview.fromJson(response.data!);
     } on DioException catch (e) {
@@ -220,9 +281,8 @@ class AdminApiService {
 
   Future<AnalyticsEngagement> fetchAnalyticsEngagement() async {
     try {
-      final response = await _apiClient.get<Map<String, dynamic>>(
+      final response = await _authenticatedGet(
         '${AppConfig.apiPrefix}/admin/analytics/engagement',
-        options: _authOptions,
       );
       return AnalyticsEngagement.fromJson(response.data!);
     } on DioException catch (e) {
@@ -235,10 +295,9 @@ class AdminApiService {
     int pageSize = 20,
   }) async {
     try {
-      final response = await _apiClient.get<Map<String, dynamic>>(
+      final response = await _authenticatedGet(
         '${AppConfig.apiPrefix}/admin/verifications',
         queryParameters: {'page': page, 'page_size': pageSize},
-        options: _authOptions,
       );
       final profiles = response.data?['profiles'] as List<dynamic>? ?? [];
       return profiles
@@ -255,18 +314,25 @@ class AdminApiService {
     String? notes,
   }) async {
     try {
-      final response = await _apiClient.patch<Map<String, dynamic>>(
+      final response = await _authenticatedPatch(
         '${AppConfig.apiPrefix}/admin/verifications/$profileId',
         data: {
           'action': action,
           if (notes != null && notes.isNotEmpty) 'notes': notes,
         },
-        options: _authOptions,
       );
       return response.data?['message'] as String? ?? 'Updated.';
     } on DioException catch (e) {
       throw Exception(_readDetail(e));
     }
+  }
+
+  bool _shouldRetry(DioException e) {
+    final status = e.response?.statusCode;
+    if (status == 401 || status == 403 || status == 500) return true;
+    return e.type == DioExceptionType.connectionError ||
+        e.type == DioExceptionType.connectionTimeout ||
+        e.type == DioExceptionType.receiveTimeout;
   }
 
   Future<AdminMembersPage> fetchMembers({
@@ -275,14 +341,13 @@ class AdminApiService {
     int pageSize = 20,
   }) async {
     try {
-      final response = await _apiClient.get<Map<String, dynamic>>(
+      final response = await _authenticatedGet(
         '${AppConfig.apiPrefix}/admin/members',
         queryParameters: {
           if (search != null && search.trim().isNotEmpty) 'search': search.trim(),
           'page': page,
           'page_size': pageSize,
         },
-        options: _authOptions,
       );
       return AdminMembersPage.fromJson(response.data ?? {});
     } on DioException catch (e) {
@@ -292,10 +357,9 @@ class AdminApiService {
 
   Future<void> updateUserRole(String userId, String role) async {
     try {
-      await _apiClient.patch<Map<String, dynamic>>(
+      await _authenticatedPatch(
         '${AppConfig.apiPrefix}/admin/users/$userId/role',
         data: {'role': role},
-        options: _authOptions,
       );
     } on DioException catch (e) {
       throw Exception(_readDetail(e));
@@ -310,10 +374,49 @@ class AdminApiService {
   }
 
   String _readDetail(DioException e) {
+    final status = e.response?.statusCode;
     final detail = e.response?.data;
     if (detail is Map && detail['detail'] != null) {
-      return '${detail['detail']}';
+      final raw = detail['detail'];
+      if (raw is List && raw.isNotEmpty) {
+        final first = raw.first;
+        if (first is Map && first['msg'] != null) {
+          final message = '${first['msg']}';
+          if (status != null) return '$message (HTTP $status)';
+          return message;
+        }
+      }
+      final message = '$raw';
+      if (status != null) return '$message (HTTP $status)';
+      return message;
     }
-    return e.response?.statusMessage ?? 'Admin request failed.';
+    if (detail is String && detail.isNotEmpty) {
+      return detail;
+    }
+    if (status == 403) {
+      return 'You do not have permission for this admin action (HTTP 403).';
+    }
+    if (status == 404) {
+      return 'Admin resource not found (HTTP 404).';
+    }
+    if (status == 422) {
+      return 'Invalid role or request data (HTTP 422).';
+    }
+    if (e.type == DioExceptionType.connectionError ||
+        e.type == DioExceptionType.connectionTimeout ||
+        e.type == DioExceptionType.receiveTimeout) {
+      return 'Could not reach the server at ${AppConfig.apiBaseUrl}. '
+          'Check that the backend is running on port 8001.';
+    }
+    if (status == 500) {
+      return 'Server error while processing admin request (HTTP 500). '
+          'Restart the backend on port 8001 and try again.';
+    }
+    final fallback = e.message ?? e.response?.statusMessage;
+    if (fallback != null && fallback.isNotEmpty) {
+      if (status != null) return '$fallback (HTTP $status)';
+      return fallback;
+    }
+    return 'Admin request failed.';
   }
 }

@@ -149,8 +149,16 @@ class AuthService {
       throw AuthException('Could not load profile (${response.statusCode}).');
     } on DioException catch (e) {
       if (e.response?.statusCode == 401 && allowRefresh) {
-        await refresh();
+        try {
+          await refresh();
+        } on AuthException {
+          rethrow;
+        }
         return fetchMe(allowRefresh: false);
+      }
+      final detail = e.response?.data;
+      if (detail is Map && detail['detail'] != null) {
+        throw AuthException('${detail['detail']}');
       }
       throw AuthException(
         e.response?.statusMessage ?? 'Unable to load profile.',

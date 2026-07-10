@@ -102,9 +102,11 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
             authorRole: current.authorRole,
             authorRoleLabel: current.authorRoleLabel,
             authorId: current.authorId,
+            authorName: current.authorName,
             publishedAt: current.publishedAt,
             expiresAt: current.expiresAt,
             isRead: true,
+            body: current.body,
           );
         }
       });

@@ -3,6 +3,7 @@ import 'package:http_parser/http_parser.dart';
 
 import '../config/app_config.dart';
 import 'api_client.dart';
+import 'api_errors.dart';
 
 class RegistrationDraft {
   const RegistrationDraft({
@@ -31,10 +32,26 @@ class RegistrationDraft {
 }
 
 class RegistrationException implements Exception {
-  RegistrationException(this.message);
+  RegistrationException(this.message, {this.retryAfterSeconds});
+
   final String message;
+  final int? retryAfterSeconds;
+
+  bool get isOtpCooldown =>
+      message.toLowerCase().contains('wait before requesting another otp');
+
+  bool get isAlreadyVerified =>
+      message.toLowerCase().contains('already verified');
+
   @override
   String toString() => message;
+}
+
+class SendOtpResult {
+  const SendOtpResult({required this.message, this.debugOtp});
+
+  final String message;
+  final String? debugOtp;
 }
 
 class RegistrationService {
@@ -80,7 +97,7 @@ class RegistrationService {
     );
   }
 
-  Future<String> sendOtp(String draftId) async {
+  Future<SendOtpResult> sendOtp(String draftId) async {
     try {
       final response = await _apiClient.post<Map<String, dynamic>>(
         '${AppConfig.apiPrefix}/auth/register/verify',
@@ -88,10 +105,13 @@ class RegistrationService {
       );
       final data = response.data;
       if (data == null) throw RegistrationException('Failed to send OTP.');
-      return data['message'] as String? ??
-          'Verification code sent to your email.';
+      return SendOtpResult(
+        message: data['message'] as String? ??
+            'Verification code sent to your email.',
+        debugOtp: data['debug_otp'] as String?,
+      );
     } on DioException catch (e) {
-      throw RegistrationException(_readDetail(e));
+      throw _mapDioException(e);
     }
   }
 
@@ -109,7 +129,7 @@ class RegistrationService {
         },
       );
     } on DioException catch (e) {
-      throw RegistrationException(_readDetail(e));
+      throw _mapDioException(e);
     }
   }
 
@@ -131,7 +151,7 @@ class RegistrationService {
         data: formData,
       );
     } on DioException catch (e) {
-      throw RegistrationException(_readDetail(e));
+      throw _mapDioException(e);
     }
   }
 
@@ -150,7 +170,7 @@ class RegistrationService {
         data: formData,
       );
     } on DioException catch (e) {
-      throw RegistrationException(_readDetail(e));
+      throw _mapDioException(e);
     }
   }
 
@@ -168,7 +188,7 @@ class RegistrationService {
       }
       return CompleteRegistrationResult.fromJson(data);
     } on DioException catch (e) {
-      throw RegistrationException(_readDetail(e));
+      throw _mapDioException(e);
     }
   }
 
@@ -191,16 +211,45 @@ class RegistrationService {
       }
       return RegistrationDraft.fromJson(response.data!);
     } on DioException catch (e) {
-      throw RegistrationException(_readDetail(e));
+      throw _mapDioException(e);
     }
   }
 
-  String _readDetail(DioException e) {
+  RegistrationException _mapDioException(DioException e) {
     final detail = e.response?.data;
-    if (detail is Map && detail['detail'] != null) {
-      return '${detail['detail']}';
+    if (detail is Map) {
+      final nested = detail['detail'];
+      if (nested is Map) {
+        final message = nested['message'] as String? ?? 'Registration request failed.';
+        return RegistrationException(
+          sanitizeUserFacingMessage(message),
+          retryAfterSeconds: _parseRetryAfter(nested['retry_after_seconds']),
+        );
+      }
+      if (nested is String) {
+        return RegistrationException(
+          sanitizeUserFacingMessage(nested),
+          retryAfterSeconds: e.response?.statusCode == 429 ? 60 : null,
+        );
+      }
+      final message = detail['message'] as String?;
+      if (message != null) {
+        return RegistrationException(
+          sanitizeUserFacingMessage(message),
+          retryAfterSeconds: _parseRetryAfter(detail['retry_after_seconds']),
+        );
+      }
     }
-    return e.response?.statusMessage ?? 'Registration request failed.';
+    return RegistrationException(
+      sanitizeUserFacingMessage(
+        e.response?.statusMessage ?? 'Registration request failed.',
+      ),
+    );
+  }
+
+  int? _parseRetryAfter(Object? value) {
+    if (value is int) return value;
+    return int.tryParse('$value');
   }
 
   MediaType _imageContentType(String fileName) {

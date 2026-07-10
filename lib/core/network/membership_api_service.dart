@@ -321,6 +321,10 @@ class MembershipApiService {
     try {
       final response = await _apiClient.get<Map<String, dynamic>>(
         '${AppConfig.apiPrefix}/membership/plans',
+        options: Options(
+          sendTimeout: const Duration(seconds: 6),
+          receiveTimeout: const Duration(seconds: 6),
+        ),
       );
       final plans = response.data?['plans'] as List<dynamic>? ?? [];
       return plans
@@ -484,6 +488,14 @@ class MembershipApiService {
     final detail = e.response?.data;
     if (detail is Map && detail['detail'] != null) {
       return '${detail['detail']}';
+    }
+    if (e.type == DioExceptionType.connectionTimeout ||
+        e.type == DioExceptionType.receiveTimeout ||
+        e.type == DioExceptionType.sendTimeout) {
+      return 'Server is taking too long to respond. Check that the backend is running on ${AppConfig.apiBaseUrl}.';
+    }
+    if (e.type == DioExceptionType.connectionError) {
+      return 'Cannot reach the server at ${AppConfig.apiBaseUrl}. Start the backend and try again.';
     }
     return e.response?.statusMessage ?? 'Membership request failed.';
   }

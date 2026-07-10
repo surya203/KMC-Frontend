@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/auth/auth_session.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/admin_api_service.dart';
 
@@ -23,13 +24,31 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   @override
   void initState() {
     super.initState();
+    AuthSession.instance.addListener(_onSessionChanged);
     _load();
   }
 
-  Future<void> _load() async {
+  @override
+  void dispose() {
+    AuthSession.instance.removeListener(_onSessionChanged);
+    super.dispose();
+  }
+
+  void _onSessionChanged() {
+    if (!mounted) return;
+    if (AuthSession.instance.isAuthenticated &&
+        (_error != null || (!_loading && _overview == null))) {
+      _load();
+    }
+  }
+
+  Future<void> _load({int attempt = 0}) async {
+    await AuthSession.instance.ensureReady();
+
+    if (!mounted) return;
     setState(() {
-      _loading = true;
-      _error = null;
+      _loading = attempt == 0;
+      if (attempt == 0) _error = null;
     });
 
     try {
@@ -42,14 +61,40 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         _overview = results[0] as AnalyticsOverview;
         _engagement = results[1] as AnalyticsEngagement;
         _loading = false;
+        _error = null;
       });
     } catch (e) {
+      if (attempt < 2 && _shouldRetry(e)) {
+        await Future<void>.delayed(
+          Duration(milliseconds: 500 * (attempt + 1)),
+        );
+        if (mounted) await _load(attempt: attempt + 1);
+        return;
+      }
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _error = _formatError(e);
         _loading = false;
       });
     }
+  }
+
+  bool _shouldRetry(Object error) {
+    final message = error.toString().toLowerCase();
+    return message.contains('admin request failed') ||
+        message.contains('server error') ||
+        message.contains('could not reach') ||
+        message.contains('connection') ||
+        message.contains('timeout') ||
+        message.contains('sign in required');
+  }
+
+  String _formatError(Object error) {
+    final text = error.toString();
+    if (text.startsWith('Exception: ')) {
+      return text.substring('Exception: '.length);
+    }
+    return text;
   }
 
   @override

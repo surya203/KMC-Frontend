@@ -9,13 +9,16 @@ import '../../../core/auth/auth_session.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/membership_api_service.dart';
+import '../../../core/network/api_errors.dart';
 import '../../../core/network/registration_service.dart';
 import '../../../core/payment/razorpay_checkout.dart';
 import '../../../core/theme/heading_styles.dart';
 import '../../../core/utils/file_download.dart';
 import '../../../core/utils/image_capture.dart';
 import '../../../core/utils/membership_number_format.dart';
+import '../../../core/utils/phone_country_codes.dart';
 import '../../../core/utils/validators.dart';
+import '../../../core/widgets/mobile_number_field.dart';
 import '../../../core/widgets/public_layout.dart';
 import '../../home/widgets/footer_section.dart';
 
@@ -34,7 +37,9 @@ class _MembershipScreenState extends State<MembershipScreen> {
 
   int _step = 0;
   bool _loading = false;
+  bool _bootstrapping = true;
   String? _error;
+  String? _info;
 
   List<MembershipPlan> _plans = [];
   MembershipPlan? _selectedPlan;
@@ -48,6 +53,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
   final _specializationController = TextEditingController();
   final _practiceLocationController = TextEditingController();
   final _phoneController = TextEditingController();
+  final _dialCodeController = TextEditingController(text: '+91');
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
@@ -55,6 +61,8 @@ class _MembershipScreenState extends State<MembershipScreen> {
   PlatformFile? _profilePhoto;
   Uint8List? _profilePhotoBytes;
   String? _otpStatusMessage;
+  String? _devOtpHint;
+  bool _otpSent = false;
 
   String get _fullName {
     final parts = [
@@ -80,6 +88,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
     _specializationController.dispose();
     _practiceLocationController.dispose();
     _phoneController.dispose();
+    _dialCodeController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
@@ -88,43 +97,63 @@ class _MembershipScreenState extends State<MembershipScreen> {
   }
 
   Future<void> _bootstrap() async {
-    setState(() => _loading = true);
+    setState(() {
+      _bootstrapping = true;
+      _error = null;
+    });
     try {
-      final plans = await _membershipApi.fetchPlans();
       final draftId = await AuthSession.instance.getDraftId();
-      RegistrationDraft? draft;
+      Future<RegistrationDraft?> draftFuture;
       if (draftId != null) {
-        try {
-          draft = await _registration.getDraft(draftId);
-        } catch (_) {
+        draftFuture = _registration.getDraft(draftId).catchError((_) async {
           await AuthSession.instance.clearDraftId();
-        }
+          return null;
+        });
+      } else {
+        draftFuture = Future<RegistrationDraft?>.value(null);
       }
+
+      final results = await Future.wait<dynamic>([
+        _membershipApi.fetchPlans(),
+        draftFuture,
+      ]);
+
+      final plans = results[0] as List<MembershipPlan>;
+      final draft = results[1] as RegistrationDraft?;
+
       if (!mounted) return;
-      var completion = _completion;
-      if (draft != null &&
-          (draft.payload['registration_completed'] == true || draft.step >= 5)) {
-        try {
-          completion = await _registration.completeRegistration(draft.id);
-        } catch (_) {
-          // Draft may still be processing; keep existing completion if any.
-        }
-      }
       setState(() {
         _plans = plans;
         _selectedPlan = plans.isNotEmpty ? plans.first : null;
         _draft = draft;
-        _completion = completion;
-        _step = _mapDraftStep(draft, completion);
+        _step = _mapDraftStep(draft, _completion);
         _hydrateFromDraft(draft);
-        _loading = false;
+        _bootstrapping = false;
       });
+
+      if (draft != null &&
+          (draft.payload['registration_completed'] == true || draft.step >= 5)) {
+        _restoreCompletionInBackground(draft.id);
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
-        _loading = false;
+        _error = _friendlyErrorMessage(e);
+        _bootstrapping = false;
       });
+    }
+  }
+
+  Future<void> _restoreCompletionInBackground(String draftId) async {
+    try {
+      final completion = await _registration.completeRegistration(draftId);
+      if (!mounted) return;
+      setState(() {
+        _completion = completion;
+        _step = 4;
+      });
+    } catch (_) {
+      // Keep the wizard usable even if completion sync is still pending.
     }
   }
 
@@ -160,6 +189,9 @@ class _MembershipScreenState extends State<MembershipScreen> {
       }
     }
     _phoneController.text = '${draft.payload['phone'] ?? ''}';
+    _dialCodeController.text =
+        normalizeDialCode(draft.payload['phone_country_code'] as String?) ??
+        '+91';
     _practiceLocationController.text =
         '${draft.payload['practice_location'] ?? draft.payload['location'] ?? draft.payload['city'] ?? ''}';
     _specializationController.text =
@@ -170,12 +202,18 @@ class _MembershipScreenState extends State<MembershipScreen> {
     if (planId != null) {
       _selectedPlan = _plans.where((p) => p.id == planId).firstOrNull ?? _selectedPlan;
     }
+    if (_hasPendingOtp(draft)) {
+      _otpSent = true;
+      _otpStatusMessage ??=
+          'Check your email for the 6-digit verification code.';
+    }
   }
 
   Future<void> _runStep(Future<void> Function() action) async {
     setState(() {
       _loading = true;
       _error = null;
+      _info = null;
     });
     try {
       await action();
@@ -210,14 +248,97 @@ class _MembershipScreenState extends State<MembershipScreen> {
     }
   }
 
+  void _applyOtpResult(SendOtpResult result) {
+    _otpSent = true;
+    final debugOtp = result.debugOtp?.trim();
+    if (AppConfig.isDevelopment &&
+        debugOtp != null &&
+        debugOtp.isNotEmpty) {
+      _devOtpHint = debugOtp;
+      _otpStatusMessage =
+          'Your verification code is ready. Enter it below to continue.';
+    } else {
+      _devOtpHint = null;
+      _otpStatusMessage = result.message;
+    }
+  }
+
+  Future<void> _startFreshRegistration() async {
+    await AuthSession.instance.clearDraftId();
+    setState(() {
+      _draft = null;
+      _step = 0;
+      _completion = null;
+      _error = null;
+      _info = 'Started a new registration.';
+      _otpSent = false;
+      _otpStatusMessage = null;
+      _devOtpHint = null;
+      _otpController.clear();
+      _firstNameController.clear();
+      _middleNameController.clear();
+      _lastNameController.clear();
+      _batchYearController.clear();
+      _specializationController.clear();
+      _practiceLocationController.clear();
+      _phoneController.clear();
+      _dialCodeController.text = '+91';
+      _emailController.clear();
+      _passwordController.clear();
+      _confirmPasswordController.clear();
+      _profilePhoto = null;
+      _profilePhotoBytes = null;
+      _selectedPlan = _plans.isNotEmpty ? _plans.first : null;
+    });
+  }
+
+  Future<void> _continueToPaymentIfVerified() async {
+    final draft = _draft;
+    if (draft == null) return;
+    final refreshed = await _registration.getDraft(draft.id);
+    if (refreshed.verificationToken == null) return;
+    setState(() {
+      _draft = refreshed;
+      _step = 3;
+      _error = null;
+      _info = 'Your email is already verified. Continue to payment.';
+    });
+  }
+
+  bool _draftEmailMatchesForm(RegistrationDraft draft) {
+    final saved =
+        (draft.email ?? '${draft.payload['email'] ?? ''}').trim().toLowerCase();
+    return saved == _emailController.text.trim().toLowerCase();
+  }
+
   Future<void> _saveDetailsAndSendOtp() async {
     final draft = _draft;
     if (draft == null) throw Exception('Start from plan selection.');
+
+    if (draft.verificationToken != null && !_draftEmailMatchesForm(draft)) {
+      await AuthSession.instance.clearDraftId();
+      final plan = _selectedPlan;
+      if (plan == null) throw Exception('Select a membership plan.');
+      final created = await _registration.createDraft(planId: plan.id);
+      await AuthSession.instance.saveDraftId(created.id);
+      setState(() {
+        _draft = created;
+        _error = null;
+      });
+    }
+
+    final activeDraft = _draft;
+    if (activeDraft == null) throw Exception('Start from plan selection.');
+    if (activeDraft.verificationToken != null) {
+      await _continueToPaymentIfVerified();
+      return;
+    }
 
     final firstName = _firstNameController.text.trim();
     final lastName = _lastNameController.text.trim();
     final email = _emailController.text.trim();
     final phone = _phoneController.text.trim();
+    final dialCode = _dialCodeController.text.trim();
     final specialization = _specializationController.text.trim();
     final batchYearText = _batchYearController.text.trim();
     final batchYear = int.tryParse(batchYearText);
@@ -235,8 +356,11 @@ class _MembershipScreenState extends State<MembershipScreen> {
     }
     if (specialization.isEmpty) throw Exception('Enter your specialization.');
     if (practiceLocation.isEmpty) throw Exception('Enter your practice location.');
-    if (phone.isEmpty) throw Exception('Enter your mobile number.');
-    final phoneError = validateMobileNumber(phone, required: true);
+    final phoneError = validateInternationalMobile(
+      dialCode: dialCode,
+      localNumber: phone,
+      required: true,
+    );
     if (phoneError != null) throw Exception(phoneError);
     final emailValidation = _validateEmail(email);
     if (emailValidation != null) throw Exception(emailValidation);
@@ -246,7 +370,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
     }
 
     final updated = await _registration.updateDraft(
-      draftId: draft.id,
+      draftId: activeDraft.id,
       step: 2,
       email: email,
       payload: {
@@ -257,6 +381,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
         'full_name': _fullName,
         'batch_year': batchYear,
         'phone': normalizeMobileNumber(phone),
+        'phone_country_code': normalizeDialCode(dialCode) ?? '+91',
         'specialization': specialization,
         'practice_location': practiceLocation,
         'email': email,
@@ -270,34 +395,81 @@ class _MembershipScreenState extends State<MembershipScreen> {
         throw Exception('Profile photo must be 3 MB or smaller.');
       }
       await _registration.uploadDraftPhoto(
-        draftId: draft.id,
+        draftId: activeDraft.id,
         fileName: _profilePhoto?.name ?? 'profile-photo.jpg',
         bytes: _profilePhotoBytes!,
       );
     }
 
-    final otpMessage = await _registration.sendOtp(draft.id);
-    if (!mounted) return;
-    setState(() {
-      _draft = updated;
-      _step = 2;
-      _otpStatusMessage = otpMessage;
-    });
+    try {
+      final otpResult = await _registration.sendOtp(activeDraft.id);
+      if (!mounted) return;
+      setState(() {
+        _draft = updated;
+        _step = 2;
+        _applyOtpResult(otpResult);
+        _info = null;
+      });
+    } on RegistrationException catch (e) {
+      if (!mounted) return;
+      if (e.isAlreadyVerified) {
+        await _continueToPaymentIfVerified();
+        return;
+      }
+      if (e.isOtpCooldown) {
+        final refreshed = await _registration.getDraft(activeDraft.id);
+        if (_hasPendingOtp(refreshed)) {
+          setState(() {
+            _draft = refreshed;
+            _step = 2;
+            _otpSent = true;
+            _otpStatusMessage = _otpCooldownInfoMessage(e);
+            _info = _otpCooldownInfoMessage(e);
+            _error = null;
+          });
+          return;
+        }
+      }
+      rethrow;
+    }
   }
 
   Future<void> _sendOtp() async {
     final draft = _draft;
     if (draft == null) return;
-    final otpMessage = await _registration.sendOtp(draft.id);
-    setState(() => _otpStatusMessage = otpMessage);
+    try {
+      final otpResult = await _registration.sendOtp(draft.id);
+      setState(() {
+        _applyOtpResult(otpResult);
+        _info = null;
+      });
+    } on RegistrationException catch (e) {
+      if (e.isAlreadyVerified) {
+        await _continueToPaymentIfVerified();
+        return;
+      }
+      if (e.isOtpCooldown) {
+        setState(() {
+          _otpSent = true;
+          _info = _otpCooldownInfoMessage(e);
+          _error = null;
+        });
+        return;
+      }
+      rethrow;
+    }
   }
 
   Future<void> _verifyOtp() async {
     final draft = _draft;
     if (draft == null) return;
+    final otp = _otpController.text.trim();
+    if (otp.length != 6 || int.tryParse(otp) == null) {
+      throw Exception('Enter the 6-digit code from your email.');
+    }
     await _registration.verifyOtp(
       draftId: draft.id,
-      otp: _otpController.text.trim(),
+      otp: otp,
     );
     final refreshed = await _registration.getDraft(draft.id);
     setState(() {
@@ -406,28 +578,85 @@ class _MembershipScreenState extends State<MembershipScreen> {
                       const SizedBox(height: 40),
                       _StepperRow(steps: _steps, currentStep: _step),
                       const SizedBox(height: 40),
-                      if (_error != null) ...[
+                      if (_info != null) ...[
                         Container(
                           width: double.infinity,
-                          padding: const EdgeInsets.all(12),
+                          padding: const EdgeInsets.all(14),
                           margin: const EdgeInsets.only(bottom: 16),
                           decoration: BoxDecoration(
-                            color: AppColors.error.withValues(alpha: 0.1),
+                            color: AppColors.warning.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: AppColors.warning.withValues(alpha: 0.25),
+                            ),
                           ),
                           child: Text(
-                            _error!,
+                            _info!,
                             style: GoogleFonts.inter(
-                              color: AppColors.error,
+                              color: const Color(0xFFB45309),
                               fontWeight: FontWeight.w600,
+                              height: 1.4,
                             ),
                           ),
                         ),
                       ],
-                      if (_loading)
+                      if (_error != null) ...[
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(14),
+                          margin: const EdgeInsets.only(bottom: 16),
+                          decoration: BoxDecoration(
+                            color: AppColors.error.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: AppColors.error.withValues(alpha: 0.2),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _error!,
+                                style: GoogleFonts.inter(
+                                  color: AppColors.error,
+                                  fontWeight: FontWeight.w600,
+                                  height: 1.4,
+                                ),
+                              ),
+                              if (_error!.toLowerCase().contains('already verified')) ...[
+                                const SizedBox(height: 12),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: [
+                                    OutlinedButton(
+                                      onPressed: _loading ? null : _continueToPaymentIfVerified,
+                                      child: const Text('Continue to payment'),
+                                    ),
+                                    TextButton(
+                                      onPressed: _loading ? null : _startFreshRegistration,
+                                      child: const Text('Start new registration'),
+                                    ),
+                                  ],
+                                ),
+                              ] else if (_plans.isEmpty) ...[
+                                const SizedBox(height: 12),
+                                OutlinedButton.icon(
+                                  onPressed: _bootstrapping ? null : _bootstrap,
+                                  icon: const Icon(Icons.refresh_rounded, size: 18),
+                                  label: const Text('Try again'),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
+                      if (_bootstrapping)
+                        const _PlanStepSkeleton()
+                      else if (_loading)
                         const Padding(
-                          padding: EdgeInsets.all(32),
-                          child: CircularProgressIndicator(),
+                          padding: EdgeInsets.all(24),
+                          child: Center(child: CircularProgressIndicator()),
                         )
                       else
                         _buildStepContent(),
@@ -479,6 +708,14 @@ class _MembershipScreenState extends State<MembershipScreen> {
     });
   }
 
+  void _removeProfilePhoto() {
+    setState(() {
+      _profilePhoto = null;
+      _profilePhotoBytes = null;
+      _error = null;
+    });
+  }
+
   Widget _buildStepContent() {
     return switch (_step) {
       0 => _PlanStep(
@@ -495,6 +732,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
           specializationController: _specializationController,
           practiceLocationController: _practiceLocationController,
           phoneController: _phoneController,
+          dialCodeController: _dialCodeController,
           emailController: _emailController,
           passwordController: _passwordController,
           confirmPasswordController: _confirmPasswordController,
@@ -502,12 +740,15 @@ class _MembershipScreenState extends State<MembershipScreen> {
           profilePhotoName: _profilePhoto?.name,
           onCapturePhoto: _captureProfilePhoto,
           onPickPhoto: _pickProfilePhoto,
+          onRemovePhoto: _removeProfilePhoto,
           onContinue: () => _runStep(_saveDetailsAndSendOtp),
         ),
       2 => _VerifyStep(
           email: _emailController.text.trim(),
           otpController: _otpController,
+          otpSent: _otpSent,
           statusMessage: _otpStatusMessage,
+          devOtpHint: _devOtpHint,
           onSendOtp: () => _runStep(_sendOtp),
           onVerifyOtp: () => _runStep(_verifyOtp),
           onUploadDocument: () => _runStep(_uploadDocument),
@@ -590,6 +831,55 @@ class _StepperRow extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+}
+
+class _PlanStepSkeleton extends StatelessWidget {
+  const _PlanStepSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return _Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            height: 34,
+            width: 180,
+            margin: const EdgeInsets.symmetric(horizontal: 48),
+            decoration: BoxDecoration(
+              color: AppColors.muted,
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+          const SizedBox(height: 28),
+          Container(
+            height: 52,
+            width: 140,
+            alignment: Alignment.center,
+            margin: const EdgeInsets.symmetric(horizontal: 120),
+            decoration: BoxDecoration(
+              color: AppColors.muted,
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+          const SizedBox(height: 28),
+          for (var i = 0; i < 3; i++) ...[
+            Container(
+              height: 14,
+              margin: const EdgeInsets.symmetric(horizontal: 20),
+              decoration: BoxDecoration(
+                color: AppColors.muted,
+                borderRadius: BorderRadius.circular(6),
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
+          const SizedBox(height: 20),
+          const LinearProgressIndicator(minHeight: 2),
+        ],
+      ),
     );
   }
 }
@@ -705,6 +995,7 @@ class _DetailsStep extends StatefulWidget {
     required this.specializationController,
     required this.practiceLocationController,
     required this.phoneController,
+    required this.dialCodeController,
     required this.emailController,
     required this.passwordController,
     required this.confirmPasswordController,
@@ -712,6 +1003,7 @@ class _DetailsStep extends StatefulWidget {
     required this.profilePhotoName,
     required this.onCapturePhoto,
     required this.onPickPhoto,
+    required this.onRemovePhoto,
     required this.onContinue,
   });
 
@@ -722,6 +1014,7 @@ class _DetailsStep extends StatefulWidget {
   final TextEditingController specializationController;
   final TextEditingController practiceLocationController;
   final TextEditingController phoneController;
+  final TextEditingController dialCodeController;
   final TextEditingController emailController;
   final TextEditingController passwordController;
   final TextEditingController confirmPasswordController;
@@ -729,6 +1022,7 @@ class _DetailsStep extends StatefulWidget {
   final String? profilePhotoName;
   final Future<void> Function() onCapturePhoto;
   final Future<void> Function() onPickPhoto;
+  final VoidCallback onRemovePhoto;
   final VoidCallback onContinue;
 
   @override
@@ -788,14 +1082,10 @@ class _DetailsStepState extends State<_DetailsStep> {
           ),
           const SizedBox(height: 16),
           _FormField(
-            label: 'Mobile Number',
-            controller: widget.phoneController,
-            keyboard: TextInputType.phone,
-            hint: '9876543210',
+            label: 'Practice Location',
+            controller: widget.practiceLocationController,
+            hint: 'Hospital or clinic where you practice',
             required: true,
-            prefixIcon: const Icon(Icons.phone_outlined),
-            helperText: 'Enter 10-digit mobile number',
-            mobileNumber: true,
           ),
           const SizedBox(height: 16),
           _FormField(
@@ -805,6 +1095,11 @@ class _DetailsStepState extends State<_DetailsStep> {
             hint: 'name@example.com',
             required: true,
             helperText: 'Use your active email for OTP and login',
+          ),
+          const SizedBox(height: 16),
+          MobileNumberField(
+            dialCodeController: widget.dialCodeController,
+            numberController: widget.phoneController,
           ),
           const SizedBox(height: 16),
           AutofillGroup(
@@ -843,18 +1138,12 @@ class _DetailsStepState extends State<_DetailsStep> {
             ),
           ),
           const SizedBox(height: 16),
-          _FormField(
-            label: 'Practice Location',
-            controller: widget.practiceLocationController,
-            hint: 'Hospital or clinic where you practice',
-            required: true,
-          ),
-          const SizedBox(height: 16),
           _ProfilePhotoField(
             photoBytes: widget.profilePhotoBytes,
             fileName: widget.profilePhotoName,
             onCapture: widget.onCapturePhoto,
             onUpload: widget.onPickPhoto,
+            onRemove: widget.onRemovePhoto,
           ),
           const SizedBox(height: 28),
           _PrimaryButton(
@@ -873,40 +1162,96 @@ class _ProfilePhotoField extends StatefulWidget {
     required this.fileName,
     required this.onCapture,
     required this.onUpload,
+    required this.onRemove,
   });
 
   final Uint8List? photoBytes;
   final String? fileName;
   final Future<void> Function() onCapture;
   final Future<void> Function() onUpload;
+  final VoidCallback onRemove;
 
   @override
   State<_ProfilePhotoField> createState() => _ProfilePhotoFieldState();
 }
 
 class _ProfilePhotoFieldState extends State<_ProfilePhotoField> {
-  bool _showOptions = false;
-
-  @override
-  void didUpdateWidget(covariant _ProfilePhotoField oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.photoBytes != null && oldWidget.photoBytes == null) {
-      _showOptions = false;
+  Future<void> _handleMenuAction(_PhotoMenuAction action) async {
+    switch (action) {
+      case _PhotoMenuAction.capture:
+        await widget.onCapture();
+      case _PhotoMenuAction.upload:
+        await widget.onUpload();
+      case _PhotoMenuAction.remove:
+        widget.onRemove();
     }
   }
 
-  Future<void> _handleCapture() async {
-    setState(() => _showOptions = false);
-    await widget.onCapture();
-  }
-
-  Future<void> _handleUpload() async {
-    setState(() => _showOptions = false);
-    await widget.onUpload();
+  Future<void> _openPhotoSheet(BuildContext context) async {
+    final hasPhoto = widget.photoBytes != null;
+    final selected = await showModalBottomSheet<_PhotoMenuAction>(
+      context: context,
+      backgroundColor: const Color(0xFFF4F4F6),
+      showDragHandle: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _PhotoSheetGroup(
+                  children: [
+                    _PhotoSheetAction(
+                      icon: Icons.photo_camera_outlined,
+                      label: 'Camera',
+                      onTap: () => Navigator.pop(context, _PhotoMenuAction.capture),
+                    ),
+                    const Divider(height: 1, color: Color(0xFFE8E8ED)),
+                    _PhotoSheetAction(
+                      icon: Icons.photo_outlined,
+                      label: 'Gallery',
+                      onTap: () => Navigator.pop(context, _PhotoMenuAction.upload),
+                    ),
+                    if (hasPhoto) ...[
+                      const Divider(height: 1, color: Color(0xFFE8E8ED)),
+                      _PhotoSheetAction(
+                        icon: Icons.delete_outline,
+                        label: 'Remove',
+                        destructive: true,
+                        onTap: () =>
+                            Navigator.pop(context, _PhotoMenuAction.remove),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 10),
+                _PhotoSheetGroup(
+                  children: [
+                    _PhotoSheetAction(
+                      label: 'Cancel',
+                      centered: true,
+                      onTap: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+    if (selected == null || !mounted) return;
+    await _handleMenuAction(selected);
   }
 
   @override
   Widget build(BuildContext context) {
+    final hasPhoto = widget.photoBytes != null;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -919,93 +1264,194 @@ class _ProfilePhotoFieldState extends State<_ProfilePhotoField> {
             color: AppColors.mutedText,
           ),
         ),
-        const SizedBox(height: 12),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 88,
-              height: 88,
+        const SizedBox(height: 10),
+        Material(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          child: InkWell(
+            onTap: () => _openPhotoSheet(context),
+            borderRadius: BorderRadius.circular(14),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               decoration: BoxDecoration(
-                color: AppColors.muted,
-                borderRadius: BorderRadius.circular(44),
-                border: Border.all(
-                  color: widget.photoBytes != null
-                      ? AppColors.success
-                      : AppColors.border,
-                  width: widget.photoBytes != null ? 2 : 1,
-                ),
-                image: widget.photoBytes != null
-                    ? DecorationImage(
-                        image: MemoryImage(widget.photoBytes!),
-                        fit: BoxFit.cover,
-                      )
-                    : null,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.border),
               ),
-              child: widget.photoBytes == null
-                  ? const Icon(Icons.person_outline, color: AppColors.mutedText)
-                  : null,
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
                 children: [
-                  _showOptions
-                      ? Row(
-                          children: [
-                            IconButton.outlined(
-                              onPressed: _handleCapture,
-                              icon: const Icon(Icons.photo_camera_outlined),
-                              tooltip: 'Open camera',
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: _handleUpload,
-                                icon: const Icon(Icons.upload_outlined, size: 18),
-                                label: const Text('Upload photo'),
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Container(
+                        width: 56,
+                        height: 56,
+                        decoration: BoxDecoration(
+                          color: AppColors.muted,
+                          borderRadius: BorderRadius.circular(28),
+                          image: hasPhoto
+                              ? DecorationImage(
+                                  image: MemoryImage(widget.photoBytes!),
+                                  fit: BoxFit.cover,
+                                )
+                              : null,
+                        ),
+                        child: hasPhoto
+                            ? null
+                            : const Icon(
+                                Icons.person_outline_rounded,
+                                size: 28,
+                                color: AppColors.mutedText,
                               ),
+                      ),
+                      if (!hasPhoto)
+                        Positioned(
+                          right: -2,
+                          bottom: -2,
+                          child: Container(
+                            width: 22,
+                            height: 22,
+                            decoration: BoxDecoration(
+                              color: AppColors.secondary,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 2),
                             ),
-                          ],
-                        )
-                      : OutlinedButton.icon(
-                          onPressed: () => setState(() => _showOptions = true),
-                          icon: const Icon(Icons.add_a_photo_outlined, size: 18),
-                          label: Text(
-                            widget.photoBytes == null ? 'Add photo' : 'Change photo',
+                            child: const Icon(
+                              Icons.add_rounded,
+                              color: Colors.white,
+                              size: 14,
+                            ),
                           ),
                         ),
-                  if (widget.photoBytes != null) ...[
-                    const SizedBox(height: 8),
-                    Row(
+                    ],
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(
-                          Icons.check_circle,
-                          size: 16,
-                          color: AppColors.success,
+                        Text(
+                          hasPhoto ? 'Change photo' : 'Add photo',
+                          style: GoogleFonts.inter(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.heading,
+                          ),
                         ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            widget.fileName ?? 'Photo ready',
-                            style: GoogleFonts.inter(
-                              fontSize: 12,
-                              color: AppColors.success,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            overflow: TextOverflow.ellipsis,
+                        const SizedBox(height: 2),
+                        Text(
+                          hasPhoto
+                              ? (widget.fileName ?? 'Photo added')
+                              : 'Camera or gallery',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            color: hasPhoto
+                                ? AppColors.success
+                                : AppColors.mutedText,
                           ),
                         ),
                       ],
                     ),
-                  ],
+                  ),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    color: AppColors.mutedText.withValues(alpha: 0.7),
+                  ),
                 ],
               ),
             ),
-          ],
+          ),
         ),
       ],
+    );
+  }
+}
+
+enum _PhotoMenuAction { capture, upload, remove }
+
+class _PhotoSheetGroup extends StatelessWidget {
+  const _PhotoSheetGroup({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: children,
+        ),
+      ),
+    );
+  }
+}
+
+class _PhotoSheetAction extends StatelessWidget {
+  const _PhotoSheetAction({
+    required this.label,
+    required this.onTap,
+    this.icon,
+    this.destructive = false,
+    this.centered = false,
+  });
+
+  final IconData? icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool destructive;
+  final bool centered;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = destructive ? AppColors.error : AppColors.primary;
+
+    return Material(
+      color: Colors.white,
+      child: InkWell(
+        onTap: onTap,
+        child: SizedBox(
+          height: 52,
+          child: centered
+              ? Center(
+                  child: Text(
+                    label,
+                    style: GoogleFonts.inter(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                )
+              : Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 18),
+                  child: Row(
+                    children: [
+                      if (icon != null) ...[
+                        Icon(icon, size: 22, color: color),
+                        const SizedBox(width: 14),
+                      ],
+                      Expanded(
+                        child: Text(
+                          label,
+                          style: GoogleFonts.inter(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                            color: color,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+        ),
+      ),
     );
   }
 }
@@ -1014,7 +1460,9 @@ class _VerifyStep extends StatelessWidget {
   const _VerifyStep({
     required this.email,
     required this.otpController,
+    required this.otpSent,
     required this.statusMessage,
+    required this.devOtpHint,
     required this.onSendOtp,
     required this.onVerifyOtp,
     required this.onUploadDocument,
@@ -1023,45 +1471,143 @@ class _VerifyStep extends StatelessWidget {
 
   final String email;
   final TextEditingController otpController;
+  final bool otpSent;
   final String? statusMessage;
+  final String? devOtpHint;
   final VoidCallback onSendOtp;
   final VoidCallback onVerifyOtp;
   final VoidCallback onUploadDocument;
   final VoidCallback onBack;
 
+  Future<void> _copyDevOtp(BuildContext context) async {
+    final code = devOtpHint;
+    if (code == null || code.isEmpty) return;
+    await Clipboard.setData(ClipboardData(text: code));
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Test code copied')),
+    );
+  }
+
+  void _fillDevOtp() {
+    final code = devOtpHint;
+    if (code == null || code.isEmpty) return;
+    otpController.text = code;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final showDevOtp =
+        devOtpHint != null && devOtpHint!.isNotEmpty && AppConfig.isDevelopment;
+
     return _Card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text('Verify your email', style: GoogleFonts.fraunces(fontSize: 24)),
           const SizedBox(height: 8),
-          Text('We will send a 6-digit code to $email', style: GoogleFonts.inter()),
+          Text(
+            otpSent
+                ? 'We sent a 6-digit verification code to $email'
+                : 'We will send a 6-digit code to $email',
+            style: GoogleFonts.inter(),
+          ),
           const SizedBox(height: 8),
           Text(
-            'Check your inbox and spam folder after sending the code.',
+            showDevOtp
+                ? 'If the email has not arrived yet, use the verification code shown below.'
+                : otpSent
+                    ? 'Check your inbox and spam folder, then enter the code below.'
+                    : 'Tap the button below to receive your verification code.',
             style: GoogleFonts.inter(
               fontSize: 13,
               color: AppColors.mutedText,
             ),
           ),
           const SizedBox(height: 20),
-          OutlinedButton(onPressed: onSendOtp, child: const Text('Send verification code')),
+          if (!otpSent)
+            OutlinedButton(
+              onPressed: onSendOtp,
+              child: const Text('Send verification code'),
+            ),
           if (statusMessage != null) ...[
             const SizedBox(height: 12),
             Text(
               statusMessage!,
               style: GoogleFonts.inter(
-                color: AppColors.success,
+                color: showDevOtp ? AppColors.secondary : AppColors.success,
                 fontWeight: FontWeight.w600,
               ),
             ),
           ],
-          const SizedBox(height: 16),
-          _Field(label: 'Enter OTP', controller: otpController, keyboard: TextInputType.number),
-          const SizedBox(height: 16),
-          _PrimaryButton(label: 'Verify OTP', onPressed: onVerifyOtp),
+          if (showDevOtp) ...[
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+              decoration: BoxDecoration(
+                color: AppColors.secondary.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.secondary.withValues(alpha: 0.25)),
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    'YOUR VERIFICATION CODE',
+                    style: GoogleFonts.inter(
+                      fontSize: 11,
+                      letterSpacing: 1.2,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.mutedText,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    devOtpHint!,
+                    style: GoogleFonts.fraunces(
+                      fontSize: 36,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 8,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      TextButton.icon(
+                        onPressed: () => _copyDevOtp(context),
+                        icon: const Icon(Icons.copy_rounded, size: 18),
+                        label: const Text('Copy code'),
+                      ),
+                      TextButton.icon(
+                        onPressed: _fillDevOtp,
+                        icon: const Icon(Icons.input_rounded, size: 18),
+                        label: const Text('Fill field'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+          if (otpSent) ...[
+            const SizedBox(height: 16),
+            _Field(
+              label: 'Enter 6-digit code',
+              controller: otpController,
+              keyboard: TextInputType.number,
+              maxLength: 6,
+              hintText: '000000',
+            ),
+            const SizedBox(height: 16),
+            _PrimaryButton(label: 'Verify code', onPressed: onVerifyOtp),
+            const SizedBox(height: 12),
+            OutlinedButton(
+              onPressed: onSendOtp,
+              child: const Text('Resend code'),
+            ),
+          ],
           const SizedBox(height: 12),
           OutlinedButton(
             onPressed: onUploadDocument,
@@ -1936,52 +2482,47 @@ class _PasswordFormField extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: TextField(
-                controller: controller,
-                obscureText: obscureText,
-                autofillHints: autofillHints,
-                enableSuggestions: false,
-                autocorrect: false,
-                enableInteractiveSelection: true,
-                decoration: InputDecoration(
-                  filled: true,
-                  fillColor: Colors.white,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 14,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: AppColors.border),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: AppColors.border),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(
-                      color: AppColors.primary,
-                      width: 1.6,
-                    ),
-                  ),
-                ),
+        TextField(
+          controller: controller,
+          obscureText: obscureText,
+          autofillHints: autofillHints,
+          enableSuggestions: false,
+          autocorrect: false,
+          enableInteractiveSelection: true,
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: Colors.white,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 14,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppColors.border),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppColors.border),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(
+                color: AppColors.primary,
+                width: 1.6,
               ),
             ),
-            IconButton(
+            suffixIcon: IconButton(
               onPressed: onToggleVisibility,
               tooltip: obscureText ? 'Show password' : 'Hide password',
               icon: Icon(
                 obscureText
                     ? Icons.visibility_off_outlined
                     : Icons.visibility_outlined,
+                color: AppColors.mutedText,
+                size: 20,
               ),
             ),
-          ],
+          ),
         ),
       ],
     );
@@ -2092,6 +2633,13 @@ String? _validateEmail(String email) {
 }
 
 String _friendlyErrorMessage(Object error) {
+  if (error is RegistrationException) {
+    if (error.isAlreadyVerified) {
+      return 'This registration was already verified. Continue to payment, '
+          'or start a new registration for a different doctor.';
+    }
+    return sanitizeUserFacingMessage(error.message);
+  }
   final raw = error.toString().replaceFirst(RegExp(r'^Exception:\s*'), '').trim();
   final lower = raw.toLowerCase();
 
@@ -2113,7 +2661,37 @@ String _friendlyErrorMessage(Object error) {
   if (lower.contains('failed to upload profile photo')) {
     return raw;
   }
-  return raw;
+  if (lower.contains('membership request failed') ||
+      lower.contains('cannot reach the server') ||
+      lower.contains('taking too long')) {
+    return raw;
+  }
+  return sanitizeUserFacingMessage(raw);
+}
+
+bool _hasPendingOtp(RegistrationDraft draft) {
+  final payload = draft.payload;
+  if (payload['otp_hash'] == null && payload['otp_sent_at'] == null) {
+    return false;
+  }
+  final expiresRaw = payload['otp_expires_at'];
+  if (expiresRaw == null) return payload['otp_sent_at'] != null;
+  try {
+    final expiry = DateTime.parse('$expiresRaw'.replaceFirst('Z', ''));
+    final now = DateTime.now().toUtc();
+    final expiryUtc = expiry.isUtc ? expiry : expiry.toUtc();
+    return expiryUtc.isAfter(now);
+  } catch (_) {
+    return payload['otp_sent_at'] != null;
+  }
+}
+
+String _otpCooldownInfoMessage(RegistrationException e) {
+  final wait = e.retryAfterSeconds;
+  if (wait != null && wait > 0) {
+    return 'A verification code was already sent. You can request a new one in ${wait}s.';
+  }
+  return 'A verification code was already sent. Check your email inbox.';
 }
 
 class _Field extends StatelessWidget {
@@ -2121,18 +2699,30 @@ class _Field extends StatelessWidget {
     required this.label,
     required this.controller,
     this.keyboard,
+    this.maxLength,
+    this.hintText,
   });
 
   final String label;
   final TextEditingController controller;
   final TextInputType? keyboard;
+  final int? maxLength;
+  final String? hintText;
 
   @override
   Widget build(BuildContext context) {
     return TextField(
       controller: controller,
       keyboardType: keyboard,
-      decoration: InputDecoration(labelText: label),
+      maxLength: maxLength,
+      inputFormatters: maxLength != null
+          ? [FilteringTextInputFormatter.digitsOnly]
+          : null,
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hintText,
+        counterText: maxLength != null ? '' : null,
+      ),
     );
   }
 }

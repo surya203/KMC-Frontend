@@ -56,11 +56,13 @@ class _MyProfileScreenState extends State<MyProfileScreen>
     _bio = TextEditingController();
     _linkedin = TextEditingController();
     _phone = TextEditingController();
+    AuthSession.instance.addListener(_onAuthSessionChanged);
     _load();
   }
 
   @override
   void dispose() {
+    AuthSession.instance.removeListener(_onAuthSessionChanged);
     _scrollController.dispose();
     _currentTitle.dispose();
     _organization.dispose();
@@ -71,33 +73,86 @@ class _MyProfileScreenState extends State<MyProfileScreen>
     super.dispose();
   }
 
-  Future<void> _load() async {
+  void _onAuthSessionChanged() {
+    if (!AuthSession.instance.isAuthenticated) return;
+    if (_loading || _profile != null) return;
+    _load();
+  }
+
+  Future<void> _load({int attempt = 0}) async {
+    await AuthSession.instance.ensureReady();
+
+    if (!AuthSession.instance.isAuthenticated) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = 'Not signed in.';
+        _profile = null;
+      });
+      return;
+    }
+
+    if (!mounted) return;
     setState(() {
-      _loading = true;
-      _error = null;
+      _loading = attempt == 0;
+      if (attempt == 0) _error = null;
     });
 
-    try {
-      final results = await Future.wait([
-        _profilesApi.fetchMyProfile(),
-        _membershipApi.fetchMyMembership(),
-      ]);
+    MyProfile? profile;
+    MemberMembership? membership;
+    Object? profileError;
 
-      if (!mounted) return;
-      final profile = results[0] as MyProfile;
+    try {
+      profile = await _profilesApi.fetchMyProfile();
+    } catch (e) {
+      profileError = e;
+      if (attempt < 2 && _shouldRetryRequest(e)) {
+        await Future<void>.delayed(
+          Duration(milliseconds: 450 * (attempt + 1)),
+        );
+        if (mounted) {
+          await _load(attempt: attempt + 1);
+        }
+        return;
+      }
+    }
+
+    if (profile != null) {
+      try {
+        membership = await _membershipApi.fetchMyMembership();
+      } catch (_) {
+        membership = _membership;
+      }
+    }
+
+    if (!mounted) return;
+
+    if (profile != null) {
       _syncEditors(profile);
       setState(() {
         _profile = profile;
-        _membership = results[1] as MemberMembership;
+        _membership = membership;
         _loading = false;
+        _error = null;
       });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _error = e.toString();
-        _loading = false;
-      });
+      return;
     }
+
+    setState(() {
+      _error = profileError?.toString() ?? 'Profile request failed.';
+      _loading = false;
+    });
+  }
+
+  bool _shouldRetryRequest(Object error) {
+    final message = error.toString().toLowerCase();
+    return message.contains('profile request failed') ||
+        message.contains('unable to reach') ||
+        message.contains('connection') ||
+        message.contains('timeout') ||
+        message.contains('socket') ||
+        message.contains('401') ||
+        message.contains('expired');
   }
 
   void _syncEditors(MyProfile profile) {
