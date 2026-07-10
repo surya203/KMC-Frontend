@@ -21,7 +21,10 @@ import '../../features/dashboard/presentation/my_profile_screen.dart';
 import '../../features/dashboard/widgets/dashboard_shell_host.dart';
 import '../../features/directory/presentation/profile_detail_screen.dart';
 import '../../features/events/presentation/event_detail_screen.dart';
+import '../../features/events/presentation/dashboard_event_detail_screen.dart';
 import '../../features/events/presentation/events_screen.dart';
+import '../../features/gallery/presentation/dashboard_gallery_album_screen.dart';
+import '../../features/gallery/presentation/dashboard_gallery_manage_screen.dart';
 import '../../features/gallery/presentation/gallery_screen.dart';
 import '../../features/home/presentation/home_screen.dart';
 import '../../features/membership/presentation/membership_screen.dart';
@@ -31,11 +34,11 @@ bool _requiresAuth(String location) {
   return location.startsWith('/dashboard') ||
       location.startsWith('/admin') ||
       location == '/announcements' ||
-      location == '/my-events' ||
+      location.startsWith('/my-events') ||
       location == '/my-profile' ||
       location == '/my-membership' ||
       location == '/my-payments' ||
-      location == '/my-gallery' ||
+      location.startsWith('/my-gallery') ||
       location == '/connect' ||
       location == '/settings';
 }
@@ -209,6 +212,17 @@ final GoRouter appRouter = GoRouter(
             key: state.pageKey,
             child: const DashboardEventsScreen(),
           ),
+          routes: [
+            GoRoute(
+              path: ':slug',
+              pageBuilder: (context, state) => dashboardPage(
+                key: state.pageKey,
+                child: DashboardEventDetailScreen(
+                  slug: state.pathParameters['slug']!,
+                ),
+              ),
+            ),
+          ],
         ),
         GoRoute(
           path: '/my-gallery',
@@ -216,6 +230,26 @@ final GoRouter appRouter = GoRouter(
             key: state.pageKey,
             child: const DashboardGalleryScreen(),
           ),
+          routes: [
+            GoRoute(
+              path: 'album/:slug',
+              pageBuilder: (context, state) => dashboardPage(
+                key: state.pageKey,
+                child: DashboardGalleryAlbumScreen(
+                  slug: state.pathParameters['slug']!,
+                ),
+              ),
+            ),
+            GoRoute(
+              path: 'manage/:slug',
+              pageBuilder: (context, state) => dashboardPage(
+                key: state.pageKey,
+                child: DashboardGalleryManageScreen(
+                  slug: state.pathParameters['slug']!,
+                ),
+              ),
+            ),
+          ],
         ),
         GoRoute(
           path: '/connect',
