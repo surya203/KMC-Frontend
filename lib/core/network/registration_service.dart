@@ -111,6 +111,24 @@ class RegistrationService {
     }
   }
 
+  Future<void> uploadDraftPhoto({
+    required String draftId,
+    required String fileName,
+    required List<int> bytes,
+  }) async {
+    try {
+      final formData = FormData.fromMap({
+        'file': MultipartFile.fromBytes(bytes, filename: fileName),
+      });
+      await _apiClient.dio.post(
+        '${AppConfig.apiBaseUrl}${AppConfig.apiPrefix}/auth/register/draft/$draftId/photo',
+        data: formData,
+      );
+    } on DioException catch (e) {
+      throw RegistrationException(_readDetail(e));
+    }
+  }
+
   Future<void> uploadVerificationDocument({
     required String draftId,
     required String fileName,
@@ -188,6 +206,10 @@ class CompleteRegistrationResult {
     this.debugPassword,
     this.receiptId,
     this.receiptUrl,
+    this.membershipNumber,
+    this.receiptNumber,
+    this.paymentId,
+    this.receiptHtml,
   });
 
   final bool completed;
@@ -196,6 +218,10 @@ class CompleteRegistrationResult {
   final String? debugPassword;
   final String? receiptId;
   final String? receiptUrl;
+  final String? membershipNumber;
+  final String? receiptNumber;
+  final String? paymentId;
+  final String? receiptHtml;
 
   factory CompleteRegistrationResult.fromJson(Map<String, dynamic> json) {
     return CompleteRegistrationResult(
@@ -205,6 +231,10 @@ class CompleteRegistrationResult {
       debugPassword: json['debug_password'] as String?,
       receiptId: json['receipt_id'] as String?,
       receiptUrl: json['receipt_url'] as String?,
+      membershipNumber: json['membership_number'] as String?,
+      receiptNumber: json['receipt_number'] as String?,
+      paymentId: json['payment_id'] as String?,
+      receiptHtml: json['receipt_html'] as String?,
     );
   }
 }

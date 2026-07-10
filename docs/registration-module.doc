@@ -1,0 +1,41 @@
+
+# Registration module enhancements
+
+Overview of frontend work for membership registration wizard, member payments, profile phone display, and supporting utilities.
+
+## Scope
+
+Both **frontend** and **backend** were updated. The frontend implements the user-facing wizard, live camera on web, receipt download, and profile phone country code. The backend validates, stores, and generates membership numbers and receipts.
+
+## Routes to test
+
+| Route | Feature |
+|-------|---------|
+| `/#/membership` | 5-step registration wizard |
+| `/#/my-membership` | Membership number display |
+| `/#/my-payments` | Payment history + download receipt |
+| `/#/my-profile` | Mobile number with `+91` prefix |
+
+## Frontend files touched
+
+| Area | Files |
+|------|-------|
+| Registration wizard | `lib/features/membership/presentation/membership_screen.dart` |
+| Registration API | `lib/core/network/registration_service.dart` |
+| Membership / payments API | `lib/core/network/membership_api_service.dart` |
+| Payments screen | `lib/features/dashboard/presentation/my_payments_screen.dart` |
+| Profile screen | `lib/features/dashboard/presentation/my_profile_screen.dart` |
+| Live camera (web) | `lib/core/utils/image_capture.dart`, `image_capture_web.dart`, `image_capture_stub.dart` |
+| File download (web) | `lib/core/utils/file_download.dart`, `file_download_web.dart`, `file_download_stub.dart` |
+| API base URL | `web/env-config.js` |
+
+## UI behaviour summary
+
+| Feature | Behaviour |
+|---------|-----------|
+| Plan CTA | Button text **Please Join** (plan price unchanged on card) |
+| Details step | Practice location only (no separate city/location field); email; optional profile photo |
+| Profile photo | Single **Add photo** → camera icon (live preview on web) or **Upload photo** |
+| Complete step | Shows membership number, receipt number, debug password in dev |
+| My payments | **Download receipt** for captured membership payments |
+| My profile | Mobile shown and edited as `+91` + local number |

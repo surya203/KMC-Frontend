@@ -12,6 +12,8 @@ import '../../../core/network/membership_api_service.dart';
 import '../../../core/network/registration_service.dart';
 import '../../../core/payment/razorpay_checkout.dart';
 import '../../../core/theme/heading_styles.dart';
+import '../../../core/utils/file_download.dart';
+import '../../../core/utils/image_capture.dart';
 import '../../../core/utils/validators.dart';
 import '../../../core/widgets/public_layout.dart';
 import '../../home/widgets/footer_section.dart';
@@ -43,12 +45,14 @@ class _MembershipScreenState extends State<MembershipScreen> {
   final _lastNameController = TextEditingController();
   final _batchYearController = TextEditingController();
   final _specializationController = TextEditingController();
+  final _practiceLocationController = TextEditingController();
   final _phoneController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _otpController = TextEditingController();
   PlatformFile? _profilePhoto;
+  Uint8List? _profilePhotoBytes;
   String? _debugOtp;
 
   String get _fullName {
@@ -73,6 +77,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
     _lastNameController.dispose();
     _batchYearController.dispose();
     _specializationController.dispose();
+    _practiceLocationController.dispose();
     _phoneController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
@@ -154,6 +159,8 @@ class _MembershipScreenState extends State<MembershipScreen> {
       }
     }
     _phoneController.text = '${draft.payload['phone'] ?? ''}';
+    _practiceLocationController.text =
+        '${draft.payload['practice_location'] ?? draft.payload['location'] ?? draft.payload['city'] ?? ''}';
     _specializationController.text =
         '${draft.payload['specialization'] ?? draft.payload['degree'] ?? ''}';
     final batchYear = draft.payload['batch_year'];
@@ -213,6 +220,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
     final specialization = _specializationController.text.trim();
     final batchYearText = _batchYearController.text.trim();
     final batchYear = int.tryParse(batchYearText);
+    final practiceLocation = _practiceLocationController.text.trim();
     final password = _passwordController.text;
     final confirmPassword = _confirmPasswordController.text;
 
@@ -225,6 +233,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
       throw Exception('Enter a valid batch year (e.g. 2015).');
     }
     if (specialization.isEmpty) throw Exception('Enter your specialization.');
+    if (practiceLocation.isEmpty) throw Exception('Enter your practice location.');
     if (phone.isEmpty) throw Exception('Enter your mobile number.');
     final phoneError = validateMobileNumber(phone, required: true);
     if (phoneError != null) throw Exception(phoneError);
@@ -249,11 +258,20 @@ class _MembershipScreenState extends State<MembershipScreen> {
         'batch_year': batchYear,
         'phone': normalizeMobileNumber(phone),
         'specialization': specialization,
+        'practice_location': practiceLocation,
         'email': email,
         'password': password,
         'confirm_password': confirmPassword,
       },
     );
+
+    if (_profilePhotoBytes != null) {
+      await _registration.uploadDraftPhoto(
+        draftId: draft.id,
+        fileName: _profilePhoto?.name ?? 'profile-photo.jpg',
+        bytes: _profilePhotoBytes!,
+      );
+    }
 
     final debugOtp = await _registration.sendOtp(draft.id);
     if (!mounted) return;
@@ -422,6 +440,32 @@ class _MembershipScreenState extends State<MembershipScreen> {
     );
   }
 
+  Future<void> _pickProfilePhoto() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.image,
+      withData: true,
+    );
+    final file = result?.files.single;
+    if (file == null || file.bytes == null) return;
+    setState(() {
+      _profilePhoto = file;
+      _profilePhotoBytes = file.bytes;
+    });
+  }
+
+  Future<void> _captureProfilePhoto() async {
+    final captured = await captureImageWithLivePreview(context);
+    if (captured == null) return;
+    setState(() {
+      _profilePhoto = PlatformFile(
+        name: captured.fileName,
+        size: captured.bytes.length,
+        bytes: captured.bytes,
+      );
+      _profilePhotoBytes = captured.bytes;
+    });
+  }
+
   Widget _buildStepContent() {
     return switch (_step) {
       0 => _PlanStep(
@@ -436,19 +480,15 @@ class _MembershipScreenState extends State<MembershipScreen> {
           lastNameController: _lastNameController,
           batchYearController: _batchYearController,
           specializationController: _specializationController,
+          practiceLocationController: _practiceLocationController,
           phoneController: _phoneController,
           emailController: _emailController,
           passwordController: _passwordController,
           confirmPasswordController: _confirmPasswordController,
+          profilePhotoBytes: _profilePhotoBytes,
           profilePhotoName: _profilePhoto?.name,
-          onPickPhoto: () async {
-            final result = await FilePicker.platform.pickFiles(
-              type: FileType.image,
-              withData: true,
-            );
-            final file = result?.files.single;
-            if (file != null) setState(() => _profilePhoto = file);
-          },
+          onCapturePhoto: _captureProfilePhoto,
+          onPickPhoto: _pickProfilePhoto,
           onContinue: () => _runStep(_saveDetailsAndSendOtp),
         ),
       2 => _VerifyStep(
@@ -467,7 +507,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
         ),
       _ => _CompleteStep(
           result: _completion,
-          phone: _phoneController.text.trim(),
+          membershipApi: _membershipApi,
           onSignIn: () {
             final email = _completion?.email ?? _emailController.text.trim();
             if (email.isNotEmpty) {
@@ -629,7 +669,7 @@ class _PlanStep extends StatelessWidget {
             ),
           const SizedBox(height: 28),
           _PrimaryButton(
-            label: 'Join for ${plan.displayPrice}',
+            label: 'Please Join',
             onPressed: () {
               onSelect(plan);
               onContinue();
@@ -648,11 +688,14 @@ class _DetailsStep extends StatefulWidget {
     required this.lastNameController,
     required this.batchYearController,
     required this.specializationController,
+    required this.practiceLocationController,
     required this.phoneController,
     required this.emailController,
     required this.passwordController,
     required this.confirmPasswordController,
+    required this.profilePhotoBytes,
     required this.profilePhotoName,
+    required this.onCapturePhoto,
     required this.onPickPhoto,
     required this.onContinue,
   });
@@ -662,12 +705,15 @@ class _DetailsStep extends StatefulWidget {
   final TextEditingController lastNameController;
   final TextEditingController batchYearController;
   final TextEditingController specializationController;
+  final TextEditingController practiceLocationController;
   final TextEditingController phoneController;
   final TextEditingController emailController;
   final TextEditingController passwordController;
   final TextEditingController confirmPasswordController;
+  final Uint8List? profilePhotoBytes;
   final String? profilePhotoName;
-  final VoidCallback onPickPhoto;
+  final Future<void> Function() onCapturePhoto;
+  final Future<void> Function() onPickPhoto;
   final VoidCallback onContinue;
 
   @override
@@ -738,7 +784,7 @@ class _DetailsStepState extends State<_DetailsStep> {
           ),
           const SizedBox(height: 16),
           _FormField(
-            label: 'Email',
+            label: 'Email Address',
             controller: widget.emailController,
             keyboard: TextInputType.emailAddress,
             hint: 'name@example.com',
@@ -789,9 +835,18 @@ class _DetailsStepState extends State<_DetailsStep> {
             ),
           ),
           const SizedBox(height: 16),
+          _FormField(
+            label: 'Practice Location',
+            controller: widget.practiceLocationController,
+            hint: 'Hospital or clinic where you practice',
+            required: true,
+          ),
+          const SizedBox(height: 16),
           _ProfilePhotoField(
+            photoBytes: widget.profilePhotoBytes,
             fileName: widget.profilePhotoName,
-            onPick: widget.onPickPhoto,
+            onCapture: widget.onCapturePhoto,
+            onUpload: widget.onPickPhoto,
           ),
           const SizedBox(height: 28),
           _PrimaryButton(
@@ -804,14 +859,43 @@ class _DetailsStepState extends State<_DetailsStep> {
   }
 }
 
-class _ProfilePhotoField extends StatelessWidget {
+class _ProfilePhotoField extends StatefulWidget {
   const _ProfilePhotoField({
+    required this.photoBytes,
     required this.fileName,
-    required this.onPick,
+    required this.onCapture,
+    required this.onUpload,
   });
 
+  final Uint8List? photoBytes;
   final String? fileName;
-  final VoidCallback onPick;
+  final Future<void> Function() onCapture;
+  final Future<void> Function() onUpload;
+
+  @override
+  State<_ProfilePhotoField> createState() => _ProfilePhotoFieldState();
+}
+
+class _ProfilePhotoFieldState extends State<_ProfilePhotoField> {
+  bool _showOptions = false;
+
+  @override
+  void didUpdateWidget(covariant _ProfilePhotoField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.photoBytes != null && oldWidget.photoBytes == null) {
+      _showOptions = false;
+    }
+  }
+
+  Future<void> _handleCapture() async {
+    setState(() => _showOptions = false);
+    await widget.onCapture();
+  }
+
+  Future<void> _handleUpload() async {
+    setState(() => _showOptions = false);
+    await widget.onUpload();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -827,24 +911,57 @@ class _ProfilePhotoField extends StatelessWidget {
             color: AppColors.mutedText,
           ),
         ),
-        const SizedBox(height: 8),
-        OutlinedButton.icon(
-          onPressed: onPick,
-          icon: const Icon(Icons.upload_outlined, size: 18),
-          style: OutlinedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            alignment: Alignment.centerLeft,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
+        const SizedBox(height: 12),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 88,
+              height: 88,
+              decoration: BoxDecoration(
+                color: AppColors.muted,
+                borderRadius: BorderRadius.circular(44),
+                border: Border.all(color: AppColors.border),
+                image: widget.photoBytes != null
+                    ? DecorationImage(
+                        image: MemoryImage(widget.photoBytes!),
+                        fit: BoxFit.cover,
+                      )
+                    : null,
+              ),
+              child: widget.photoBytes == null
+                  ? const Icon(Icons.person_outline, color: AppColors.mutedText)
+                  : null,
             ),
-          ),
-          label: Text(
-            fileName ?? 'Choose File  No file chosen',
-            style: GoogleFonts.inter(
-              fontSize: 14,
-              color: fileName != null ? AppColors.heading : AppColors.mutedText,
+            const SizedBox(width: 16),
+            Expanded(
+              child: _showOptions
+                  ? Row(
+                      children: [
+                        IconButton.outlined(
+                          onPressed: _handleCapture,
+                          icon: const Icon(Icons.photo_camera_outlined),
+                          tooltip: 'Open camera',
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _handleUpload,
+                            icon: const Icon(Icons.upload_outlined, size: 18),
+                            label: const Text('Upload photo'),
+                          ),
+                        ),
+                      ],
+                    )
+                  : OutlinedButton.icon(
+                      onPressed: () => setState(() => _showOptions = true),
+                      icon: const Icon(Icons.add_a_photo_outlined, size: 18),
+                      label: Text(
+                        widget.photoBytes == null ? 'Add photo' : 'Change photo',
+                      ),
+                    ),
             ),
-          ),
+          ],
         ),
       ],
     );
@@ -1366,12 +1483,12 @@ class _BankDetailRow extends StatelessWidget {
 class _CompleteStep extends StatelessWidget {
   const _CompleteStep({
     required this.result,
-    required this.phone,
+    required this.membershipApi,
     required this.onSignIn,
   });
 
   final CompleteRegistrationResult? result;
-  final String phone;
+  final MembershipApiService membershipApi;
   final VoidCallback onSignIn;
 
   String get _username {
@@ -1433,6 +1550,32 @@ class _CompleteStep extends StatelessWidget {
             ),
             textAlign: TextAlign.center,
           ),
+          if (result?.membershipNumber != null) ...[
+            const SizedBox(height: 24),
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: AppColors.muted,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Column(
+                children: [
+                  _CredentialRow(
+                    label: 'MEMBERSHIP NO.',
+                    value: result!.membershipNumber!,
+                  ),
+                  if (result?.receiptNumber != null) ...[
+                    const SizedBox(height: 16),
+                    _CredentialRow(
+                      label: 'RECEIPT NO.',
+                      value: result!.receiptNumber!,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
           Container(
             padding: const EdgeInsets.all(16),
@@ -1556,6 +1699,41 @@ class _CompleteStep extends StatelessWidget {
                       'If you forgot it, use Forgot password on the login page.',
               style: GoogleFonts.inter(color: AppColors.bodyText),
               textAlign: TextAlign.center,
+            ),
+          ],
+          if (result?.receiptHtml != null || result?.paymentId != null) ...[
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: () async {
+                final receiptNumber = result?.receiptNumber ?? 'KMC-RCP';
+                if (result?.receiptHtml != null) {
+                  await downloadTextFile(
+                    fileName: '$receiptNumber.html',
+                    content: result!.receiptHtml!,
+                    mimeType: 'text/html',
+                  );
+                  return;
+                }
+                if (result?.paymentId != null) {
+                  try {
+                    final html = await membershipApi.fetchPaymentReceiptHtml(
+                      result!.paymentId!,
+                    );
+                    await downloadTextFile(
+                      fileName: '$receiptNumber.html',
+                      content: html,
+                      mimeType: 'text/html',
+                    );
+                  } catch (e) {
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('$e')),
+                    );
+                  }
+                }
+              },
+              icon: const Icon(Icons.download_outlined),
+              label: const Text('Download payment receipt'),
             ),
           ],
           const SizedBox(height: 28),

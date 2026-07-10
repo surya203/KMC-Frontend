@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -102,7 +104,7 @@ class _MyProfileScreenState extends State<MyProfileScreen>
     _city.text = profile.city ?? '';
     _bio.text = profile.bio ?? '';
     _linkedin.text = profile.linkedinUrl ?? '';
-    _phone.text = profile.phone ?? '';
+    _phone.text = _localPhoneNumber(profile.phone);
     _directoryVisible = profile.isDirectoryVisible ?? true;
   }
 
@@ -160,7 +162,7 @@ class _MyProfileScreenState extends State<MyProfileScreen>
       }
 
       final updated = await _profilesApi.updateMyProfile({
-        'phone': textOrNull(normalizeMobileNumber(_phone.text)),
+        'phone': _phoneForSave(_phone.text),
         'current_title': textOrNull(_currentTitle.text),
         'organization': textOrNull(_organization.text),
         'city': textOrNull(_city.text),
@@ -253,9 +255,29 @@ class _MyProfileScreenState extends State<MyProfileScreen>
     }
   }
 
+  static const _indiaCountryCode = '+91';
+
+  String _localPhoneNumber(String? phone) {
+    final raw = (phone ?? '').trim();
+    if (raw.startsWith('+91')) {
+      return raw.substring(3).trim();
+    }
+    if (raw.startsWith('91') && raw.length > 10) {
+      return raw.substring(2).trim();
+    }
+    return raw;
+  }
+
   String _displayPhone(String? phone) {
-    if (phone == null || phone.trim().isEmpty) return '—';
-    return phone;
+    final local = _localPhoneNumber(phone);
+    if (local.isEmpty) return '—';
+    return '$_indiaCountryCode $local';
+  }
+
+  String? _phoneForSave(String local) {
+    final digits = local.replaceAll(RegExp(r'\D'), '');
+    if (digits.isEmpty) return null;
+    return '$_indiaCountryCode$digits';
   }
 
   String get _email => AuthSession.instance.currentUser?.email ?? '—';
@@ -593,13 +615,7 @@ class _MyProfileScreenState extends State<MyProfileScreen>
                       children: [
                         Expanded(
                           child: _editing
-                              ? _formField(
-                                  label: 'MOBILE NUMBER',
-                                  controller: _phone,
-                                  keyboardType: TextInputType.phone,
-                                  isMobileNumber: true,
-                                  helperText: 'Enter 10-digit mobile number',
-                                )
+                              ? _mobileNumberField()
                               : _formField(
                                   label: 'MOBILE NUMBER',
                                   value: _displayPhone(profile.phone),
@@ -618,13 +634,7 @@ class _MyProfileScreenState extends State<MyProfileScreen>
                     )
                   else ...[
                     _editing
-                        ? _formField(
-                            label: 'MOBILE NUMBER',
-                            controller: _phone,
-                            keyboardType: TextInputType.phone,
-                            isMobileNumber: true,
-                            helperText: 'Enter 10-digit mobile number',
-                          )
+                        ? _mobileNumberField()
                         : _formField(
                             label: 'MOBILE NUMBER',
                             value: _displayPhone(profile.phone),
@@ -837,6 +847,56 @@ class _MyProfileScreenState extends State<MyProfileScreen>
               helperText: helperText,
             ),
           ),
+      ],
+    );
+  }
+
+  Widget _mobileNumberField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'MOBILE NUMBER',
+          style: GoogleFonts.inter(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.8,
+            color: AppColors.mutedText,
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _phone,
+          keyboardType: TextInputType.phone,
+          style: GoogleFonts.inter(fontSize: 15, color: AppColors.heading),
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: Colors.white,
+            prefixText: '$_indiaCountryCode ',
+            prefixStyle: GoogleFonts.inter(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: AppColors.heading,
+            ),
+            hintText: '9876543210',
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 14,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: AppColors.border),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: AppColors.secondary),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+            ),
+          ),
+        ),
       ],
     );
   }

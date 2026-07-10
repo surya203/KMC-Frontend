@@ -1,0 +1,16 @@
+
+File Name: membership_api_service.dart
+
+1. Modification Done:
+
+   * Extended `MemberMembership` and `PaymentHistoryItem` models with `membershipNumber`, `receiptNumber`, and `hasReceipt`.
+   * Added `fetchPaymentReceiptHtml(paymentId)` for `GET /membership/payments/{id}/receipt`.
+
+2. Purpose of This Modification:
+
+   * Member dashboard needs membership number on My Membership and receipt download on My Payments.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Used by `my_membership_screen.dart`, `my_payments_screen.dart`, and related member routes.
+   * Receipt HTML is passed to `downloadTextFile()` in `file_download_web.dart`.
