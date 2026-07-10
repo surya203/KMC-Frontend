@@ -173,6 +173,8 @@ class PaymentHistoryItem {
     required this.createdAt,
     this.providerOrderId,
     this.providerPaymentId,
+    this.receiptNumber,
+    this.hasReceipt = false,
   });
 
   final String id;
@@ -181,6 +183,8 @@ class PaymentHistoryItem {
   final DateTime createdAt;
   final String? providerOrderId;
   final String? providerPaymentId;
+  final String? receiptNumber;
+  final bool hasReceipt;
 
   String get displayAmount => '₹${(amountPaise / 100).round()}';
 
@@ -192,6 +196,8 @@ class PaymentHistoryItem {
       createdAt: DateTime.parse('${json['created_at']}'),
       providerOrderId: json['provider_order_id'] as String?,
       providerPaymentId: json['provider_payment_id'] as String?,
+      receiptNumber: json['receipt_number'] as String?,
+      hasReceipt: json['has_receipt'] as bool? ?? false,
     );
   }
 }
@@ -377,6 +383,20 @@ class MembershipApiService {
       return payments
           .map((e) => PaymentHistoryItem.fromJson(e as Map<String, dynamic>))
           .toList();
+    } on DioException catch (e) {
+      throw Exception(_readDetail(e));
+    }
+  }
+
+  Future<String> fetchPaymentReceiptHtml(String paymentId) async {
+    final options = _authOptions;
+    if (options == null) throw Exception('Not signed in.');
+    try {
+      final response = await _apiClient.dio.get<String>(
+        '${AppConfig.apiBaseUrl}${AppConfig.apiPrefix}/membership/payments/$paymentId/receipt',
+        options: options.copyWith(responseType: ResponseType.plain),
+      );
+      return response.data ?? '';
     } on DioException catch (e) {
       throw Exception(_readDetail(e));
     }

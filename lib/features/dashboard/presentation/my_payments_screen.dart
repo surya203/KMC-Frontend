@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/membership_api_service.dart';
+import '../../../core/utils/file_download.dart';
 
 class MyPaymentsScreen extends StatefulWidget {
   const MyPaymentsScreen({super.key});
@@ -43,6 +44,22 @@ class _MyPaymentsScreenState extends State<MyPaymentsScreen> {
         _error = e.toString();
         _loading = false;
       });
+    }
+  }
+
+  Future<void> _downloadReceipt(PaymentHistoryItem payment) async {
+    try {
+      final html = await _api.fetchPaymentReceiptHtml(payment.id);
+      await downloadTextFile(
+        fileName: '${payment.receiptNumber ?? 'KMC-RCP'}.html',
+        content: html,
+        mimeType: 'text/html',
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$e')),
+      );
     }
   }
 
@@ -97,7 +114,12 @@ class _MyPaymentsScreenState extends State<MyPaymentsScreen> {
                 )
               else
                 for (final payment in _payments) ...[
-                  _PaymentCard(payment: payment),
+                  _PaymentCard(
+                    payment: payment,
+                    onDownloadReceipt: payment.hasReceipt
+                        ? () => _downloadReceipt(payment)
+                        : null,
+                  ),
                   const SizedBox(height: 12),
                 ],
             ],
@@ -109,9 +131,13 @@ class _MyPaymentsScreenState extends State<MyPaymentsScreen> {
 }
 
 class _PaymentCard extends StatelessWidget {
-  const _PaymentCard({required this.payment});
+  const _PaymentCard({
+    required this.payment,
+    this.onDownloadReceipt,
+  });
 
   final PaymentHistoryItem payment;
+  final VoidCallback? onDownloadReceipt;
 
   @override
   Widget build(BuildContext context) {
@@ -125,71 +151,97 @@ class _PaymentCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppColors.border),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: captured
-                  ? Colors.green.shade50
-                  : AppColors.muted,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(
-              captured ? Icons.receipt_long : Icons.schedule,
-              color: captured ? Colors.green.shade700 : AppColors.bodyText,
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  payment.displayAmount,
-                  style: GoogleFonts.inter(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.heading,
-                  ),
+          Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: captured
+                      ? Colors.green.shade50
+                      : AppColors.muted,
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  _formatDate(payment.createdAt),
-                  style: GoogleFonts.inter(
-                    fontSize: 13,
-                    color: AppColors.mutedText,
-                  ),
+                child: Icon(
+                  captured ? Icons.receipt_long : Icons.schedule,
+                  color: captured ? Colors.green.shade700 : AppColors.bodyText,
                 ),
-                if (payment.providerPaymentId != null) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    'Ref: ${payment.providerPaymentId}',
-                    style: GoogleFonts.inter(
-                      fontSize: 12,
-                      color: AppColors.mutedText,
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      payment.displayAmount,
+                      style: GoogleFonts.inter(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.heading,
+                      ),
                     ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _formatDate(payment.createdAt),
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        color: AppColors.mutedText,
+                      ),
+                    ),
+                    if (payment.receiptNumber != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        payment.receiptNumber!,
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: AppColors.mutedText,
+                        ),
+                      ),
+                    ],
+                    if (payment.providerPaymentId != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'Ref: ${payment.providerPaymentId}',
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: AppColors.mutedText,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: captured ? Colors.green.shade50 : AppColors.muted,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  payment.status.toUpperCase(),
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: captured ? Colors.green.shade800 : AppColors.bodyText,
                   ),
-                ],
-              ],
-            ),
+                ),
+              ),
+            ],
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: captured ? Colors.green.shade50 : AppColors.muted,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              payment.status.toUpperCase(),
-              style: GoogleFonts.inter(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: captured ? Colors.green.shade800 : AppColors.bodyText,
+          if (onDownloadReceipt != null) ...[
+            const SizedBox(height: 14),
+            Align(
+              alignment: Alignment.centerRight,
+              child: OutlinedButton.icon(
+                onPressed: onDownloadReceipt,
+                icon: const Icon(Icons.download_outlined, size: 18),
+                label: const Text('Download receipt'),
               ),
             ),
-          ),
+          ],
         ],
       ),
     );

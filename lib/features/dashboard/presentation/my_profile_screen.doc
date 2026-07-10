@@ -1,0 +1,17 @@
+
+File Name: my_profile_screen.dart
+
+1. Modification Done:
+
+   * Mobile number field shows India country code `+91` as a fixed prefix in edit mode.
+   * View mode displays `+91` before the local number.
+   * On save, phone is stored in E.164-style form `+91` + digits; existing values with or without prefix are normalized when loading the editor.
+
+2. Purpose of This Modification:
+
+   * Alumni profile should present mobile numbers in a consistent international format for India.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Route: `/#/my-profile` → Edit profile → Mobile Number.
+   * Updates via `profiles_api_service.updateMyProfile()` with `phone` field.

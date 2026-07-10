@@ -1,0 +1,17 @@
+
+File Name: my_payments_screen.dart
+
+1. Modification Done:
+
+   * Lists captured membership payments with amount, date, Razorpay reference, and receipt number when available.
+   * Shows **Download receipt** button when `hasReceipt` is true from the API.
+   * Downloads receipt as HTML via `fetchPaymentReceiptHtml()` and `downloadTextFile()`.
+
+2. Purpose of This Modification:
+
+   * Members need payment history and a way to save their life-membership receipt after registration or for older payments once the backend generates it.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Route: `/#/my-payments` (member layout).
+   * Depends on `membership_api_service.dart` and `file_download.dart` conditional exports.

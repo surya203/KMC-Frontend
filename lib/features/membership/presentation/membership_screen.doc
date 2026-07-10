@@ -40,3 +40,24 @@ File Name: membership_screen.dart
    * Uses `registration_service`, `membership_service`, step widgets (`plan_card`, `details_form`, etc.), and `razorpay_checkout` on payment.
    * On success, member can sign in at `/auth` with credentials from welcome email or dev debug password.
 
+---
+
+
+File Name: membership_screen.dart
+
+1. Modification Done:
+
+   * Plan step CTA text changed to **Please Join** (price on plan card unchanged).
+   * Details step: practice location field only; email; mobile; optional profile photo with **Add photo** → live camera or upload on web.
+   * Complete step displays membership number, receipt number, and receipt download when returned by API.
+   * Photo capture no longer wraps the whole step in a loading spinner.
+
+2. Purpose of This Modification:
+
+   * Registration handbook requirements: location as practice site, optional live photo, sequential membership number and receipt visible at completion.
+
+3. How This Modification Is Involved in the Flow:
+
+   * Uses `registration_service.uploadDraftPhoto()`, `captureImageWithLivePreview()`, and `CompleteRegistrationResult.membershipNumber` / receipt fields.
+   * Route: `/#/membership` steps 1–5.
+

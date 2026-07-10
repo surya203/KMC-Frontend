@@ -1,0 +1,17 @@
+
+File Name: image_capture.dart / image_capture_web.dart / image_capture_stub.dart
+
+1. Modification Done:
+
+   * Conditional export: web implementation provides `captureImageWithLivePreview(context)` opening a dialog with live camera preview (`getUserMedia`), capture, and JPEG bytes.
+   * Stub returns null on non-web platforms.
+   * Used by registration wizard profile photo **camera** option.
+
+2. Purpose of This Modification:
+
+   * Registration requires optional live photo capture on web; file picker alone is not sufficient for the camera path.
+
+3. How This Modification Is Involved in the Flow:
+
+   * `membership_screen.dart` → `_captureProfilePhoto()` → `captureImageWithLivePreview()`.
+   * Bytes uploaded via `registration_service.uploadDraftPhoto()` after details step.

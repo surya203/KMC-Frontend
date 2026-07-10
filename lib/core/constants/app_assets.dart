@@ -5,6 +5,12 @@ class AppAssets {
   static const String hero = 'assets/images/hero_lovable.webp';
   static const String eventBanner = 'assets/images/event_banner.webp';
 
+  /// Place your events page hero banner at this path (WebP or replace extension in code).
+  static const String eventsHeroImage = 'assets/images/events_hero.webp';
+
+  /// Place the shared cover image for all program event cards at this path.
+  static const String eventsProgramCover = 'assets/images/events_program_cover.webp';
+
   static const galleryImages = [
     'assets/images/gallery_01.webp',
     'assets/images/gallery_02.webp',
