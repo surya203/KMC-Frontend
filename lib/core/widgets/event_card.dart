@@ -14,6 +14,7 @@ class EventCard extends StatelessWidget {
     required this.venueLabel,
     required this.registeredCount,
     this.coverImageUrl,
+    this.coverAssetPath,
     this.registrationOpen = true,
     this.isRegistered = false,
     this.onTap,
@@ -25,6 +26,7 @@ class EventCard extends StatelessWidget {
   final String venueLabel;
   final int registeredCount;
   final String? coverImageUrl;
+  final String? coverAssetPath;
   final bool registrationOpen;
   final bool isRegistered;
   final VoidCallback? onTap;
@@ -45,7 +47,10 @@ class EventCard extends StatelessWidget {
           children: [
             SizedBox(
               height: 240,
-              child: _EventCoverImage(coverImageUrl: coverImageUrl),
+              child: _EventCoverImage(
+                coverImageUrl: coverImageUrl,
+                coverAssetPath: coverAssetPath,
+              ),
             ),
             Padding(
               padding: const EdgeInsets.all(24),
@@ -183,12 +188,24 @@ class EventCard extends StatelessWidget {
 }
 
 class _EventCoverImage extends StatelessWidget {
-  const _EventCoverImage({this.coverImageUrl});
+  const _EventCoverImage({
+    this.coverImageUrl,
+    this.coverAssetPath,
+  });
 
   final String? coverImageUrl;
+  final String? coverAssetPath;
 
   @override
   Widget build(BuildContext context) {
+    final asset = coverAssetPath;
+    if (asset != null && asset.isNotEmpty) {
+      return SafeAssetImage(
+        assetPath: asset,
+        fit: BoxFit.cover,
+        expandToFill: true,
+      );
+    }
     final url = coverImageUrl;
     if (url != null && url.isNotEmpty) {
       return CachedNetworkImage(

@@ -1,7 +1,9 @@
 import 'package:dio/dio.dart';
+import 'package:file_picker/file_picker.dart';
 
 import '../config/app_config.dart';
 import 'api_client.dart';
+import 'auth_service.dart';
 
 class GalleryAlbum {
   const GalleryAlbum({
@@ -11,6 +13,7 @@ class GalleryAlbum {
     this.description,
     this.coverImageUrl,
     this.mediaCount = 0,
+    this.createdBy,
   });
 
   final String id;
@@ -19,6 +22,7 @@ class GalleryAlbum {
   final String? description;
   final String? coverImageUrl;
   final int mediaCount;
+  final String? createdBy;
 
   factory GalleryAlbum.fromJson(Map<String, dynamic> json) {
     return GalleryAlbum(
@@ -28,6 +32,7 @@ class GalleryAlbum {
       description: json['description'] as String?,
       coverImageUrl: json['cover_image_url'] as String?,
       mediaCount: json['media_count'] as int? ?? 0,
+      createdBy: json['created_by'] as String?,
     );
   }
 }
@@ -63,6 +68,34 @@ class GalleryMediaItem {
   }
 }
 
+class GalleryExternalLink {
+  const GalleryExternalLink({
+    required this.id,
+    required this.linkType,
+    required this.url,
+    this.title,
+    this.createdAt,
+  });
+
+  final String id;
+  final String linkType;
+  final String url;
+  final String? title;
+  final DateTime? createdAt;
+
+  factory GalleryExternalLink.fromJson(Map<String, dynamic> json) {
+    return GalleryExternalLink(
+      id: json['id'] as String,
+      linkType: json['link_type'] as String,
+      url: json['url'] as String,
+      title: json['title'] as String?,
+      createdAt: json['created_at'] != null
+          ? DateTime.tryParse(json['created_at'] as String)
+          : null,
+    );
+  }
+}
+
 class GalleryAlbumDetail {
   const GalleryAlbumDetail({
     required this.id,
@@ -72,6 +105,8 @@ class GalleryAlbumDetail {
     this.coverImageUrl,
     this.mediaCount = 0,
     this.media = const [],
+    this.externalLinks = const [],
+    this.createdBy,
   });
 
   final String id;
@@ -81,9 +116,12 @@ class GalleryAlbumDetail {
   final String? coverImageUrl;
   final int mediaCount;
   final List<GalleryMediaItem> media;
+  final List<GalleryExternalLink> externalLinks;
+  final String? createdBy;
 
   factory GalleryAlbumDetail.fromJson(Map<String, dynamic> json) {
     final rawMedia = json['media'] as List<dynamic>? ?? [];
+    final rawLinks = json['external_links'] as List<dynamic>? ?? [];
     return GalleryAlbumDetail(
       id: json['id'] as String,
       slug: json['slug'] as String,
@@ -94,6 +132,10 @@ class GalleryAlbumDetail {
       media: rawMedia
           .map((e) => GalleryMediaItem.fromJson(e as Map<String, dynamic>))
           .toList(),
+      externalLinks: rawLinks
+          .map((e) => GalleryExternalLink.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      createdBy: json['created_by'] as String?,
     );
   }
 }
@@ -116,6 +158,12 @@ class GalleryApiService {
   GalleryApiService({ApiClient? apiClient}) : _apiClient = apiClient ?? ApiClient();
 
   final ApiClient _apiClient;
+
+  Options get _authOptions {
+    final header = AuthService.authorizationHeader;
+    if (header == null) throw Exception('Sign in required.');
+    return Options(headers: {'Authorization': header});
+  }
 
   Future<List<GalleryAlbum>> fetchAlbums() async {
     try {
@@ -179,6 +227,179 @@ class GalleryApiService {
       pageSize: pageSize,
     );
     return result.items;
+  }
+
+  Future<GalleryAlbumDetail> createAlbum({
+    required String slug,
+    required String title,
+    String? description,
+  }) async {
+    try {
+      final response = await _apiClient.post<Map<String, dynamic>>(
+        '${AppConfig.apiPrefix}/gallery/albums',
+        data: {
+          'slug': slug,
+          'title': title,
+          if (description != null && description.isNotEmpty)
+            'description': description,
+        },
+        options: _authOptions,
+      );
+      if (response.data == null) throw Exception('Album creation failed.');
+      return GalleryAlbumDetail.fromJson(response.data!);
+    } on DioException catch (e) {
+      throw Exception(_readDetail(e));
+    }
+  }
+
+  Future<GalleryAlbumDetail> updateAlbum({
+    required String albumId,
+    String? title,
+    String? description,
+  }) async {
+    try {
+      final response = await _apiClient.patch<Map<String, dynamic>>(
+        '${AppConfig.apiPrefix}/gallery/albums/$albumId',
+        data: {
+          if (title != null) 'title': title,
+          if (description != null) 'description': description,
+        },
+        options: _authOptions,
+      );
+      if (response.data == null) throw Exception('Album update failed.');
+      return GalleryAlbumDetail.fromJson(response.data!);
+    } on DioException catch (e) {
+      throw Exception(_readDetail(e));
+    }
+  }
+
+  Future<void> deleteAlbum(String albumId) async {
+    try {
+      await _apiClient.delete<void>(
+        '${AppConfig.apiPrefix}/gallery/albums/$albumId',
+        options: _authOptions,
+      );
+    } on DioException catch (e) {
+      throw Exception(_readDetail(e));
+    }
+  }
+
+  Future<List<GalleryMediaItem>> uploadAlbumMedia({
+    required String albumId,
+    required List<PlatformFile> files,
+  }) async {
+    if (files.isEmpty) throw Exception('Select at least one image.');
+
+    final header = AuthService.authorizationHeader;
+    if (header == null) throw Exception('Sign in required.');
+
+    final multipartFiles = <MultipartFile>[];
+    for (final file in files) {
+      if (file.bytes == null) continue;
+      multipartFiles.add(
+        MultipartFile.fromBytes(file.bytes!, filename: file.name),
+      );
+    }
+    if (multipartFiles.isEmpty) {
+      throw Exception('Could not read selected images.');
+    }
+
+    try {
+      final response = await _apiClient.dio.post<Map<String, dynamic>>(
+        '${AppConfig.apiPrefix}/gallery/albums/$albumId/upload',
+        data: FormData.fromMap({'files': multipartFiles}),
+        options: Options(headers: {'Authorization': header}),
+      );
+      final uploaded = response.data?['uploaded'] as List<dynamic>? ?? [];
+      return uploaded
+          .map(
+            (e) => GalleryMediaItem(
+              id: e['id'] as String,
+              storagePath: e['storage_path'] as String,
+              storageUrl: e['storage_url'] as String?,
+              caption: e['caption'] as String?,
+              sortOrder: e['sort_order'] as int? ?? 0,
+            ),
+          )
+          .toList();
+    } on DioException catch (e) {
+      throw Exception(_readDetail(e));
+    }
+  }
+
+  Future<void> deleteMedia({
+    required String albumId,
+    required String mediaId,
+  }) async {
+    try {
+      await _apiClient.delete<void>(
+        '${AppConfig.apiPrefix}/gallery/albums/$albumId/media/$mediaId',
+        options: _authOptions,
+      );
+    } on DioException catch (e) {
+      throw Exception(_readDetail(e));
+    }
+  }
+
+  Future<GalleryExternalLink> addDriveLink({
+    required String albumId,
+    required String title,
+    required String url,
+    String linkType = 'drive_folder',
+  }) async {
+    try {
+      final response = await _apiClient.post<Map<String, dynamic>>(
+        '${AppConfig.apiPrefix}/gallery/albums/$albumId/drive-link',
+        data: {
+          'title': title,
+          'url': url,
+          'link_type': linkType,
+        },
+        options: _authOptions,
+      );
+      if (response.data == null) throw Exception('Drive link creation failed.');
+      return GalleryExternalLink.fromJson(response.data!);
+    } on DioException catch (e) {
+      throw Exception(_readDetail(e));
+    }
+  }
+
+  Future<GalleryExternalLink> updateDriveLink({
+    required String albumId,
+    required String linkId,
+    String? title,
+    String? url,
+    String? linkType,
+  }) async {
+    try {
+      final response = await _apiClient.patch<Map<String, dynamic>>(
+        '${AppConfig.apiPrefix}/gallery/albums/$albumId/drive-link/$linkId',
+        data: {
+          if (title != null) 'title': title,
+          if (url != null) 'url': url,
+          if (linkType != null) 'link_type': linkType,
+        },
+        options: _authOptions,
+      );
+      if (response.data == null) throw Exception('Drive link update failed.');
+      return GalleryExternalLink.fromJson(response.data!);
+    } on DioException catch (e) {
+      throw Exception(_readDetail(e));
+    }
+  }
+
+  Future<void> deleteDriveLink({
+    required String albumId,
+    required String linkId,
+  }) async {
+    try {
+      await _apiClient.delete<void>(
+        '${AppConfig.apiPrefix}/gallery/albums/$albumId/drive-link/$linkId',
+        options: _authOptions,
+      );
+    } on DioException catch (e) {
+      throw Exception(_readDetail(e));
+    }
   }
 
   String _readDetail(DioException e) {

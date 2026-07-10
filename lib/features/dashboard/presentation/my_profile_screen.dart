@@ -1,13 +1,13 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/auth/auth_session.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/membership_api_service.dart';
 import '../../../core/network/profiles_api_service.dart';
+import '../../../core/utils/validators.dart';
 
 class MyProfileScreen extends StatefulWidget {
   const MyProfileScreen({super.key});
@@ -154,10 +154,13 @@ class _MyProfileScreenState extends State<MyProfileScreen>
         return value.isEmpty ? null : value;
       }
 
-      final phone = _normalizePhoneForSave(_phone.text);
+      final phoneError = validateMobileNumber(_phone.text);
+      if (phoneError != null) {
+        throw Exception(phoneError);
+      }
 
       final updated = await _profilesApi.updateMyProfile({
-        'phone': phone,
+        'phone': textOrNull(normalizeMobileNumber(_phone.text)),
         'current_title': textOrNull(_currentTitle.text),
         'organization': textOrNull(_organization.text),
         'city': textOrNull(_city.text),
@@ -253,24 +256,6 @@ class _MyProfileScreenState extends State<MyProfileScreen>
   String _displayPhone(String? phone) {
     if (phone == null || phone.trim().isEmpty) return '—';
     return phone;
-  }
-
-  String? _normalizePhoneForSave(String raw) {
-    final value = raw.trim();
-    if (value.isEmpty) return null;
-
-    // Require country code and allow spacing/hyphen styles for readability.
-    final compact = value.replaceAll(RegExp(r'[\s()-]'), '');
-    if (!compact.startsWith('+')) {
-      throw const FormatException('Use country code, e.g. +91 9959702066');
-    }
-
-    final digits = compact.replaceAll(RegExp(r'[^0-9]'), '');
-    if (digits.length < 8 || digits.length > 15) {
-      throw const FormatException('Phone number should have 8 to 15 digits.');
-    }
-
-    return value;
   }
 
   String get _email => AuthSession.instance.currentUser?.email ?? '—';
@@ -612,7 +597,8 @@ class _MyProfileScreenState extends State<MyProfileScreen>
                                   label: 'MOBILE NUMBER',
                                   controller: _phone,
                                   keyboardType: TextInputType.phone,
-                                  helperText: 'Use format like +91 9959702066',
+                                  isMobileNumber: true,
+                                  helperText: 'Enter 10-digit mobile number',
                                 )
                               : _formField(
                                   label: 'MOBILE NUMBER',
@@ -636,7 +622,8 @@ class _MyProfileScreenState extends State<MyProfileScreen>
                             label: 'MOBILE NUMBER',
                             controller: _phone,
                             keyboardType: TextInputType.phone,
-                            helperText: 'Use format like +91 9959702066',
+                            isMobileNumber: true,
+                            helperText: 'Enter 10-digit mobile number',
                           )
                         : _formField(
                             label: 'MOBILE NUMBER',
@@ -765,6 +752,7 @@ class _MyProfileScreenState extends State<MyProfileScreen>
     int maxLines = 1,
     TextInputType? keyboardType,
     String? helperText,
+    bool isMobileNumber = false,
   }) {
     assert(value != null || controller != null);
 
@@ -816,13 +804,9 @@ class _MyProfileScreenState extends State<MyProfileScreen>
             readOnly: readOnly,
             enabled: _editing,
             maxLines: maxLines,
-            keyboardType: keyboardType,
-            inputFormatters: keyboardType == TextInputType.phone
-                ? [
-                    FilteringTextInputFormatter.allow(RegExp(r'[0-9+\s()-]')),
-                    LengthLimitingTextInputFormatter(20),
-                  ]
-                : null,
+            keyboardType: isMobileNumber ? TextInputType.number : keyboardType,
+            inputFormatters:
+                isMobileNumber ? mobileNumberInputFormatters : null,
             style: GoogleFonts.inter(fontSize: 15, color: AppColors.heading),
             decoration: InputDecoration(
               filled: true,

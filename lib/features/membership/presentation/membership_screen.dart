@@ -12,6 +12,7 @@ import '../../../core/network/membership_api_service.dart';
 import '../../../core/network/registration_service.dart';
 import '../../../core/payment/razorpay_checkout.dart';
 import '../../../core/theme/heading_styles.dart';
+import '../../../core/utils/validators.dart';
 import '../../../core/widgets/public_layout.dart';
 import '../../home/widgets/footer_section.dart';
 
@@ -224,8 +225,9 @@ class _MembershipScreenState extends State<MembershipScreen> {
       throw Exception('Enter a valid batch year (e.g. 2015).');
     }
     if (specialization.isEmpty) throw Exception('Enter your specialization.');
-    final phoneValidation = _validatePhone(phone);
-    if (phoneValidation != null) throw Exception(phoneValidation);
+    if (phone.isEmpty) throw Exception('Enter your mobile number.');
+    final phoneError = validateMobileNumber(phone, required: true);
+    if (phoneError != null) throw Exception(phoneError);
     final emailValidation = _validateEmail(email);
     if (emailValidation != null) throw Exception(emailValidation);
     final passwordValidation = _validatePassword(password);
@@ -245,7 +247,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
         'last_name': lastName,
         'full_name': _fullName,
         'batch_year': batchYear,
-        'phone': phone,
+        'phone': normalizeMobileNumber(phone),
         'specialization': specialization,
         'email': email,
         'password': password,
@@ -728,10 +730,11 @@ class _DetailsStepState extends State<_DetailsStep> {
             label: 'Mobile Number',
             controller: widget.phoneController,
             keyboard: TextInputType.phone,
-            hint: '+91 9959702066',
+            hint: '9876543210',
             required: true,
             prefixIcon: const Icon(Icons.phone_outlined),
-            helperText: 'Include country code, e.g. +91',
+            helperText: 'Enter 10-digit mobile number',
+            mobileNumber: true,
           ),
           const SizedBox(height: 16),
           _FormField(
@@ -1661,6 +1664,7 @@ class _FormField extends StatelessWidget {
     this.suffixIcon,
     this.prefixIcon,
     this.helperText,
+    this.mobileNumber = false,
   });
 
   final String label;
@@ -1672,6 +1676,7 @@ class _FormField extends StatelessWidget {
   final Widget? suffixIcon;
   final Widget? prefixIcon;
   final String? helperText;
+  final bool mobileNumber;
 
   @override
   Widget build(BuildContext context) {
@@ -1699,8 +1704,10 @@ class _FormField extends StatelessWidget {
         const SizedBox(height: 8),
         TextField(
           controller: controller,
-          keyboardType: keyboard,
+          keyboardType: mobileNumber ? TextInputType.number : keyboard,
           obscureText: obscureText,
+          inputFormatters:
+              mobileNumber ? mobileNumberInputFormatters : null,
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: GoogleFonts.inter(
@@ -1763,16 +1770,6 @@ String? _validateEmail(String email) {
   final emailPattern = RegExp(r'^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$');
   if (!emailPattern.hasMatch(normalized)) {
     return 'Enter a valid email like name@example.com.';
-  }
-  return null;
-}
-
-String? _validatePhone(String phone) {
-  if (phone.isEmpty) return 'Enter your mobile number.';
-  final normalized = phone.replaceAll(RegExp(r'\s+'), '');
-  final phonePattern = RegExp(r'^\+[1-9]\d{7,14}$');
-  if (!phonePattern.hasMatch(normalized)) {
-    return 'Enter mobile with country code, e.g. +91 9959702066.';
   }
   return null;
 }
