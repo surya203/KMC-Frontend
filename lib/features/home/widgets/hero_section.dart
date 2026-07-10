@@ -12,6 +12,14 @@ class HeroSection extends StatelessWidget {
 
   final CommunityStats? stats;
 
+  static const _heroNavItems = [
+    ('Home', '/'),
+    ('About', '/about'),
+    ('Events', '/events'),
+    ('Gallery', '/gallery'),
+    ('MY KMC', '/membership'),
+  ];
+
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
@@ -50,7 +58,7 @@ class HeroSection extends StatelessWidget {
             children: [
               Expanded(
                 child: SingleChildScrollView(
-                  padding: EdgeInsets.fromLTRB(24, isCompact ? 36 : 48, 24, 12),
+                  padding: EdgeInsets.fromLTRB(24, isCompact ? 20 : 24, 24, 12),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -85,6 +93,11 @@ class HeroSection extends StatelessWidget {
                             ),
                           ],
                         ),
+                      ),
+                      SizedBox(height: isCompact ? 12 : 14),
+                      _HeroNavRow(
+                        items: _heroNavItems,
+                        compact: isCompact,
                       ),
                       SizedBox(height: isCompact ? 18 : 28),
                       Wrap(
@@ -204,6 +217,83 @@ class HeroSection extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _HeroNavRow extends StatelessWidget {
+  const _HeroNavRow({
+    required this.items,
+    required this.compact,
+  });
+
+  final List<(String, String)> items;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    // Hide the overlay scrollbar so it never covers the tab buttons.
+    return ScrollConfiguration(
+      behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            for (var i = 0; i < items.length; i++) ...[
+              if (i > 0) SizedBox(width: compact ? 8 : 10),
+              _HeroNavLink(
+                label: items[i].$1,
+                path: items[i].$2,
+                compact: compact,
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HeroNavLink extends StatelessWidget {
+  const _HeroNavLink({
+    required this.label,
+    required this.path,
+    required this.compact,
+  });
+
+  final String label;
+  final String path;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => context.go(path),
+        borderRadius: BorderRadius.circular(24),
+        child: Ink(
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.14),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.45)),
+          ),
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: compact ? 12 : 16,
+              vertical: compact ? 8 : 10,
+            ),
+            child: Text(
+              label,
+              style: GoogleFonts.inter(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: compact ? 12 : 14,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
