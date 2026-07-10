@@ -63,9 +63,9 @@ class _ProfileDetailScreenState extends State<ProfileDetailScreen> {
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 1200),
                   child: TextButton.icon(
-                    onPressed: () => context.go('/directory'),
+                    onPressed: () => context.go('/'),
                     icon: const Icon(Icons.arrow_back),
-                    label: const Text('Alumni directory'),
+                    label: const Text('Back to home'),
                   ),
                 ),
               ),

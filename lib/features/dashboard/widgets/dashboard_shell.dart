@@ -82,7 +82,7 @@ class DashboardShell extends StatelessWidget {
                     onMenuTap: isDesktop
                         ? null
                         : () => Scaffold.of(scaffoldContext).openDrawer(),
-                    onSearchTap: onSearchTap ?? () => context.go('/directory'),
+                    onSearchTap: onSearchTap ?? () => context.go('/connect'),
                   ),
                   Expanded(
                     child: ColoredBox(

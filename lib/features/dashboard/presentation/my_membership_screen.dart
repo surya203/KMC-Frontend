@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/auth/auth_session.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/network/api_errors.dart';
 import '../../../core/network/membership_api_service.dart';
 import '../../../core/payment/razorpay_checkout.dart';
 
@@ -22,6 +23,7 @@ class _MyMembershipScreenState extends State<MyMembershipScreen> {
   List<DonationCategory> _categories = [];
   List<DonationRecord> _donations = [];
   String? _error;
+  bool _sessionExpired = false;
   bool _loading = true;
   bool _donating = false;
 
@@ -35,6 +37,7 @@ class _MyMembershipScreenState extends State<MyMembershipScreen> {
     setState(() {
       _loading = true;
       _error = null;
+      _sessionExpired = false;
     });
 
     try {
@@ -63,8 +66,14 @@ class _MyMembershipScreenState extends State<MyMembershipScreen> {
       });
     } catch (e) {
       if (!mounted) return;
+      final expired = isSessionExpiredError(e);
+      if (expired) {
+        await AuthSession.instance.clearSession();
+      }
+      if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _sessionExpired = expired;
+        _error = friendlyApiError(e);
         _loading = false;
       });
     }
@@ -332,7 +341,12 @@ class _MyMembershipScreenState extends State<MyMembershipScreen> {
               ),
               const SizedBox(height: 20),
               if (_error != null) ...[
-                _ErrorBanner(message: _error!, onRetry: _load),
+                _ErrorBanner(
+                  message: _error!,
+                  sessionExpired: _sessionExpired,
+                  onRetry: _load,
+                  onSignIn: () => context.go('/auth'),
+                ),
                 const SizedBox(height: 16),
               ],
               if (membership != null) ...[
@@ -687,10 +701,17 @@ class _Field extends StatelessWidget {
 }
 
 class _ErrorBanner extends StatelessWidget {
-  const _ErrorBanner({required this.message, required this.onRetry});
+  const _ErrorBanner({
+    required this.message,
+    required this.onRetry,
+    this.sessionExpired = false,
+    this.onSignIn,
+  });
 
   final String message;
   final VoidCallback onRetry;
+  final bool sessionExpired;
+  final VoidCallback? onSignIn;
 
   @override
   Widget build(BuildContext context) {
@@ -710,7 +731,10 @@ class _ErrorBanner extends StatelessWidget {
               style: GoogleFonts.inter(color: Colors.red.shade900, fontSize: 14),
             ),
           ),
-          TextButton(onPressed: onRetry, child: const Text('Retry')),
+          if (sessionExpired && onSignIn != null)
+            TextButton(onPressed: onSignIn, child: const Text('Sign in'))
+          else
+            TextButton(onPressed: onRetry, child: const Text('Retry')),
         ],
       ),
     );

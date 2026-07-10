@@ -355,6 +355,7 @@ class ProfilesApiService {
     if (header == null) throw Exception('Not signed in.');
     if (file.bytes == null) throw Exception('Could not read image file.');
 
+    final mimeType = _mimeTypeFromFilename(file.name);
     try {
       final response = await _apiClient.dio.post<Map<String, dynamic>>(
         '${AppConfig.apiPrefix}/profiles/me/photo',
@@ -362,6 +363,7 @@ class ProfilesApiService {
           'file': MultipartFile.fromBytes(
             file.bytes!,
             filename: file.name,
+            contentType: DioMediaType.parse(mimeType),
           ),
         }),
         options: Options(headers: {'Authorization': header}),
@@ -380,6 +382,7 @@ class ProfilesApiService {
               'photo': MultipartFile.fromBytes(
                 file.bytes!,
                 filename: file.name,
+                contentType: DioMediaType.parse(mimeType),
               ),
             }),
             options: Options(headers: {'Authorization': header}),
@@ -392,6 +395,14 @@ class ProfilesApiService {
       }
       throw Exception(_readDetail(e));
     }
+  }
+
+  String _mimeTypeFromFilename(String filename) {
+    final lower = filename.toLowerCase();
+    if (lower.endsWith('.png')) return 'image/png';
+    if (lower.endsWith('.webp')) return 'image/webp';
+    if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
+    return 'image/jpeg';
   }
 
   String _readDetail(DioException e) {

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/auth/auth_session.dart';
 import '../../../core/config/app_config.dart';
@@ -43,6 +44,8 @@ class _MembershipScreenState extends State<MembershipScreen> {
   final _specializationController = TextEditingController();
   final _phoneController = TextEditingController();
   final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
   final _otpController = TextEditingController();
   PlatformFile? _profilePhoto;
   String? _debugOtp;
@@ -71,6 +74,8 @@ class _MembershipScreenState extends State<MembershipScreen> {
     _specializationController.dispose();
     _phoneController.dispose();
     _emailController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
     _otpController.dispose();
     super.dispose();
   }
@@ -166,7 +171,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
     try {
       await action();
     } catch (e) {
-      setState(() => _error = e.toString());
+      setState(() => _error = _friendlyErrorMessage(e));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -205,14 +210,29 @@ class _MembershipScreenState extends State<MembershipScreen> {
     final email = _emailController.text.trim();
     final phone = _phoneController.text.trim();
     final specialization = _specializationController.text.trim();
-    final batchYear = int.tryParse(_batchYearController.text.trim());
+    final batchYearText = _batchYearController.text.trim();
+    final batchYear = int.tryParse(batchYearText);
+    final password = _passwordController.text;
+    final confirmPassword = _confirmPasswordController.text;
 
     if (firstName.isEmpty) throw Exception('Enter your first name.');
     if (lastName.isEmpty) throw Exception('Enter your last name.');
-    if (batchYear == null) throw Exception('Enter a valid batch year.');
+    if (batchYearText.isEmpty) {
+      throw Exception('Enter your batch year.');
+    }
+    if (batchYear == null || batchYear < 1950 || batchYear > DateTime.now().year) {
+      throw Exception('Enter a valid batch year (e.g. 2015).');
+    }
     if (specialization.isEmpty) throw Exception('Enter your specialization.');
-    if (phone.isEmpty) throw Exception('Enter your mobile number.');
-    if (email.isEmpty) throw Exception('Enter your email.');
+    final phoneValidation = _validatePhone(phone);
+    if (phoneValidation != null) throw Exception(phoneValidation);
+    final emailValidation = _validateEmail(email);
+    if (emailValidation != null) throw Exception(emailValidation);
+    final passwordValidation = _validatePassword(password);
+    if (passwordValidation != null) throw Exception(passwordValidation);
+    if (confirmPassword != password) {
+      throw Exception('Confirm password must match the password.');
+    }
 
     final updated = await _registration.updateDraft(
       draftId: draft.id,
@@ -228,6 +248,8 @@ class _MembershipScreenState extends State<MembershipScreen> {
         'phone': phone,
         'specialization': specialization,
         'email': email,
+        'password': password,
+        'confirm_password': confirmPassword,
       },
     );
 
@@ -414,6 +436,8 @@ class _MembershipScreenState extends State<MembershipScreen> {
           specializationController: _specializationController,
           phoneController: _phoneController,
           emailController: _emailController,
+          passwordController: _passwordController,
+          confirmPasswordController: _confirmPasswordController,
           profilePhotoName: _profilePhoto?.name,
           onPickPhoto: () async {
             final result = await FilePicker.platform.pickFiles(
@@ -441,6 +465,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
         ),
       _ => _CompleteStep(
           result: _completion,
+          phone: _phoneController.text.trim(),
           onSignIn: () {
             final email = _completion?.email ?? _emailController.text.trim();
             if (email.isNotEmpty) {
@@ -536,9 +561,6 @@ class _PlanStep extends StatelessWidget {
     }
 
     final plan = selected ?? plans.first;
-    final subtitle = plan.slug == 'life'
-        ? 'One plan. Every benefit. Lifetime access.'
-        : (plan.description ?? 'One plan. Every benefit. Lifetime access.');
 
     return _Card(
       child: Column(
@@ -551,16 +573,6 @@ class _PlanStep extends StatelessWidget {
               fontSize: 32,
               fontWeight: FontWeight.w600,
               color: AppColors.heading,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            subtitle,
-            textAlign: TextAlign.center,
-            style: GoogleFonts.inter(
-              fontSize: 16,
-              height: 1.5,
-              color: AppColors.bodyText,
             ),
           ),
           const SizedBox(height: 28),
@@ -627,7 +639,7 @@ class _PlanStep extends StatelessWidget {
   }
 }
 
-class _DetailsStep extends StatelessWidget {
+class _DetailsStep extends StatefulWidget {
   const _DetailsStep({
     required this.firstNameController,
     required this.middleNameController,
@@ -636,6 +648,8 @@ class _DetailsStep extends StatelessWidget {
     required this.specializationController,
     required this.phoneController,
     required this.emailController,
+    required this.passwordController,
+    required this.confirmPasswordController,
     required this.profilePhotoName,
     required this.onPickPhoto,
     required this.onContinue,
@@ -648,9 +662,19 @@ class _DetailsStep extends StatelessWidget {
   final TextEditingController specializationController;
   final TextEditingController phoneController;
   final TextEditingController emailController;
+  final TextEditingController passwordController;
+  final TextEditingController confirmPasswordController;
   final String? profilePhotoName;
   final VoidCallback onPickPhoto;
   final VoidCallback onContinue;
+
+  @override
+  State<_DetailsStep> createState() => _DetailsStepState();
+}
+
+class _DetailsStepState extends State<_DetailsStep> {
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
 
   @override
   Widget build(BuildContext context) {
@@ -669,57 +693,107 @@ class _DetailsStep extends StatelessWidget {
           const SizedBox(height: 24),
           _FormField(
             label: 'First Name',
-            controller: firstNameController,
+            controller: widget.firstNameController,
             required: true,
           ),
           const SizedBox(height: 16),
           _FormField(
             label: 'Middle Name',
-            controller: middleNameController,
+            controller: widget.middleNameController,
           ),
           const SizedBox(height: 16),
           _FormField(
             label: 'Last Name',
-            controller: lastNameController,
+            controller: widget.lastNameController,
             required: true,
           ),
           const SizedBox(height: 16),
           _FormField(
             label: 'Batch Year',
-            controller: batchYearController,
+            controller: widget.batchYearController,
             keyboard: TextInputType.number,
+            hint: '2015',
             required: true,
+            helperText: 'Year of graduation or completion',
           ),
           const SizedBox(height: 16),
           _FormField(
             label: 'Specialization',
-            controller: specializationController,
+            controller: widget.specializationController,
             hint: 'e.g. Cardiology',
             required: true,
           ),
           const SizedBox(height: 16),
           _FormField(
             label: 'Mobile Number',
-            controller: phoneController,
+            controller: widget.phoneController,
             keyboard: TextInputType.phone,
+            hint: '+91 9959702066',
             required: true,
+            prefixIcon: const Icon(Icons.phone_outlined),
+            helperText: 'Include country code, e.g. +91',
           ),
           const SizedBox(height: 16),
           _FormField(
             label: 'Email',
-            controller: emailController,
+            controller: widget.emailController,
             keyboard: TextInputType.emailAddress,
+            hint: 'name@example.com',
             required: true,
+            helperText: 'Use your active email for OTP and login',
+          ),
+          const SizedBox(height: 16),
+          _FormField(
+            label: 'Create Password',
+            controller: widget.passwordController,
+            required: true,
+            obscureText: _obscurePassword,
+            suffixIcon: IconButton(
+              icon: Icon(
+                _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+              ),
+              tooltip: _obscurePassword ? 'Show password' : 'Hide password',
+              onPressed: () {
+                setState(() => _obscurePassword = !_obscurePassword);
+              },
+            ),
+          ),
+          const SizedBox(height: 16),
+          _FormField(
+            label: 'Confirm Password',
+            controller: widget.confirmPasswordController,
+            required: true,
+            obscureText: _obscureConfirmPassword,
+            suffixIcon: IconButton(
+              icon: Icon(
+                _obscureConfirmPassword
+                    ? Icons.visibility_off_outlined
+                    : Icons.visibility_outlined,
+              ),
+              tooltip: _obscureConfirmPassword ? 'Show password' : 'Hide password',
+              onPressed: () {
+                setState(() => _obscureConfirmPassword = !_obscureConfirmPassword);
+              },
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Password policy: at least 12 characters, include uppercase, lowercase, number, and special symbol.',
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              color: AppColors.mutedText,
+              height: 1.4,
+            ),
           ),
           const SizedBox(height: 16),
           _ProfilePhotoField(
-            fileName: profilePhotoName,
-            onPick: onPickPhoto,
+            fileName: widget.profilePhotoName,
+            onPick: widget.onPickPhoto,
           ),
           const SizedBox(height: 28),
           _PrimaryButton(
             label: 'Continue — send OTP',
-            onPressed: onContinue,
+            onPressed: widget.onContinue,
           ),
         ],
       ),
@@ -1287,9 +1361,14 @@ class _BankDetailRow extends StatelessWidget {
 }
 
 class _CompleteStep extends StatelessWidget {
-  const _CompleteStep({required this.result, required this.onSignIn});
+  const _CompleteStep({
+    required this.result,
+    required this.phone,
+    required this.onSignIn,
+  });
 
   final CompleteRegistrationResult? result;
+  final String phone;
   final VoidCallback onSignIn;
 
   String get _username {
@@ -1299,9 +1378,18 @@ class _CompleteStep extends StatelessWidget {
     return email.isNotEmpty ? email : '—';
   }
 
+  Future<void> _openReceipt() async {
+    final url = result?.receiptUrl;
+    if (url == null || url.isEmpty) return;
+    final uri = Uri.parse(url);
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
   @override
   Widget build(BuildContext context) {
     final password = result?.debugPassword;
+    final receiptUrl = result?.receiptUrl;
+    final receiptId = result?.receiptId;
 
     return _Card(
       child: Column(
@@ -1341,6 +1429,73 @@ class _CompleteStep extends StatelessWidget {
               color: AppColors.bodyText,
             ),
             textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.muted,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      receiptUrl != null && receiptUrl.isNotEmpty
+                          ? Icons.check_circle
+                          : Icons.schedule,
+                      color: receiptUrl != null && receiptUrl.isNotEmpty
+                          ? AppColors.success
+                          : AppColors.bodyText,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        receiptUrl != null && receiptUrl.isNotEmpty
+                            ? 'Payment receipt ready'
+                            : 'Generating your payment receipt...',
+                        style: GoogleFonts.inter(
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.heading,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Download your official PDF receipt with membership details, receipt ID, and transaction number.',
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    height: 1.5,
+                    color: AppColors.bodyText,
+                  ),
+                ),
+                if (receiptId != null && receiptId.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    'Receipt ID: $receiptId',
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.heading,
+                    ),
+                  ),
+                ],
+                if (receiptUrl != null && receiptUrl.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    onPressed: _openReceipt,
+                    icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
+                    label: const Text('Download PDF receipt'),
+                  ),
+                ],
+              ],
+            ),
           ),
           if (password != null) ...[
             const SizedBox(height: 28),
@@ -1392,9 +1547,10 @@ class _CompleteStep extends StatelessWidget {
           ] else ...[
             const SizedBox(height: 16),
             Text(
-              result?.message ??
-                  'Your membership is active. If you did not save your password, '
-                  'use Forgot password on the login page to set a new one.',
+              result?.message.isNotEmpty == true
+                  ? result!.message
+                  : 'Your membership is active. Use the password you created during registration. '
+                      'If you forgot it, use Forgot password on the login page.',
               style: GoogleFonts.inter(color: AppColors.bodyText),
               textAlign: TextAlign.center,
             ),
@@ -1501,6 +1657,10 @@ class _FormField extends StatelessWidget {
     this.keyboard,
     this.hint,
     this.required = false,
+    this.obscureText = false,
+    this.suffixIcon,
+    this.prefixIcon,
+    this.helperText,
   });
 
   final String label;
@@ -1508,6 +1668,10 @@ class _FormField extends StatelessWidget {
   final TextInputType? keyboard;
   final String? hint;
   final bool required;
+  final bool obscureText;
+  final Widget? suffixIcon;
+  final Widget? prefixIcon;
+  final String? helperText;
 
   @override
   Widget build(BuildContext context) {
@@ -1536,25 +1700,100 @@ class _FormField extends StatelessWidget {
         TextField(
           controller: controller,
           keyboardType: keyboard,
+          obscureText: obscureText,
           decoration: InputDecoration(
             hintText: hint,
+            hintStyle: GoogleFonts.inter(
+              fontSize: 14,
+              color: AppColors.mutedText,
+            ),
+            helperText: helperText,
+            helperStyle: GoogleFonts.inter(
+              fontSize: 12,
+              color: AppColors.mutedText,
+            ),
+            filled: true,
+            fillColor: Colors.white,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
               vertical: 14,
             ),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(12),
               borderSide: const BorderSide(color: AppColors.border),
             ),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(12),
               borderSide: const BorderSide(color: AppColors.border),
             ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppColors.primary, width: 1.6),
+            ),
+            prefixIcon: prefixIcon,
+            suffixIcon: suffixIcon,
           ),
         ),
       ],
     );
   }
+}
+
+String? _validatePassword(String password) {
+  if (password.isEmpty) return 'Create your password.';
+  if (password.length < 12) return 'Password must be at least 12 characters.';
+  if (!RegExp(r'[A-Z]').hasMatch(password)) {
+    return 'Password must include at least one uppercase letter.';
+  }
+  if (!RegExp(r'[a-z]').hasMatch(password)) {
+    return 'Password must include at least one lowercase letter.';
+  }
+  if (!RegExp(r'\d').hasMatch(password)) {
+    return 'Password must include at least one number.';
+  }
+  if (!RegExp(r'[!@#$%^&*(),.?":{}|<>_\-+=/\\[\]~`]').hasMatch(password)) {
+    return 'Password must include at least one special symbol.';
+  }
+  return null;
+}
+
+String? _validateEmail(String email) {
+  if (email.isEmpty) return 'Enter your email address.';
+  final normalized = email.trim();
+  final emailPattern = RegExp(r'^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$');
+  if (!emailPattern.hasMatch(normalized)) {
+    return 'Enter a valid email like name@example.com.';
+  }
+  return null;
+}
+
+String? _validatePhone(String phone) {
+  if (phone.isEmpty) return 'Enter your mobile number.';
+  final normalized = phone.replaceAll(RegExp(r'\s+'), '');
+  final phonePattern = RegExp(r'^\+[1-9]\d{7,14}$');
+  if (!phonePattern.hasMatch(normalized)) {
+    return 'Enter mobile with country code, e.g. +91 9959702066.';
+  }
+  return null;
+}
+
+String _friendlyErrorMessage(Object error) {
+  final raw = error.toString().replaceFirst(RegExp(r'^Exception:\s*'), '').trim();
+  final lower = raw.toLowerCase();
+
+  if (lower.contains('invalid email')) {
+    return 'Enter a valid email like name@example.com.';
+  }
+  if (lower.contains('value_error') && lower.contains('email')) {
+    return 'Email format is invalid. Use format name@example.com.';
+  }
+  if (lower.contains('confirm_password')) {
+    return 'Confirm password must match the password.';
+  }
+  if (lower.contains('password')) {
+    return 'Password does not meet policy. Use 12+ chars with uppercase, lowercase, number, and symbol.';
+  }
+  return raw;
 }
 
 class _Field extends StatelessWidget {
