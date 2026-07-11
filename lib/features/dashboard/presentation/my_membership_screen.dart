@@ -497,7 +497,7 @@ class _RecordCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           _Field(
-            label: 'Membership Number',
+            label: 'Membership ID',
             value: MembershipNumberFormat.displayOrFallback(
               storedMembershipNumber: membership.membershipNumber,
               batchYear: profile?.batchYear,

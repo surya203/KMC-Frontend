@@ -1,7 +1,9 @@
 /// Formats stored membership numbers (e.g. KMC-000001) for display as
-/// `{batch}{firstName}{sequence}` → `2021keerthana0001`.
+/// `{batch}{firstName}{sequence}` → `2021keerthana001`.
 class MembershipNumberFormat {
   MembershipNumberFormat._();
+
+  static const _sequenceDigits = 3;
 
   static String? display({
     required String? storedMembershipNumber,
@@ -13,7 +15,7 @@ class MembershipNumberFormat {
     final sequence = _sequence(storedMembershipNumber);
 
     if (batch != null && firstName.isNotEmpty && sequence != null) {
-      return '$batch$firstName${sequence.toString().padLeft(4, '0')}';
+      return '$batch$firstName${sequence.toString().padLeft(_sequenceDigits, '0')}';
     }
 
     return null;

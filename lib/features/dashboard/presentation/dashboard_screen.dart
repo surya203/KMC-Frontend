@@ -415,7 +415,7 @@ class _StatsGrid extends StatelessWidget {
       _StatCardData(
         icon: Icons.workspace_premium_outlined,
         title: _membershipNumberLabel(membership, profile),
-        subtitle: 'Membership Number',
+        subtitle: 'Membership ID',
       ),
       _StatCardData(
         icon: Icons.event_outlined,
