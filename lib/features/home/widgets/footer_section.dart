@@ -57,36 +57,13 @@ class FooterSection extends StatelessWidget {
           ),
           Container(height: 1, color: Colors.white12),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
             child: Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 1200),
                 child: LayoutBuilder(
                   builder: (context, constraints) {
-                    final isWide = constraints.maxWidth > 900;
-                    const copyright = Text(
-                      '© 2026 KMC Alumni Association. All rights reserved.',
-                      style: TextStyle(color: Color(0xFFB8C2D2), fontSize: 13),
-                    );
-                    const tagline = Text(
-                      'Official Platform · Estd. 1959',
-                      style: TextStyle(color: Color(0xFFB8C2D2), fontSize: 13),
-                    );
-
-                    if (isWide) {
-                      return const Row(
-                        children: [copyright, Spacer(), tagline],
-                      );
-                    }
-
-                    return const Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        copyright,
-                        SizedBox(height: 8),
-                        tagline,
-                      ],
-                    );
+                    return _FooterBottomBar(width: constraints.maxWidth);
                   },
                 ),
               ),
@@ -196,6 +173,81 @@ class FooterSection extends StatelessWidget {
         FooterInfo('Rangampet, Warangal — 506007'),
         SizedBox(height: 6),
         FooterInfo('alumni@kmc.edu.in'),
+      ],
+    );
+  }
+}
+
+class _FooterBottomBar extends StatelessWidget {
+  const _FooterBottomBar({required this.width});
+
+  final double width;
+
+  static const _mutedStyle = TextStyle(
+    color: Color(0xFFB8C2D2),
+    fontSize: 13,
+    height: 1.45,
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final year = DateTime.now().year;
+    final isWide = width > 900;
+    final isCompact = width < 520;
+
+    final copyright = Text(
+      isCompact
+          ? '© $year KMC Alumni Association'
+          : '© $year KMC Alumni Association. All rights reserved.',
+      style: _mutedStyle,
+      textAlign: isCompact ? TextAlign.center : TextAlign.start,
+    );
+    final rights = Text(
+      'All rights reserved.',
+      style: _mutedStyle,
+      textAlign: TextAlign.center,
+    );
+    final tagline = Text(
+      'Official Platform · Estd. 1959',
+      style: _mutedStyle,
+      textAlign: isCompact ? TextAlign.center : TextAlign.start,
+    );
+
+    if (isWide) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Text(
+              '© $year KMC Alumni Association. All rights reserved.',
+              style: _mutedStyle,
+            ),
+          ),
+          const SizedBox(width: 24),
+          tagline,
+        ],
+      );
+    }
+
+    if (isCompact) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          copyright,
+          const SizedBox(height: 4),
+          rights,
+          const SizedBox(height: 10),
+          tagline,
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        copyright,
+        const SizedBox(height: 8),
+        tagline,
       ],
     );
   }
