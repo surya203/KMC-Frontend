@@ -108,13 +108,11 @@ class HeroSection extends StatelessWidget {
                     ],
                   ),
                 ),
-                if (isDesktop) ...[
-                  SizedBox(height: isCompact ? 12 : 14),
-                  _HeroNavRow(
-                    items: _heroNavItems,
-                    compact: isCompact,
-                  ),
-                ],
+                SizedBox(height: isCompact ? 12 : 14),
+                _HeroNavRow(
+                  items: _heroNavItems,
+                  compact: isCompact,
+                ),
                 SizedBox(height: isDesktop ? 20 : isCompact ? 18 : 28),
                 Wrap(
                   crossAxisAlignment: WrapCrossAlignment.center,
