@@ -76,6 +76,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     final profile = _profile;
     final directoryVisible = profile?.isDirectoryVisible ?? true;
+    final isCompact = DashboardLayout.isCompact(context);
 
     return SingleChildScrollView(
       padding: DashboardLayout.screenPadding(context),
@@ -86,18 +87,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Settings',
-                style: GoogleFonts.fraunces(
-                  fontSize: DashboardLayout.pageTitleSize(context),
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.heading,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
                 'Account preferences and privacy.',
                 style: GoogleFonts.inter(
-                  fontSize: DashboardLayout.isCompact(context) ? 14 : 15,
+                  fontSize: isCompact ? 14 : 15,
                   color: AppColors.bodyText,
                 ),
               ),

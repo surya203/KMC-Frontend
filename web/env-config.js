@@ -1,6 +1,6 @@
 window.__ENV__ = window.__ENV__ || {
   ENV: 'development',
-  API_BASE_URL: 'http://localhost:8000',
+  API_BASE_URL: 'http://192.168.0.8:8000',
   API_PREFIX: '/api/v1',
   SUPABASE_URL: '',
   SUPABASE_ANON_KEY: '',

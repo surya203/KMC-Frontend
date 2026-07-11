@@ -78,15 +78,6 @@ class _MyPaymentsScreenState extends State<MyPaymentsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Payments',
-                style: GoogleFonts.fraunces(
-                  fontSize: 36,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.heading,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
                 'Receipts and membership payment history.',
                 style: GoogleFonts.inter(
                   fontSize: 15,

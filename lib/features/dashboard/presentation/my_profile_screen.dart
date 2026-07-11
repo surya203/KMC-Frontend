@@ -631,16 +631,6 @@ class _MyProfileScreenState extends State<MyProfileScreen>
   Widget _buildPageHeader() {
     final isCompact = DashboardLayout.isCompact(context);
 
-    final title = Text(
-      'My Profile',
-      style: GoogleFonts.fraunces(
-        fontSize: DashboardLayout.pageTitleSize(context),
-        fontWeight: FontWeight.w600,
-        color: AppColors.heading,
-        height: 1.1,
-      ),
-    );
-
     final subtitle = Text(
       'Manage your MY KMC profile and membership details.',
       style: GoogleFonts.inter(
@@ -699,8 +689,6 @@ class _MyProfileScreenState extends State<MyProfileScreen>
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          title,
-          const SizedBox(height: 6),
           subtitle,
           const SizedBox(height: 12),
           editActions,
@@ -712,14 +700,7 @@ class _MyProfileScreenState extends State<MyProfileScreen>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              title,
-              const SizedBox(height: 6),
-              subtitle,
-            ],
-          ),
+          child: subtitle,
         ),
         const SizedBox(width: 16),
         editActions,

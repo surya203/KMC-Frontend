@@ -405,15 +405,6 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Text(
-                      'Announcements',
-                      style: GoogleFonts.fraunces(
-                        fontSize: DashboardLayout.pageTitleSize(context),
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.heading,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
                       'Office bearer messages and important notices.',
                       style: GoogleFonts.inter(
                         fontSize: 14,
@@ -437,26 +428,12 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                 Row(
                   children: [
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Announcements',
-                            style: GoogleFonts.fraunces(
-                              fontSize: DashboardLayout.pageTitleSize(context),
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.heading,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            'Office bearer messages and important notices.',
-                            style: GoogleFonts.inter(
-                              fontSize: 15,
-                              color: AppColors.bodyText,
-                            ),
-                          ),
-                        ],
+                      child: Text(
+                        'Office bearer messages and important notices.',
+                        style: GoogleFonts.inter(
+                          fontSize: 15,
+                          color: AppColors.bodyText,
+                        ),
                       ),
                     ),
                     if (isAnnouncementPublisherUser)
