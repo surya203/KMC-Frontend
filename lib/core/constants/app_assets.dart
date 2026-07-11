@@ -3,7 +3,7 @@ class AppAssets {
 
   static const String logo = 'assets/images/logo_kmc.jpeg';
   static const String hero = 'assets/images/hero_lovable.webp';
-  static const String eventBanner = 'assets/images/event_banner.webp';
+  static const String eventBanner = 'assets/images/event_banner.png';
 
   /// Place your events page hero banner at this path (WebP or replace extension in code).
   static const String eventsHeroImage = 'assets/images/events_hero.webp';

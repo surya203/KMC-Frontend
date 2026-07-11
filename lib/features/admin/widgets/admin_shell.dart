@@ -221,6 +221,10 @@ class _AdminNavTile extends StatelessWidget {
             borderRadius: BorderRadius.circular(10),
             splashFactory: NoSplash.splashFactory,
             onTap: () {
+              final scaffold = Scaffold.maybeOf(context);
+              if (scaffold?.isDrawerOpen ?? false) {
+                Navigator.of(context).pop();
+              }
               if (selected) return;
               context.go(item.path);
             },

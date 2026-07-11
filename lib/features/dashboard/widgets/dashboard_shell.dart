@@ -209,6 +209,10 @@ class _SidebarNavTile extends StatelessWidget {
           highlightColor: Colors.white.withValues(alpha: 0.08),
           hoverColor: Colors.white.withValues(alpha: 0.06),
           onTap: () {
+            final scaffold = Scaffold.maybeOf(context);
+            if (scaffold?.isDrawerOpen ?? false) {
+              Navigator.of(context).pop();
+            }
             if (item.path == currentPath) return;
             context.go(item.path);
           },

@@ -318,15 +318,6 @@ class _MyMembershipScreenState extends State<MyMembershipScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Text(
-                      'Membership',
-                      style: GoogleFonts.fraunces(
-                        fontSize: DashboardLayout.pageTitleSize(context),
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.heading,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
                       'Your lifetime KMC Alumni Association subscription.',
                       style: GoogleFonts.inter(
                         fontSize: 14,
@@ -351,26 +342,12 @@ class _MyMembershipScreenState extends State<MyMembershipScreen> {
                 Row(
                   children: [
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Membership',
-                            style: GoogleFonts.fraunces(
-                              fontSize: DashboardLayout.pageTitleSize(context),
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.heading,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            'Your lifetime KMC Alumni Association subscription.',
-                            style: GoogleFonts.inter(
-                              fontSize: 15,
-                              color: AppColors.bodyText,
-                            ),
-                          ),
-                        ],
+                      child: Text(
+                        'Your lifetime KMC Alumni Association subscription.',
+                        style: GoogleFonts.inter(
+                          fontSize: 15,
+                          color: AppColors.bodyText,
+                        ),
                       ),
                     ),
                     ElevatedButton.icon(
