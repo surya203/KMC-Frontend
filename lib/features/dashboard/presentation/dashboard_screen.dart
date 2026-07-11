@@ -3,12 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/auth/auth_session.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/announcements_api_service.dart';
 import '../../../core/network/events_api_service.dart';
 import '../../../core/network/membership_api_service.dart';
 import '../../../core/network/profiles_api_service.dart';
 import '../../../core/utils/membership_number_format.dart';
+import '../../../core/utils/membership_tenure.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -43,6 +45,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _error = null;
     });
 
+    await AuthSession.instance.ensureReady();
+
     MemberMembership? membership;
     MyProfile? profile;
     List<EventItem> upcomingEvents = [];
@@ -53,31 +57,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
     try {
       membership = await _membershipApi.fetchMyMembership();
     } catch (e) {
-      errors.add('Membership: $e');
+      if (!_hasCachedMembershipId) {
+        errors.add(_formatLoadError('Membership', e));
+      }
     }
 
     try {
       profile = await _profilesApi.fetchMyProfile();
     } catch (e) {
-      errors.add('Profile: $e');
+      if (!_hasCachedProfileBasics) {
+        errors.add(_formatLoadError('Profile', e));
+      }
     }
 
     try {
       upcomingEvents = await _eventsApi.fetchEvents(upcoming: true);
     } catch (e) {
-      errors.add('Events: $e');
+      errors.add(_formatLoadError('Events', e));
     }
 
     try {
       myEvents = await _eventsApi.fetchMyRegistrations();
     } catch (e) {
-      errors.add('My events: $e');
+      errors.add(_formatLoadError('My events', e));
     }
 
     try {
       announcements = await _announcementsApi.fetchAnnouncements();
     } catch (e) {
-      errors.add('Announcements: $e');
+      errors.add(_formatLoadError('Announcements', e));
     }
 
     if (!mounted) return;
@@ -93,6 +101,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   int get _profileCompletion => _profileCompletionPercent(_profile);
+
+  bool get _hasCachedMembershipId {
+    final number = AuthSession.instance.currentUser?.membershipNumber;
+    return number != null && number.trim().isNotEmpty;
+  }
+
+  bool get _hasCachedProfileBasics {
+    final user = AuthSession.instance.currentUser;
+    return (user?.fullName != null && user!.fullName!.trim().isNotEmpty) ||
+        user?.batchYear != null;
+  }
+
+  String _formatLoadError(String section, Object error) {
+    var message = '$error';
+    const prefix = 'Exception: ';
+    if (message.startsWith(prefix)) {
+      message = message.substring(prefix.length);
+    }
+    return '$section: $message';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -126,7 +154,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         profile: _profile,
                         eventsAttended: _myEvents.length,
                         profileCompletion: _profileCompletion,
-                        batchYear: _profile?.batchYear,
+                        batchYear:
+                            _profile?.batchYear ??
+                            AuthSession.instance.currentUser?.batchYear,
                       ),
                       const SizedBox(height: 18),
                       LayoutBuilder(
@@ -182,25 +212,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               ],
                             );
                           }
-                          return IntrinsicHeight(
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                Expanded(
-                                  flex: 3,
-                                  child: _UpcomingReunionsCard(
-                                    events: _upcomingEvents,
-                                  ),
+                          return Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                flex: 3,
+                                child: _UpcomingReunionsCard(
+                                  events: _upcomingEvents,
                                 ),
-                                const SizedBox(width: 18),
-                                Expanded(
-                                  flex: 2,
-                                  child: _RecentNotificationsCard(
-                                    announcements: _announcements,
-                                  ),
+                              ),
+                              const SizedBox(width: 18),
+                              Expanded(
+                                flex: 2,
+                                child: _RecentNotificationsCard(
+                                  announcements: _announcements,
                                 ),
-                              ],
-                            ),
+                              ),
+                            ],
                           );
                         },
                       ),
@@ -252,11 +280,19 @@ String _membershipNumberLabel(
   MemberMembership? membership,
   MyProfile? profile,
 ) {
+  final user = AuthSession.instance.currentUser;
+  final storedNumber =
+      membership?.membershipNumber ?? user?.membershipNumber;
+  final batchYear = profile?.batchYear ?? user?.batchYear;
+  final fullName = profile?.fullName ?? user?.fullName;
+
   return MembershipNumberFormat.displayOrFallback(
-    storedMembershipNumber: membership?.membershipNumber,
-    batchYear: profile?.batchYear,
-    fullName: profile?.fullName,
-    fallback: membership?.status == 'active' ? '—' : 'Pending',
+    storedMembershipNumber: storedNumber,
+    batchYear: batchYear,
+    fullName: fullName,
+    fallback: membership?.status == 'active' || storedNumber != null
+        ? '—'
+        : 'Pending',
   );
 }
 
@@ -269,8 +305,9 @@ class _HeroCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isCompact = MediaQuery.sizeOf(context).width < 700;
-    final name = profile?.fullName ?? 'Member';
-    final batch = profile?.batchYear;
+    final user = AuthSession.instance.currentUser;
+    final name = profile?.fullName ?? user?.fullName ?? 'Member';
+    final batch = profile?.batchYear ?? user?.batchYear;
     final spec = profile?.specialization;
     final subtitleParts = <String>[
       if (batch != null) 'Batch of $batch',
@@ -369,9 +406,10 @@ class _StatsGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final yearsMember = batchYear != null
-        ? (DateTime.now().year - batchYear!).clamp(1, 50)
-        : 8;
+    final yearsMember = MembershipTenure.displayLabel(
+      membership: membership,
+      batchYearFallback: batchYear,
+    );
 
     final items = [
       _StatCardData(
@@ -386,7 +424,7 @@ class _StatsGrid extends StatelessWidget {
       ),
       _StatCardData(
         icon: Icons.calendar_today_outlined,
-        title: '$yearsMember yrs',
+        title: yearsMember,
         subtitle: 'Years as Member',
       ),
       _StatCardData(
@@ -702,14 +740,17 @@ class _UpcomingReunionsCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Text(
-                'Upcoming Reunions',
-                style: GoogleFonts.inter(
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.heading,
+              Expanded(
+                child: Text(
+                  'Upcoming Reunions',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.inter(
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.heading,
+                  ),
                 ),
               ),
-              const Spacer(),
               TextButton(
                 onPressed: () => context.go('/my-events'),
                 child: const Text('View all'),
@@ -874,23 +915,36 @@ class _LatestAnnouncementsSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final items = announcements.take(3).toList();
+    final isCompact = MediaQuery.sizeOf(context).width < 700;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Text(
-              'Latest Announcements',
-              style: GoogleFonts.fraunces(
-                fontSize: MediaQuery.sizeOf(context).width < 700 ? 22 : 28,
-                fontWeight: FontWeight.w600,
-                color: AppColors.heading,
+            Expanded(
+              child: Text(
+                'Latest Announcements',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.fraunces(
+                  fontSize: isCompact ? 22 : 28,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.heading,
+                  height: 1.15,
+                ),
               ),
             ),
-            const Spacer(),
             TextButton(
               onPressed: () => context.go('/announcements'),
+              style: TextButton.styleFrom(
+                padding: EdgeInsets.symmetric(
+                  horizontal: isCompact ? 8 : 16,
+                ),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
               child: const Text('View all'),
             ),
           ],
@@ -907,6 +961,7 @@ class _LatestAnnouncementsSection extends StatelessWidget {
               final wide = constraints.maxWidth > 900;
               if (!wide) {
                 return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     for (final item in items) ...[
                       _AnnouncementTile(item: item),
@@ -938,46 +993,54 @@ class _AnnouncementTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: () => context.go('/announcements'),
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              item.authorRole.toUpperCase(),
-              style: GoogleFonts.inter(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1,
-                color: AppColors.secondary,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => context.go('/announcements'),
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                item.authorRoleLabel.toUpperCase(),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.inter(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1,
+                  color: AppColors.secondary,
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              item.title,
-              style: GoogleFonts.inter(
-                fontWeight: FontWeight.w700,
-                color: AppColors.heading,
-                fontSize: 16,
+              const SizedBox(height: 8),
+              Text(
+                item.title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.inter(
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.heading,
+                  fontSize: 16,
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _relativeTime(item.publishedAt),
-              style: GoogleFonts.inter(
-                color: AppColors.mutedText,
-                fontSize: 12,
+              const SizedBox(height: 8),
+              Text(
+                _relativeTime(item.publishedAt),
+                style: GoogleFonts.inter(
+                  color: AppColors.mutedText,
+                  fontSize: 12,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -1013,26 +1076,33 @@ class _StatCard extends StatelessWidget {
             ),
           ),
           const Spacer(),
-          Text(
-            item.title,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.fraunces(
-              color: AppColors.heading,
-              fontSize: item.title.length > 12
-                  ? (isCompact ? 22 : 28)
-                  : (isCompact ? 30 : 44),
-              fontWeight: FontWeight.w600,
-              height: 1.1,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              item.title,
+              maxLines: 1,
+              style: GoogleFonts.fraunces(
+                color: AppColors.heading,
+                fontSize: item.title.length > 14
+                    ? (isCompact ? 18 : 22)
+                    : item.title.length > 10
+                        ? (isCompact ? 22 : 28)
+                        : (isCompact ? 30 : 44),
+                fontWeight: FontWeight.w600,
+                height: 1.1,
+              ),
             ),
           ),
           if (item.subtitle != null && item.subtitle!.isNotEmpty) ...[
             const SizedBox(height: 4),
             Text(
               item.subtitle!,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: GoogleFonts.inter(
                 color: AppColors.bodyText,
-                fontSize: 14,
+                fontSize: 13,
               ),
             ),
           ],

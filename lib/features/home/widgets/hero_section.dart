@@ -24,114 +24,118 @@ class HeroSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
     final isCompact = width < 700;
+    final isDesktop = width >= 1100;
     final data = (stats ?? CommunityStats.fallback).heroDisplay;
-    final headlineSize = width < 600 ? 40.0 : width < 900 ? 52.0 : 72.0;
-    final heroHeight = isCompact ? 780.0 : 760.0;
+    final headlineSize = width < 600
+        ? 40.0
+        : width < 900
+        ? 52.0
+        : isDesktop
+        ? 58.0
+        : 64.0;
 
-    return SizedBox(
-      height: heroHeight,
-      width: double.infinity,
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        minHeight: isCompact ? 720 : isDesktop ? 620 : 680,
+      ),
       child: Stack(
-        fit: StackFit.expand,
         children: [
-          const SafeAssetImage(
-            assetPath: AppAssets.hero,
-            fit: BoxFit.cover,
-            expandToFill: true,
-          ),
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  const Color(0xCC0B1736),
-                  AppColors.heroOverlay,
-                  const Color(0xB3162D5C),
-                ],
-                stops: const [0.0, 0.55, 1.0],
-              ),
+          Positioned.fill(
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                const SafeAssetImage(
+                  assetPath: AppAssets.hero,
+                  fit: BoxFit.cover,
+                  expandToFill: true,
+                ),
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        const Color(0xCC0B1736),
+                        AppColors.heroOverlay,
+                        const Color(0xB3162D5C),
+                      ],
+                      stops: const [0.0, 0.55, 1.0],
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: EdgeInsets.fromLTRB(24, isCompact ? 20 : 24, 24, 12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+          Padding(
+            padding: EdgeInsets.fromLTRB(
+              24,
+              isCompact ? 20 : isDesktop ? 18 : 24,
+              24,
+              isCompact ? 20 : 24,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.35),
+                    borderRadius: BorderRadius.circular(30),
+                    border: Border.all(color: Colors.white24),
+                  ),
+                  child: Row(
                     children: [
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 18,
-                          vertical: 10,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.35),
-                          borderRadius: BorderRadius.circular(30),
-                          border: Border.all(color: Colors.white24),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.auto_awesome,
-                              color: AppColors.secondary,
-                              size: 18,
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Kakatiya Medical College · ESTD 1959',
-                                style: GoogleFonts.inter(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                      const Icon(
+                        Icons.auto_awesome,
+                        color: AppColors.secondary,
+                        size: 18,
                       ),
-                      SizedBox(height: isCompact ? 12 : 14),
-                      _HeroNavRow(
-                        items: _heroNavItems,
-                        compact: isCompact,
-                      ),
-                      SizedBox(height: isCompact ? 18 : 28),
-                      Wrap(
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          Text(
-                            'KMC ',
-                            style: GoogleFonts.fraunces(
-                              fontSize: headlineSize,
-                              fontWeight: FontWeight.w600,
-                              height: 1.05,
-                              color: Colors.white,
-                            ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Kakatiya Medical College · ESTD 1959',
+                          style: GoogleFonts.inter(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
                           ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 4,
-                            ),
-                            color: AppColors.secondary,
-                            child: Text(
-                              'Alumni',
-                              style: GoogleFonts.fraunces(
-                                fontSize: headlineSize,
-                                fontWeight: FontWeight.w600,
-                                height: 1.05,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
-                      Text(
-                        'Connect',
+                    ],
+                  ),
+                ),
+                if (isDesktop) ...[
+                  SizedBox(height: isCompact ? 12 : 14),
+                  _HeroNavRow(
+                    items: _heroNavItems,
+                    compact: isCompact,
+                  ),
+                ],
+                SizedBox(height: isDesktop ? 20 : isCompact ? 18 : 28),
+                Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(
+                      'KMC ',
+                      style: GoogleFonts.fraunces(
+                        fontSize: headlineSize,
+                        fontWeight: FontWeight.w600,
+                        height: 1.05,
+                        color: Colors.white,
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      color: AppColors.secondary,
+                      child: Text(
+                        'Alumni',
                         style: GoogleFonts.fraunces(
                           fontSize: headlineSize,
                           fontWeight: FontWeight.w600,
@@ -139,82 +143,100 @@ class HeroSection extends StatelessWidget {
                           color: Colors.white,
                         ),
                       ),
-                      SizedBox(height: isCompact ? 12 : 18),
+                    ),
+                    if (isDesktop)
                       Text(
-                        'Connecting generations of medical excellence.',
-                        style: GoogleFonts.inter(
+                        ' Connect',
+                        style: GoogleFonts.fraunces(
+                          fontSize: headlineSize,
+                          fontWeight: FontWeight.w600,
+                          height: 1.05,
                           color: Colors.white,
-                          fontSize: width < 600 ? 17 : 22,
-                          fontStyle: FontStyle.italic,
-                          fontWeight: FontWeight.w500,
                         ),
                       ),
-                      SizedBox(height: isCompact ? 12 : 18),
-                      Text(
-                        'The official alumni engagement platform for Kakatiya Medical College, Warangal — uniting alumni batches, doctors, researchers, practicing doctors, clinical researchers, policy makers and pharmaceutical industry advisors across the world.',
-                        style: GoogleFonts.inter(
-                          color: Colors.white.withValues(alpha: 0.82),
-                          fontSize: width < 600 ? 14 : 17,
-                          height: 1.7,
-                        ),
-                      ),
-                      SizedBox(height: isCompact ? 18 : 28),
-                      Wrap(
-                        spacing: 16,
-                        runSpacing: 12,
-                        children: [
-                          ElevatedButton.icon(
-                            onPressed: () => context.go('/membership'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              foregroundColor: AppColors.primary,
-                              elevation: 0,
-                              padding: EdgeInsets.symmetric(
-                                horizontal: width < 400 ? 20 : 28,
-                                vertical: 18,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(40),
-                              ),
-                            ),
-                            icon: const Icon(Icons.arrow_forward, size: 18),
-                            label: const Text(
-                              'Join Alumni Network',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                          OutlinedButton(
-                            onPressed: () => context.go('/about'),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.white,
-                              side: const BorderSide(color: Colors.white70),
-                              padding: EdgeInsets.symmetric(
-                                horizontal: width < 400 ? 20 : 28,
-                                vertical: 18,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(40),
-                              ),
-                            ),
-                            child: const Text(
-                              'Explore Platform',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+                  ],
+                ),
+                if (!isDesktop)
+                  Text(
+                    'Connect',
+                    style: GoogleFonts.fraunces(
+                      fontSize: headlineSize,
+                      fontWeight: FontWeight.w600,
+                      height: 1.05,
+                      color: Colors.white,
+                    ),
+                  ),
+                SizedBox(height: isDesktop ? 12 : isCompact ? 12 : 18),
+                Text(
+                  'Connecting generations of medical excellence.',
+                  style: GoogleFonts.inter(
+                    color: Colors.white,
+                    fontSize: width < 600 ? 17 : isDesktop ? 20 : 22,
+                    fontStyle: FontStyle.italic,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
-              ),
-              Padding(
-                padding: EdgeInsets.fromLTRB(24, 8, 24, isCompact ? 20 : 24),
-                child: _HeroStatsPanel(data: data, compact: isCompact),
-              ),
-            ],
+                SizedBox(height: isDesktop ? 10 : isCompact ? 12 : 18),
+                Text(
+                  'The official alumni engagement platform for Kakatiya Medical College, Warangal — uniting alumni batches, doctors, researchers, practicing doctors, clinical researchers, policy makers and pharmaceutical industry advisors across the world.',
+                  style: GoogleFonts.inter(
+                    color: Colors.white.withValues(alpha: 0.82),
+                    fontSize: width < 600 ? 14 : isDesktop ? 16 : 17,
+                    height: 1.65,
+                  ),
+                ),
+                SizedBox(height: isDesktop ? 16 : isCompact ? 18 : 28),
+                Wrap(
+                  spacing: 16,
+                  runSpacing: 12,
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: () => context.go('/membership'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: AppColors.primary,
+                        elevation: 0,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: width < 400 ? 20 : 28,
+                          vertical: isDesktop ? 16 : 18,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(40),
+                        ),
+                      ),
+                      icon: const Icon(Icons.arrow_forward, size: 18),
+                      label: const Text(
+                        'Join Alumni Network',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    OutlinedButton(
+                      onPressed: () => context.go('/about'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        side: const BorderSide(color: Colors.white70),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: width < 400 ? 20 : 28,
+                          vertical: isDesktop ? 16 : 18,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(40),
+                        ),
+                      ),
+                      child: const Text(
+                        'Explore Platform',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                _HeroStatsPanel(data: data, compact: isCompact),
+              ],
+            ),
           ),
         ],
       ),

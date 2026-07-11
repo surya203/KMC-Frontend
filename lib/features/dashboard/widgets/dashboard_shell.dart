@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -8,6 +9,7 @@ import '../../../core/search/app_search_result.dart';
 import '../../../core/search/app_search_service.dart';
 import '../../../core/constants/app_assets.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/profile_avatar.dart';
 import '../../../core/widgets/safe_asset_image.dart';
 import 'dashboard_nav_items.dart';
 
@@ -21,6 +23,8 @@ class DashboardShell extends StatelessWidget {
     required this.searchController,
     required this.searchService,
     this.profileName,
+    this.profilePhotoUrl,
+    this.profilePhotoBytes,
   });
 
   final String currentPath;
@@ -30,6 +34,8 @@ class DashboardShell extends StatelessWidget {
   final TextEditingController searchController;
   final AppSearchService searchService;
   final String? profileName;
+  final String? profilePhotoUrl;
+  final Uint8List? profilePhotoBytes;
 
   @override
   Widget build(BuildContext context) {
@@ -65,6 +71,8 @@ class DashboardShell extends StatelessWidget {
                     searchController: searchController,
                     searchService: searchService,
                     profileName: profileName,
+                    profilePhotoUrl: profilePhotoUrl,
+                    profilePhotoBytes: profilePhotoBytes,
                     onMenuTap: isDesktop
                         ? null
                         : () => Scaffold.of(scaffoldContext).openDrawer(),
@@ -210,11 +218,17 @@ class _SidebarNavTile extends StatelessWidget {
               children: [
                 Icon(item.icon, size: 18, color: fg),
                 const SizedBox(width: 10),
-                Text(
-                  item.label,
-                  style: GoogleFonts.inter(
-                    color: fg,
-                    fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                Expanded(
+                  child: Text(
+                    item.label,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.inter(
+                      color: fg,
+                      fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                      fontSize: 13,
+                      height: 1.2,
+                    ),
                   ),
                 ),
               ],
@@ -234,6 +248,8 @@ class DashboardTopBar extends StatefulWidget {
     required this.searchService,
     required this.onMenuTap,
     this.profileName,
+    this.profilePhotoUrl,
+    this.profilePhotoBytes,
   });
 
   final String title;
@@ -241,6 +257,8 @@ class DashboardTopBar extends StatefulWidget {
   final AppSearchService searchService;
   final VoidCallback? onMenuTap;
   final String? profileName;
+  final String? profilePhotoUrl;
+  final Uint8List? profilePhotoBytes;
 
   @override
   State<DashboardTopBar> createState() => _DashboardTopBarState();
@@ -529,7 +547,7 @@ class _DashboardTopBarState extends State<DashboardTopBar> {
     final isCompact = width < 700;
     final initial = (widget.profileName?.isNotEmpty == true)
         ? widget.profileName!.trim()[0].toUpperCase()
-        : 'K';
+        : 'A';
 
     return Material(
       color: Colors.white,
@@ -583,16 +601,11 @@ class _DashboardTopBarState extends State<DashboardTopBar> {
                   icon: const Icon(Icons.notifications_none_rounded),
                   visualDensity: VisualDensity.compact,
                 ),
-                CircleAvatar(
-                  radius: isCompact ? 14 : 16,
-                  backgroundColor: AppColors.primary,
-                  child: Text(
-                    initial,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: isCompact ? 12 : 14,
-                    ),
-                  ),
+                ProfileAvatar(
+                  localBytes: widget.profilePhotoBytes,
+                  name: widget.profileName ?? initial,
+                  size: isCompact ? 28 : 32,
+                  cacheKey: widget.profilePhotoBytes?.length,
                 ),
               ],
             ),

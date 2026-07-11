@@ -27,8 +27,10 @@ class AnnouncementItem {
     required this.authorRole,
     required this.authorRoleLabel,
     required this.authorId,
+    required this.authorName,
     required this.publishedAt,
     required this.isRead,
+    this.body,
     this.expiresAt,
   });
 
@@ -39,9 +41,11 @@ class AnnouncementItem {
   final String authorRole;
   final String authorRoleLabel;
   final String authorId;
+  final String authorName;
   final DateTime publishedAt;
   final DateTime? expiresAt;
   final bool isRead;
+  final String? body;
 
   factory AnnouncementItem.fromJson(Map<String, dynamic> json) {
     return AnnouncementItem(
@@ -52,11 +56,13 @@ class AnnouncementItem {
       authorRole: '${json['author_role']}',
       authorRoleLabel: '${json['author_role_label'] ?? json['author_role']}',
       authorId: '${json['author_id']}',
+      authorName: '${json['author_name'] ?? 'KMC Alumni'}',
       publishedAt: DateTime.parse('${json['published_at']}'),
       expiresAt: json['expires_at'] != null
           ? DateTime.tryParse('${json['expires_at']}')
           : null,
       isRead: json['is_read'] == true,
+      body: json['body'] as String?,
     );
   }
 }
@@ -266,8 +272,18 @@ class AnnouncementsApiService {
   String _readDetail(DioException e) {
     final detail = e.response?.data;
     if (detail is Map && detail['detail'] != null) {
-      return '${detail['detail']}';
+      final raw = detail['detail'];
+      if (raw is List && raw.isNotEmpty) {
+        final first = raw.first;
+        if (first is Map && first['msg'] != null) {
+          final loc = first['loc'];
+          final field = loc is List && loc.isNotEmpty ? '${loc.last}' : 'request';
+          return '${first['msg']} ($field)';
+        }
+      }
+      return '$raw';
     }
+    if (detail is String && detail.isNotEmpty) return detail;
     return e.response?.statusMessage ?? 'Announcements request failed.';
   }
 }

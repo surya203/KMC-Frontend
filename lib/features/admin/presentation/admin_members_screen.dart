@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/auth/auth_session.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/admin_api_service.dart';
 
@@ -45,10 +46,12 @@ class _AdminMembersScreenState extends State<AdminMembersScreen> {
     super.dispose();
   }
 
-  Future<void> _load({int page = 1}) async {
+  Future<void> _load({int page = 1, int attempt = 0}) async {
+    await AuthSession.instance.ensureReady();
+
     setState(() {
-      _loading = true;
-      _error = null;
+      _loading = attempt == 0;
+      if (attempt == 0) _error = null;
     });
     try {
       final data = await _api.fetchMembers(
@@ -61,8 +64,16 @@ class _AdminMembersScreenState extends State<AdminMembersScreen> {
         _page = data.page;
         _hasMore = data.hasMore;
         _loading = false;
+        _error = null;
       });
     } catch (e) {
+      if (attempt < 2 && _shouldRetry(e)) {
+        await Future<void>.delayed(
+          Duration(milliseconds: 450 * (attempt + 1)),
+        );
+        if (mounted) await _load(page: page, attempt: attempt + 1);
+        return;
+      }
       if (!mounted) return;
       setState(() {
         _error = e.toString();
@@ -71,21 +82,48 @@ class _AdminMembersScreenState extends State<AdminMembersScreen> {
     }
   }
 
+  bool _shouldRetry(Object error) {
+    final message = error.toString().toLowerCase();
+    return message.contains('admin request failed') ||
+        message.contains('could not reach') ||
+        message.contains('connection') ||
+        message.contains('timeout');
+  }
+
   Future<void> _changeRole(AdminMemberItem member, String role) async {
+    if (role == member.role) return;
+
     setState(() => _savingUserId = member.userId);
     try {
       await _api.updateUserRole(member.userId, role);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Role updated for ${member.email}')),
+        SnackBar(
+          content: Text('Role updated to $role for ${member.email}'),
+          backgroundColor: const Color(0xFF1F6B3A),
+        ),
       );
       await _load(page: _page);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_formatError(e)),
+          backgroundColor: Colors.red.shade700,
+          duration: const Duration(seconds: 6),
+        ),
+      );
     } finally {
       if (mounted) setState(() => _savingUserId = null);
     }
+  }
+
+  String _formatError(Object error) {
+    final text = error.toString();
+    if (text.startsWith('Exception: ')) {
+      return text.substring('Exception: '.length);
+    }
+    return text;
   }
 
   @override

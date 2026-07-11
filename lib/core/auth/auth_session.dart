@@ -14,8 +14,10 @@ class AuthSession extends ChangeNotifier {
   bool _initialized = false;
 
   bool get isAuthenticated => AuthService.isAuthenticated;
+  bool get isInitialized => _initialized;
   AuthUser? get currentUser => AuthService.currentUser;
 
+  /// Restores tokens and user from storage. Safe to call on every app start.
   Future<void> initialize() async {
     if (_initialized) return;
     final stored = await AuthTokenStorage.load();
@@ -24,14 +26,75 @@ class AuthSession extends ChangeNotifier {
         accessToken: stored.accessToken,
         refreshToken: stored.refreshToken,
       );
-      try {
-        await _authService.fetchMe();
-      } catch (_) {
-        await clearSession();
-      }
+      await _restoreSession();
     }
     _initialized = true;
     notifyListeners();
+  }
+
+  Future<void> _restoreSession() async {
+    for (var attempt = 0; attempt < 3; attempt++) {
+      try {
+        await _authService.fetchMe(allowRefresh: true);
+        return;
+      } on AuthException {
+        try {
+          await _authService.refresh();
+          await _authService.fetchMe(allowRefresh: false);
+          return;
+        } on AuthException {
+          await clearSession();
+          return;
+        } catch (_) {
+          if (attempt == 2) return;
+        }
+      } catch (_) {
+        if (attempt < 2) {
+          await Future<void>.delayed(
+            Duration(milliseconds: 350 * (attempt + 1)),
+          );
+          continue;
+        }
+        // Keep stored tokens on transient network errors; screens can retry.
+        return;
+      }
+    }
+  }
+
+  /// Ensures startup auth restore has finished before protected API calls.
+  Future<void> ensureReady() async {
+    if (!_initialized) {
+      await initialize();
+    }
+    if (!AuthService.isAuthenticated) return;
+
+    if (AuthService.currentUser != null) return;
+
+    for (var attempt = 0; attempt < 3; attempt++) {
+      try {
+        await _authService.fetchMe(allowRefresh: true);
+        notifyListeners();
+        return;
+      } on AuthException {
+        try {
+          await _authService.refresh();
+          await _authService.fetchMe(allowRefresh: false);
+          notifyListeners();
+          return;
+        } on AuthException {
+          await clearSession();
+          return;
+        } catch (_) {
+          if (attempt == 2) return;
+        }
+      } catch (_) {
+        if (attempt < 2) {
+          await Future<void>.delayed(
+            Duration(milliseconds: 350 * (attempt + 1)),
+          );
+        }
+      }
+    }
   }
 
   Future<void> saveLogin(AuthTokens tokens) async {

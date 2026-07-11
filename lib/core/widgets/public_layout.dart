@@ -19,8 +19,9 @@ class PublicAppBar extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
     final currentPath = GoRouterState.of(context).uri.path;
+    final isDesktop = width >= 1100;
 
-    if (width < 1100) {
+    if (!isDesktop) {
       return AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
@@ -37,13 +38,7 @@ class PublicAppBar extends StatelessWidget implements PreferredSizeWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                IconButton(
-                  icon: const Icon(Icons.menu, color: AppColors.primary),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints.tightFor(width: 24, height: 24),
-                  visualDensity: VisualDensity.compact,
-                  onPressed: onMenuPressed,
-                ),
+                _MenuButton(onPressed: onMenuPressed),
                 const SizedBox(width: _menuToLogoGap),
                 Expanded(
                   child: Align(
@@ -78,10 +73,18 @@ class PublicAppBar extends StatelessWidget implements PreferredSizeWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              GestureDetector(
-                onTap: () => context.go('/'),
-                behavior: HitTestBehavior.opaque,
-                child: const _BrandLockup(compact: false),
+              _MenuButton(onPressed: onMenuPressed),
+              const SizedBox(width: _menuToLogoGap),
+              Flexible(
+                fit: FlexFit.loose,
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: GestureDetector(
+                    onTap: () => context.go('/'),
+                    behavior: HitTestBehavior.opaque,
+                    child: const _BrandLockup(compact: false),
+                  ),
+                ),
               ),
               const Spacer(),
               HoverLink(
@@ -122,6 +125,24 @@ class PublicAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Size get preferredSize => const Size.fromHeight(93);
+}
+
+class _MenuButton extends StatelessWidget {
+  const _MenuButton({required this.onPressed});
+
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      icon: const Icon(Icons.menu, color: AppColors.primary, size: 28),
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints.tightFor(width: 40, height: 40),
+      visualDensity: VisualDensity.standard,
+      tooltip: 'Open menu',
+      onPressed: onPressed,
+    );
+  }
 }
 
 class _BrandLockup extends StatelessWidget {

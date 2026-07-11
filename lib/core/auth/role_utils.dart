@@ -30,6 +30,28 @@ bool canManageMembers(String? role) => role == 'admin';
 bool isAnnouncementPublisher(String? role) =>
     role != null && announcementPublisherRoles.contains(role);
 
+/// President, Vice President, Secretary, and Treasurer can post to General Group.
+bool canPostToGeneralGroup(String? role) =>
+    role != null && officerRoles.contains(role);
+
+String generalGroupRoleLabel(String? role) {
+  if (role == null) return 'Member';
+  switch (role) {
+    case 'president':
+      return 'President';
+    case 'vice_president':
+      return 'Vice President';
+    case 'secretary':
+      return 'Secretary';
+    case 'treasurer':
+      return 'Treasurer';
+    case 'admin':
+      return 'Admin';
+    default:
+      return 'Member';
+  }
+}
+
 bool canEditAnnouncement(String? authorId, String? currentUserId, String? role) {
   if (isAdminRole(role)) return true;
   if (!isAnnouncementPublisher(role)) return false;

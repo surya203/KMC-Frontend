@@ -11,16 +11,19 @@ class DashboardNavItem {
 const dashboardNavItems = <DashboardNavItem>[
   DashboardNavItem('Dashboard', Icons.grid_view_rounded, '/dashboard'),
   DashboardNavItem('My Profile', Icons.person_outline_rounded, '/my-profile'),
-  DashboardNavItem('Membership', Icons.workspace_premium_outlined, '/my-membership'),
+  DashboardNavItem('Executive Committee', Icons.people_outline_rounded, '/connect'),
   DashboardNavItem('Events', Icons.event_outlined, '/my-events'),
-  DashboardNavItem('Gallery', Icons.photo_library_outlined, '/my-gallery'),
   DashboardNavItem('Announcements', Icons.campaign_outlined, '/announcements'),
-  DashboardNavItem('Connect', Icons.people_outline_rounded, '/connect'),
+  DashboardNavItem('Gallery', Icons.photo_library_outlined, '/my-gallery'),
+  DashboardNavItem('Membership', Icons.workspace_premium_outlined, '/my-membership'),
   DashboardNavItem('Payments', Icons.payments_outlined, '/my-payments'),
   DashboardNavItem('Settings', Icons.settings_outlined, '/settings'),
 ];
 
-String dashboardTitleForPath(String path) {
+String dashboardTitleForPath(String path, {bool compact = false}) {
+  if (path == '/connect' || path.startsWith('/connect/')) {
+    return 'Executive Committee';
+  }
   for (final item in dashboardNavItems) {
     if (item.path == path || path.startsWith('${item.path}/')) {
       return item.label;

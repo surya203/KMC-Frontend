@@ -9,6 +9,8 @@ import '../../../core/network/membership_api_service.dart';
 import '../../../core/network/profiles_api_service.dart';
 import '../../../core/payment/razorpay_checkout.dart';
 import '../../../core/utils/membership_number_format.dart';
+import '../widgets/dashboard_layout.dart';
+import '../../../core/utils/membership_tenure.dart';
 
 class MyMembershipScreen extends StatefulWidget {
   const MyMembershipScreen({super.key});
@@ -301,53 +303,89 @@ class _MyMembershipScreenState extends State<MyMembershipScreen> {
     }
 
     final membership = _membership;
+    final isCompact = DashboardLayout.isCompact(context);
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+      padding: DashboardLayout.screenPadding(context),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 720),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Membership',
-                          style: GoogleFonts.fraunces(
-                            fontSize: 36,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.heading,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          'Your lifetime KMC Alumni Association subscription.',
-                          style: GoogleFonts.inter(
-                            fontSize: 15,
-                            color: AppColors.bodyText,
-                          ),
-                        ),
-                      ],
+              if (isCompact)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Membership',
+                      style: GoogleFonts.fraunces(
+                        fontSize: DashboardLayout.pageTitleSize(context),
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.heading,
+                      ),
                     ),
-                  ),
-                  ElevatedButton.icon(
-                    onPressed: _donating ? null : _openDonateDialog,
-                    icon: _donating
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.volunteer_activism_outlined),
-                    label: Text(_donating ? 'Processing…' : 'Donate'),
-                  ),
-                ],
-              ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Your lifetime KMC Alumni Association subscription.',
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        color: AppColors.bodyText,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    ElevatedButton.icon(
+                      onPressed: _donating ? null : _openDonateDialog,
+                      icon: _donating
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.volunteer_activism_outlined),
+                      label: Text(_donating ? 'Processing…' : 'Donate'),
+                    ),
+                  ],
+                )
+              else
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Membership',
+                            style: GoogleFonts.fraunces(
+                              fontSize: DashboardLayout.pageTitleSize(context),
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.heading,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Your lifetime KMC Alumni Association subscription.',
+                            style: GoogleFonts.inter(
+                              fontSize: 15,
+                              color: AppColors.bodyText,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    ElevatedButton.icon(
+                      onPressed: _donating ? null : _openDonateDialog,
+                      icon: _donating
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.volunteer_activism_outlined),
+                      label: Text(_donating ? 'Processing…' : 'Donate'),
+                    ),
+                  ],
+                ),
               const SizedBox(height: 20),
               if (_error != null) ...[
                 _ErrorBanner(
@@ -425,18 +463,20 @@ class _StatusCard extends StatelessWidget {
                   ),
                 ),
               ),
-              const Spacer(),
-              if (membership.votingRights)
-                Text(
-                  'Voting rights enabled',
-                  style: GoogleFonts.inter(
-                    fontSize: 13,
-                    color: AppColors.secondary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
             ],
           ),
+          if (membership.votingRights)
+            Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: Text(
+                'Voting rights enabled',
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  color: AppColors.secondary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
           const SizedBox(height: 14),
           Text(
             membership.planName,
@@ -485,6 +525,13 @@ class _RecordCard extends StatelessWidget {
               storedMembershipNumber: membership.membershipNumber,
               batchYear: profile?.batchYear,
               fullName: profile?.fullName,
+            ),
+          ),
+          _Field(
+            label: 'Years as Member',
+            value: MembershipTenure.displayLabel(
+              membership: membership,
+              batchYearFallback: profile?.batchYear,
             ),
           ),
           _Field(
@@ -589,15 +636,44 @@ class _DonationHistoryCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          for (final donation in donations)
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              title: Text(donation.title),
-              subtitle: Text(
-                '${donation.status} · ${formatDate(donation.capturedAt ?? donation.createdAt)}',
-              ),
-              trailing: Text(donation.amountDisplay),
+          for (final donation in donations) ...[
+            const SizedBox(height: 8),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        donation.title,
+                        style: GoogleFonts.inter(
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.heading,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${donation.status} · ${formatDate(donation.capturedAt ?? donation.createdAt)}',
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          color: AppColors.mutedText,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  donation.amountDisplay,
+                  style: GoogleFonts.inter(
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.heading,
+                  ),
+                ),
+              ],
             ),
+          ],
         ],
       ),
     );

@@ -3,6 +3,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'core/auth/auth_session.dart';
+import 'core/auth/profile_session.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/kmc_scroll_behavior.dart';
@@ -12,6 +13,9 @@ Future<void> main() async {
   GoogleFonts.config.allowRuntimeFetching = true;
   await dotenv.load(fileName: '.env', isOptional: true);
   await AuthSession.instance.initialize();
+  if (AuthSession.instance.isAuthenticated) {
+    await ProfileSession.instance.ensureLoaded(force: true);
+  }
   await GoogleFonts.pendingFonts([
     GoogleFonts.fraunces(fontWeight: FontWeight.w600),
     GoogleFonts.fraunces(
