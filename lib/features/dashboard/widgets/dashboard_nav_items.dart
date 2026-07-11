@@ -11,7 +11,7 @@ class DashboardNavItem {
 const dashboardNavItems = <DashboardNavItem>[
   DashboardNavItem('Dashboard', Icons.grid_view_rounded, '/dashboard'),
   DashboardNavItem('My Profile', Icons.person_outline_rounded, '/my-profile'),
-  DashboardNavItem('Alumni Connect', Icons.people_outline_rounded, '/connect'),
+  DashboardNavItem('Executive Committee', Icons.people_outline_rounded, '/connect'),
   DashboardNavItem('Events', Icons.event_outlined, '/my-events'),
   DashboardNavItem('Announcements', Icons.campaign_outlined, '/announcements'),
   DashboardNavItem('Gallery', Icons.photo_library_outlined, '/my-gallery'),
@@ -22,7 +22,7 @@ const dashboardNavItems = <DashboardNavItem>[
 
 String dashboardTitleForPath(String path, {bool compact = false}) {
   if (path == '/connect' || path.startsWith('/connect/')) {
-    return compact ? 'Alumni Connect' : 'Connect to Executive Committee';
+    return 'Executive Committee';
   }
   for (final item in dashboardNavItems) {
     if (item.path == path || path.startsWith('${item.path}/')) {

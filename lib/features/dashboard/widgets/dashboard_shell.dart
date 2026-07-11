@@ -218,11 +218,17 @@ class _SidebarNavTile extends StatelessWidget {
               children: [
                 Icon(item.icon, size: 18, color: fg),
                 const SizedBox(width: 10),
-                Text(
-                  item.label,
-                  style: GoogleFonts.inter(
-                    color: fg,
-                    fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                Expanded(
+                  child: Text(
+                    item.label,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.inter(
+                      color: fg,
+                      fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                      fontSize: 13,
+                      height: 1.2,
+                    ),
                   ),
                 ),
               ],
