@@ -6,6 +6,7 @@ import '../../../core/auth/role_utils.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/announcements_api_service.dart';
 import '../../../core/utils/membership_number_format.dart';
+import '../widgets/dashboard_layout.dart';
 
 class AnnouncementsScreen extends StatefulWidget {
   const AnnouncementsScreen({super.key});
@@ -389,47 +390,83 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
       return const Center(child: CircularProgressIndicator());
     }
 
+    final isCompact = DashboardLayout.isCompact(context);
+
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+      padding: DashboardLayout.screenPadding(context),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 900),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Announcements',
-                          style: GoogleFonts.fraunces(
-                            fontSize: 36,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.heading,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          'Office bearer messages and important notices.',
-                          style: GoogleFonts.inter(
-                            fontSize: 15,
-                            color: AppColors.bodyText,
-                          ),
-                        ),
-                      ],
+              if (isCompact)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Announcements',
+                      style: GoogleFonts.fraunces(
+                        fontSize: DashboardLayout.pageTitleSize(context),
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.heading,
+                      ),
                     ),
-                  ),
-                  if (isAnnouncementPublisherUser)
-                    ElevatedButton.icon(
-                      onPressed: _createAnnouncement,
-                      icon: const Icon(Icons.campaign_outlined),
-                      label: const Text('New announcement'),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Office bearer messages and important notices.',
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        color: AppColors.bodyText,
+                      ),
                     ),
-                ],
-              ),
+                    if (isAnnouncementPublisherUser) ...[
+                      const SizedBox(height: 12),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: ElevatedButton.icon(
+                          onPressed: _createAnnouncement,
+                          icon: const Icon(Icons.campaign_outlined),
+                          label: const Text('New announcement'),
+                        ),
+                      ),
+                    ],
+                  ],
+                )
+              else
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Announcements',
+                            style: GoogleFonts.fraunces(
+                              fontSize: DashboardLayout.pageTitleSize(context),
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.heading,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Office bearer messages and important notices.',
+                            style: GoogleFonts.inter(
+                              fontSize: 15,
+                              color: AppColors.bodyText,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (isAnnouncementPublisherUser)
+                      ElevatedButton.icon(
+                        onPressed: _createAnnouncement,
+                        icon: const Icon(Icons.campaign_outlined),
+                        label: const Text('New announcement'),
+                      ),
+                  ],
+                ),
               const SizedBox(height: 16),
               Wrap(
                 spacing: 8,
@@ -462,7 +499,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
               if (_items.isEmpty)
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(28),
+                  padding: EdgeInsets.all(DashboardLayout.cardPadding(context) + 6),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(14),
@@ -534,7 +571,7 @@ class _AnnouncementCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         child: Container(
           width: double.infinity,
-          padding: const EdgeInsets.all(20),
+          padding: EdgeInsets.all(DashboardLayout.cardPadding(context) - 2),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
             border: Border.all(

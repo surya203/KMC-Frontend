@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/events_api_service.dart';
+import '../widgets/dashboard_layout.dart';
 import '../../../core/widgets/event_card.dart';
 import '../../events/widgets/dashboard_events_hero.dart';
 import '../../events/widgets/event_basic_registration_dialog.dart';
@@ -110,7 +111,7 @@ class _DashboardEventsScreenState extends State<DashboardEventsScreen> {
         primary != null ? buildEventProgramCards(primary) : <EventProgramCardData>[];
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+      padding: DashboardLayout.screenPadding(context),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 1100),
@@ -235,42 +236,48 @@ class _ProgramEventGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 24,
-      runSpacing: 24,
-      children: [
-        for (final program in programs)
-          Builder(
-            builder: (context) {
-              final isRegistered = isRegisteredForProgramTrack(
-                registrations,
-                program.event.id,
-                program.programTrack,
-              );
-              final isSubmitting =
-                  registeringTrack == program.programTrack;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cardWidth = constraints.maxWidth.clamp(280.0, 400.0);
 
-              return SizedBox(
-                width: 400,
-                child: EventCard(
-                  title: program.title,
-                  dateLabel: program.dateLabel,
-                  venueLabel: program.venueLabel,
-                  registeredCount: program.event.registeredCount,
-                  coverImageUrl: program.event.coverImageUrl,
-                  registrationOpen: program.event.registrationOpen,
-                  isRegistered: isRegistered,
-                  onTap: () => onOpenDetail(program.event),
-                  onRegister: program.event.registrationOpen &&
-                          !isRegistered &&
-                          !isSubmitting
-                      ? () => onRegister(program)
-                      : null,
-                ),
-              );
-            },
-          ),
-      ],
+        return Wrap(
+          spacing: 24,
+          runSpacing: 24,
+          children: [
+            for (final program in programs)
+              Builder(
+                builder: (context) {
+                  final isRegistered = isRegisteredForProgramTrack(
+                    registrations,
+                    program.event.id,
+                    program.programTrack,
+                  );
+                  final isSubmitting =
+                      registeringTrack == program.programTrack;
+
+                  return SizedBox(
+                    width: cardWidth,
+                    child: EventCard(
+                      title: program.title,
+                      dateLabel: program.dateLabel,
+                      venueLabel: program.venueLabel,
+                      registeredCount: program.event.registeredCount,
+                      coverImageUrl: program.event.coverImageUrl,
+                      registrationOpen: program.event.registrationOpen,
+                      isRegistered: isRegistered,
+                      onTap: () => onOpenDetail(program.event),
+                      onRegister: program.event.registrationOpen &&
+                              !isRegistered &&
+                              !isSubmitting
+                          ? () => onRegister(program)
+                          : null,
+                    ),
+                  );
+                },
+              ),
+          ],
+        );
+      },
     );
   }
 }
@@ -286,25 +293,31 @@ class _PastEventGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 24,
-      runSpacing: 24,
-      children: [
-        for (final event in events)
-          SizedBox(
-            width: 400,
-            child: EventCard(
-              title: event.title,
-              dateLabel: event.displayDate,
-              venueLabel: event.displayVenue,
-              registeredCount: event.registeredCount,
-              coverImageUrl: event.coverImageUrl,
-              registrationOpen: false,
-              isRegistered: false,
-              onTap: () => onOpen(event),
-            ),
-          ),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cardWidth = constraints.maxWidth.clamp(280.0, 400.0);
+
+        return Wrap(
+          spacing: 24,
+          runSpacing: 24,
+          children: [
+            for (final event in events)
+              SizedBox(
+                width: cardWidth,
+                child: EventCard(
+                  title: event.title,
+                  dateLabel: event.displayDate,
+                  venueLabel: event.displayVenue,
+                  registeredCount: event.registeredCount,
+                  coverImageUrl: event.coverImageUrl,
+                  registrationOpen: false,
+                  isRegistered: false,
+                  onTap: () => onOpen(event),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }

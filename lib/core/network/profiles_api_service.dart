@@ -397,6 +397,34 @@ class ProfilesApiService {
     }
   }
 
+  Future<void> removeProfilePhoto() async {
+    final header = AuthService.authorizationHeader;
+    if (header == null) throw Exception('Not signed in.');
+    final options = Options(headers: {'Authorization': header});
+    try {
+      await _apiClient.delete<void>(
+        '${AppConfig.apiPrefix}/profiles/me/photo',
+        options: options,
+      );
+      return;
+    } on DioException catch (e) {
+      final status = e.response?.statusCode ?? 0;
+      if (status == 404 || status == 405 || status == 422) {
+        try {
+          await _apiClient.patch<Map<String, dynamic>>(
+            '${AppConfig.apiPrefix}/profiles/me',
+            data: {'photo_url': null},
+            options: options,
+          );
+          return;
+        } on DioException catch (retry) {
+          throw Exception(_readDetail(retry));
+        }
+      }
+      throw Exception(_readDetail(e));
+    }
+  }
+
   String _mimeTypeFromFilename(String filename) {
     final lower = filename.toLowerCase();
     if (lower.endsWith('.png')) return 'image/png';
@@ -408,12 +436,15 @@ class ProfilesApiService {
   String _readDetail(DioException e) {
     final detail = e.response?.data;
     if (detail is Map) {
-      if (detail['detail'] != null) return '${detail['detail']}';
+      if (detail['detail'] != null) return _formatDetail(detail['detail']);
       final errors = detail['errors'];
       if (errors is List && errors.isNotEmpty) {
-        return errors.map((e) => '$e').join(', ');
+        return errors.map((item) => _formatDetail(item)).join(' ');
       }
       if (detail['message'] != null) return '${detail['message']}';
+    }
+    if (detail is List && detail.isNotEmpty) {
+      return detail.map((item) => _formatDetail(item)).join(' ');
     }
     if (e.type == DioExceptionType.connectionError ||
         e.type == DioExceptionType.connectionTimeout ||
@@ -421,5 +452,26 @@ class ProfilesApiService {
       return 'Could not reach the server. Check that the backend is running.';
     }
     return e.response?.statusMessage ?? 'Profile request failed.';
+  }
+
+  String _formatDetail(Object detail) {
+    if (detail is Map) {
+      final msg = detail['msg'];
+      if (msg != null) {
+        final loc = detail['loc'];
+        if (loc is List && loc.isNotEmpty) {
+          final field = loc.last;
+          if (field == 'phone') {
+            return 'Mobile number must be exactly 10 digits (without +91).';
+          }
+          if (field == 'linkedin_url') {
+            return 'Enter a valid LinkedIn URL (e.g. https://www.linkedin.com/in/your-name).';
+          }
+          return '$field: $msg';
+        }
+        return '$msg';
+      }
+    }
+    return '$detail';
   }
 }

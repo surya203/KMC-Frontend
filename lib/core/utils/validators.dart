@@ -81,3 +81,40 @@ String formatPhoneWithCountryCode({
   if (digits.isEmpty) return dialCode;
   return '$dialCode $digits';
 }
+
+/// Normalizes a LinkedIn profile URL to https form, or null when empty.
+String? normalizeLinkedInUrl(String value) {
+  var trimmed = value.trim();
+  if (trimmed.isEmpty) return null;
+  if (!trimmed.contains('linkedin.com')) {
+    trimmed = 'https://www.linkedin.com/in/$trimmed';
+  } else if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
+    trimmed = 'https://$trimmed';
+  }
+  return trimmed;
+}
+
+/// Returns an error message, or null when valid.
+String? validateLinkedInUrl(String? value, {bool required = false}) {
+  final trimmed = (value ?? '').trim();
+  if (trimmed.isEmpty) {
+    return required ? 'Enter your LinkedIn profile URL.' : null;
+  }
+
+  final normalized = normalizeLinkedInUrl(trimmed);
+  final uri = Uri.tryParse(normalized ?? '');
+  if (uri == null ||
+      !uri.hasScheme ||
+      !uri.host.toLowerCase().contains('linkedin.com')) {
+    return 'Enter a valid LinkedIn URL (e.g. https://www.linkedin.com/in/your-name).';
+  }
+
+  final path = uri.path.toLowerCase();
+  if (!path.contains('/in/') &&
+      !path.contains('/company/') &&
+      !path.contains('/pub/')) {
+    return 'Use a profile link like https://www.linkedin.com/in/your-name.';
+  }
+
+  return null;
+}

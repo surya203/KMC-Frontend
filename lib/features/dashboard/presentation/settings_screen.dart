@@ -6,6 +6,7 @@ import '../../../core/auth/auth_session.dart';
 import '../../../core/auth/role_utils.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/profiles_api_service.dart';
+import '../widgets/dashboard_layout.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -77,7 +78,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final directoryVisible = profile?.isDirectoryVisible ?? true;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+      padding: DashboardLayout.screenPadding(context),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 720),
@@ -87,7 +88,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               Text(
                 'Settings',
                 style: GoogleFonts.fraunces(
-                  fontSize: 36,
+                  fontSize: DashboardLayout.pageTitleSize(context),
                   fontWeight: FontWeight.w600,
                   color: AppColors.heading,
                 ),
@@ -96,7 +97,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               Text(
                 'Account preferences and privacy.',
                 style: GoogleFonts.inter(
-                  fontSize: 15,
+                  fontSize: DashboardLayout.isCompact(context) ? 14 : 15,
                   color: AppColors.bodyText,
                 ),
               ),
@@ -210,7 +211,7 @@ class _SettingsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(DashboardLayout.cardPadding(context) - 2),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),

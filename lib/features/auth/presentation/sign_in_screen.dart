@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/auth/auth_session.dart';
+import '../../../core/auth/profile_session.dart';
 import '../../../core/auth/role_utils.dart';
 import '../../../core/network/auth_service.dart';
 import '../../../core/theme/heading_styles.dart';
@@ -63,6 +64,7 @@ class _SignInScreenState extends State<SignInScreen> {
       final tokens = await _authService.login(email: email, password: password);
       await AuthSession.instance.saveLogin(tokens);
       await _authService.fetchMe();
+      await ProfileSession.instance.ensureLoaded(force: true);
       if (!mounted) return;
       context.go(homeRouteForRole(AuthSession.instance.currentUser?.role));
     } on AuthException catch (e) {

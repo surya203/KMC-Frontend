@@ -1,0 +1,74 @@
+import 'dart:typed_data';
+
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+import '../constants/app_colors.dart';
+
+/// Circular profile photo — displays saved bytes only (no broken network URLs).
+class ProfileAvatar extends StatelessWidget {
+  const ProfileAvatar({
+    super.key,
+    this.localBytes,
+    required this.name,
+    required this.size,
+    this.cacheKey,
+  });
+
+  final Uint8List? localBytes;
+  final String name;
+  final double size;
+  final Object? cacheKey;
+
+  String get _initial {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return 'A';
+    return trimmed[0].toUpperCase();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bytes = localBytes;
+
+    Widget child;
+    if (bytes != null && bytes.isNotEmpty) {
+      child = Image.memory(
+        bytes,
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        gaplessPlayback: true,
+        key: ValueKey(cacheKey ?? bytes.length),
+        errorBuilder: (_, _, _) => _placeholder(),
+      );
+    } else {
+      child = _placeholder();
+    }
+
+    return ClipOval(
+      child: SizedBox(width: size, height: size, child: child),
+    );
+  }
+
+  Widget _placeholder() {
+    return Container(
+      width: size,
+      height: size,
+      color: AppColors.muted,
+      alignment: Alignment.center,
+      child: Text(
+        _initial,
+        style: GoogleFonts.fraunces(
+          fontSize: size * 0.36,
+          fontWeight: FontWeight.w600,
+          color: AppColors.mutedText,
+        ),
+      ),
+    );
+  }
+}
+
+String formatUserError(Object error) {
+  if (error is FormatException) return error.message;
+  return error.toString().replaceFirst(RegExp(r'^Exception:\s*'), '');
+}

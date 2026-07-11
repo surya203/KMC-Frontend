@@ -6,6 +6,7 @@ import '../../../core/auth/role_utils.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/announcements_api_service.dart';
 import '../../../core/network/connect_api_service.dart';
+import '../widgets/dashboard_layout.dart';
 
 class _ChatMessage {
   const _ChatMessage({
@@ -206,8 +207,7 @@ class _DashboardConnectScreenState extends State<DashboardConnectScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
-    final isMobile = width < 600;
+    final isMobile = DashboardLayout.isCompact(context);
     final horizontalPadding = isMobile ? 16.0 : 24.0;
     final userRole = AuthSession.instance.currentUser?.role;
     final canPost = canPostToGeneralGroup(userRole);
@@ -786,6 +786,8 @@ class _MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final narrow = DashboardLayout.isNarrow(context);
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 18),
       child: Row(
@@ -808,48 +810,100 @@ class _MessageBubble extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Flexible(
-                      child: Text(
+                if (narrow)
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
                         message.author,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.inter(
                           fontWeight: FontWeight.w700,
                           color: AppColors.heading,
                         ),
                       ),
-                    ),
-                    if (message.badge != null) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.secondary,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
+                      const SizedBox(height: 4),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          if (message.badge != null)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppColors.secondary,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                message.badge!,
+                                style: GoogleFonts.inter(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                            ),
+                          Text(
+                            message.time,
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              color: AppColors.mutedText,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  )
+                else
+                  Row(
+                    children: [
+                      Flexible(
                         child: Text(
-                          message.badge!,
+                          message.author,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.inter(
-                            fontSize: 10,
                             fontWeight: FontWeight.w700,
-                            color: AppColors.primary,
+                            color: AppColors.heading,
                           ),
                         ),
                       ),
-                    ],
-                    const SizedBox(width: 8),
-                    Text(
-                      message.time,
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        color: AppColors.mutedText,
+                      if (message.badge != null) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.secondary,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            message.badge!,
+                            style: GoogleFonts.inter(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ),
+                      ],
+                      const SizedBox(width: 8),
+                      Text(
+                        message.time,
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: AppColors.mutedText,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
                 const SizedBox(height: 6),
                 Container(
                   width: double.infinity,
@@ -871,6 +925,137 @@ class _MessageBubble extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _OfficerListTile extends StatelessWidget {
+  const _OfficerListTile({
+    required this.officer,
+    this.compact = false,
+  });
+
+  final ConnectOfficer officer;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final narrow = DashboardLayout.isNarrow(context);
+    final horizontalPadding = compact ? 16.0 : 20.0;
+
+    return Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: horizontalPadding,
+        vertical: compact ? 12 : 14,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CircleAvatar(
+            radius: compact ? 20 : 22,
+            backgroundColor: AppColors.primary,
+            child: Text(
+              officer.initials,
+              style: GoogleFonts.inter(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+                fontSize: compact ? 12 : 13,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: narrow
+                ? _OfficerDetails(
+                    officer: officer,
+                    emailBelow: true,
+                    compact: compact,
+                  )
+                : Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: _OfficerDetails(
+                          officer: officer,
+                          compact: compact,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      SizedBox(
+                        width: 200,
+                        child: Text(
+                          officer.email,
+                          textAlign: TextAlign.end,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            color: AppColors.mutedText,
+                            height: 1.35,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OfficerDetails extends StatelessWidget {
+  const _OfficerDetails({
+    required this.officer,
+    this.emailBelow = false,
+    this.compact = false,
+  });
+
+  final ConnectOfficer officer;
+  final bool emailBelow;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          officer.displayName,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: GoogleFonts.inter(
+            fontWeight: FontWeight.w700,
+            fontSize: compact ? 15 : 16,
+            color: AppColors.heading,
+            height: 1.25,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          officer.roleLabel,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: GoogleFonts.inter(
+            fontSize: 13,
+            color: AppColors.bodyText,
+            height: 1.25,
+          ),
+        ),
+        if (emailBelow) ...[
+          const SizedBox(height: 6),
+          Text(
+            officer.email,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              color: AppColors.mutedText,
+              height: 1.25,
+            ),
+          ),
+        ],
+      ],
     );
   }
 }
@@ -926,34 +1111,10 @@ class _CommitteePanel extends StatelessWidget {
               ),
             )
           else
-            for (final officer in officers)
-              ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: AppColors.primary,
-                  child: Text(
-                    officer.initials,
-                    style: const TextStyle(color: Colors.white),
-                  ),
-                ),
-                title: Text(
-                  officer.displayName,
-                  style: GoogleFonts.inter(fontWeight: FontWeight.w600),
-                ),
-                subtitle: Text(
-                  officer.roleLabel,
-                  style: GoogleFonts.inter(
-                    fontSize: 13,
-                    color: AppColors.bodyText,
-                  ),
-                ),
-                trailing: Text(
-                  officer.email,
-                  style: GoogleFonts.inter(
-                    fontSize: 11,
-                    color: AppColors.mutedText,
-                  ),
-                ),
-              ),
+            for (var i = 0; i < officers.length; i++) ...[
+              if (i > 0) const Divider(height: 1),
+              _OfficerListTile(officer: officers[i], compact: compact),
+            ],
         ],
       ),
     );

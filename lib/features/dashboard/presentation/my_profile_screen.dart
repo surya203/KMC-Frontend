@@ -1,16 +1,20 @@
-import 'dart:typed_data';
-
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/auth/auth_session.dart';
+import '../../../core/auth/profile_session.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/membership_api_service.dart';
 import '../../../core/network/profiles_api_service.dart';
+import '../../../core/utils/compress_profile_photo.dart';
 import '../../../core/utils/image_capture.dart';
+import '../../../core/utils/membership_number_format.dart';
+import '../../../core/utils/media_url.dart';
 import '../../../core/utils/validators.dart';
+import '../widgets/dashboard_layout.dart';
+import '../../../core/widgets/profile_avatar.dart';
 
 class MyProfileScreen extends StatefulWidget {
   const MyProfileScreen({super.key});
@@ -33,8 +37,10 @@ class _MyProfileScreenState extends State<MyProfileScreen>
   bool _editing = false;
   bool _saving = false;
   bool _uploadingPhoto = false;
-  bool _showPhotoOptions = false;
   String? _message;
+  bool _messageIsError = false;
+  Uint8List? _localPhotoBytes;
+  int _photoCacheKey = 0;
 
   late final TextEditingController _currentTitle;
   late final TextEditingController _organization;
@@ -56,12 +62,32 @@ class _MyProfileScreenState extends State<MyProfileScreen>
     _bio = TextEditingController();
     _linkedin = TextEditingController();
     _phone = TextEditingController();
+    ProfileSession.instance.addListener(_onProfileSessionChanged);
     AuthSession.instance.addListener(_onAuthSessionChanged);
+    _syncPhotoFromSession();
     _load();
+  }
+
+  void _onProfileSessionChanged() {
+    _syncPhotoFromSession();
+  }
+
+  void _onAuthSessionChanged() {
+    if (!AuthSession.instance.isAuthenticated) return;
+    if (_loading || _profile != null) return;
+    _load();
+  }
+
+  void _syncPhotoFromSession() {
+    final bytes = ProfileSession.instance.photoBytes;
+    if (bytes != null && bytes.isNotEmpty && bytes != _localPhotoBytes) {
+      if (mounted) setState(() => _localPhotoBytes = bytes);
+    }
   }
 
   @override
   void dispose() {
+    ProfileSession.instance.removeListener(_onProfileSessionChanged);
     AuthSession.instance.removeListener(_onAuthSessionChanged);
     _scrollController.dispose();
     _currentTitle.dispose();
@@ -71,12 +97,6 @@ class _MyProfileScreenState extends State<MyProfileScreen>
     _linkedin.dispose();
     _phone.dispose();
     super.dispose();
-  }
-
-  void _onAuthSessionChanged() {
-    if (!AuthSession.instance.isAuthenticated) return;
-    if (_loading || _profile != null) return;
-    _load();
   }
 
   Future<void> _load({int attempt = 0}) async {
@@ -129,17 +149,20 @@ class _MyProfileScreenState extends State<MyProfileScreen>
 
     if (profile != null) {
       _syncEditors(profile);
+      await ProfileSession.instance.updateFromProfile(profile);
+      if (!mounted) return;
       setState(() {
         _profile = profile;
         _membership = membership;
         _loading = false;
         _error = null;
+        _localPhotoBytes = ProfileSession.instance.photoBytes;
       });
       return;
     }
 
     setState(() {
-      _error = profileError?.toString() ?? 'Profile request failed.';
+      _error = formatUserError(profileError ?? 'Profile request failed.');
       _loading = false;
     });
   }
@@ -171,12 +194,14 @@ class _MyProfileScreenState extends State<MyProfileScreen>
       setState(() {
         _editing = false;
         _message = null;
+        _messageIsError = false;
       });
       return;
     }
     setState(() {
       _editing = true;
       _message = null;
+      _messageIsError = false;
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final context = _editSectionKey.currentContext;
@@ -205,6 +230,7 @@ class _MyProfileScreenState extends State<MyProfileScreen>
     setState(() {
       _saving = true;
       _message = null;
+      _messageIsError = false;
     });
 
     try {
@@ -215,41 +241,61 @@ class _MyProfileScreenState extends State<MyProfileScreen>
 
       final phoneError = validateMobileNumber(_phone.text);
       if (phoneError != null) {
-        throw Exception(phoneError);
+        throw FormatException(phoneError);
       }
+
+      final linkedinError = validateLinkedInUrl(_linkedin.text);
+      if (linkedinError != null) {
+        throw FormatException(linkedinError);
+      }
+
+      final bio = _bio.text.trim();
+      if (bio.length > 500) {
+        throw const FormatException('Bio must be 500 characters or fewer.');
+      }
+
+      final normalizedLinkedIn = normalizeLinkedInUrl(_linkedin.text);
 
       final updated = await _profilesApi.updateMyProfile({
         'phone': _phoneForSave(_phone.text),
         'current_title': textOrNull(_currentTitle.text),
         'organization': textOrNull(_organization.text),
         'city': textOrNull(_city.text),
-        'bio': textOrNull(_bio.text),
-        'linkedin_url': textOrNull(_linkedin.text),
+        'bio': textOrNull(bio),
+        'linkedin_url': normalizedLinkedIn,
         'is_directory_visible': _directoryVisible,
       });
       if (!mounted) return;
       _syncEditors(updated);
+      if (normalizedLinkedIn != null) {
+        _linkedin.text = normalizedLinkedIn;
+      }
+      await ProfileSession.instance.updateFromProfile(updated);
       setState(() {
         _profile = updated;
         _editing = false;
         _saving = false;
-        _message = 'Profile updated.';
+        _message = 'Profile updated successfully.';
+        _messageIsError = false;
       });
-      _showFeedback('Profile updated.');
+      _showFeedback('Profile updated successfully.');
     } on FormatException catch (e) {
       if (!mounted) return;
       setState(() {
         _saving = false;
         _message = e.message;
+        _messageIsError = true;
       });
       _showFeedback(e.message, isError: true);
     } catch (e) {
       if (!mounted) return;
+      final message = formatUserError(e);
       setState(() {
         _saving = false;
-        _message = e.toString();
+        _message = message;
+        _messageIsError = true;
       });
-      _showFeedback(e.toString(), isError: true);
+      _showFeedback(message, isError: true);
     }
   }
 
@@ -288,29 +334,51 @@ class _MyProfileScreenState extends State<MyProfileScreen>
     if (file.bytes!.length > _maxPhotoBytes) {
       throw Exception('Profile photo must be 3 MB or smaller.');
     }
+    if (!looksLikeImageBytes(file.bytes!)) {
+      throw Exception('Please choose a valid JPG or PNG image.');
+    }
+
+    await AuthSession.instance.ensureReady();
+    final authId = AuthSession.instance.currentUser?.id;
+    if (authId == null) throw Exception('Not signed in.');
 
     setState(() {
       _uploadingPhoto = true;
-      _showPhotoOptions = false;
       _message = null;
+      _messageIsError = false;
+      _localPhotoBytes = file.bytes;
     });
 
+    // Save locally first so photo shows immediately and survives refresh.
+    await ProfileSession.instance.saveLocalPreview(file.bytes!);
+
     try {
-      await _profilesApi.uploadProfilePhoto(file);
+      final uploadedUrl = await _profilesApi.uploadProfilePhoto(file);
       final profile = await _profilesApi.fetchMyProfile();
+      final effectiveUrl = profile.photoUrl ?? uploadedUrl;
+      final resolvedPhoto = resolveMediaUrl(effectiveUrl);
+      await ProfileSession.instance.setPhoto(
+        profileId: profile.id,
+        url: resolvedPhoto,
+        bytes: ProfileSession.instance.photoBytes ?? file.bytes!,
+      );
       if (!mounted) return;
       setState(() {
-        _profile = profile;
+        _profile = profile.copyWith(photoUrl: resolvedPhoto);
+        _localPhotoBytes = ProfileSession.instance.photoBytes;
         _uploadingPhoto = false;
+        _photoCacheKey++;
       });
-      _showFeedback('Photo updated.');
+      _showFeedback('Photo updated successfully.');
     } catch (e) {
       if (!mounted) return;
+      final message = formatUserError(e);
       setState(() {
         _uploadingPhoto = false;
-        _message = e.toString();
+        _message = message;
+        _messageIsError = true;
       });
-      _showFeedback(e.toString(), isError: true);
+      _showFeedback(message, isError: true);
     }
   }
 
@@ -321,12 +389,11 @@ class _MyProfileScreenState extends State<MyProfileScreen>
       await _uploadPhotoFile(file);
     } catch (e) {
       if (!mounted) return;
-      _showFeedback(e.toString(), isError: true);
+      _showFeedback(formatUserError(e), isError: true);
     }
   }
 
   Future<void> _capturePhoto() async {
-    setState(() => _showPhotoOptions = false);
     try {
       final captured = await captureImageWithLivePreview(context);
       if (captured == null) return;
@@ -339,8 +406,147 @@ class _MyProfileScreenState extends State<MyProfileScreen>
       );
     } catch (e) {
       if (!mounted) return;
-      _showFeedback(e.toString(), isError: true);
+      _showFeedback(formatUserError(e), isError: true);
     }
+  }
+
+  Future<void> _removePhoto() async {
+    setState(() {
+      _uploadingPhoto = true;
+      _message = null;
+      _messageIsError = false;
+    });
+
+    try {
+      await _profilesApi.removeProfilePhoto();
+      final profile = await _profilesApi.fetchMyProfile();
+      await ProfileSession.instance.clearPhoto();
+      if (!mounted) return;
+      setState(() {
+        _profile = profile;
+        _localPhotoBytes = null;
+        _uploadingPhoto = false;
+        _photoCacheKey++;
+      });
+      _showFeedback('Photo removed.');
+    } catch (e) {
+      if (!mounted) return;
+      final message = formatUserError(e);
+      setState(() {
+        _uploadingPhoto = false;
+        _message = message;
+        _messageIsError = true;
+      });
+      _showFeedback(message, isError: true);
+    }
+  }
+
+  bool get _hasPhoto {
+    final bytes =
+        ProfileSession.instance.photoBytes ?? _localPhotoBytes;
+    return bytes != null && bytes.isNotEmpty;
+  }
+
+  Widget _photoMenuRow(
+    IconData icon,
+    String label, {
+    Color? color,
+  }) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: color ?? AppColors.heading),
+        const SizedBox(width: 12),
+        Text(
+          label,
+          style: GoogleFonts.inter(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: color ?? AppColors.heading,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPhotoCameraButton() {
+    final badge = Material(
+      elevation: 2,
+      color: AppColors.secondary,
+      shape: const CircleBorder(
+        side: BorderSide(color: Colors.white, width: 2),
+      ),
+      child: SizedBox(
+        width: 30,
+        height: 30,
+        child: Center(
+          child: _uploadingPhoto
+              ? const SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : const Icon(
+                  Icons.camera_alt,
+                  size: 16,
+                  color: Colors.white,
+                ),
+        ),
+      ),
+    );
+
+    if (_uploadingPhoto) {
+      return badge;
+    }
+
+    return PopupMenuButton<String>(
+      tooltip: 'Change profile photo',
+      offset: const Offset(-4, 36),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: AppColors.border),
+      ),
+      color: Colors.white,
+      elevation: 6,
+      padding: EdgeInsets.zero,
+      onSelected: (value) async {
+        switch (value) {
+          case 'upload':
+            await _pickPhotoFromGallery();
+          case 'camera':
+            await _capturePhoto();
+          case 'remove':
+            await _removePhoto();
+        }
+      },
+      itemBuilder: (context) => [
+        PopupMenuItem<String>(
+          value: 'upload',
+          height: 42,
+          child: _photoMenuRow(Icons.upload_outlined, 'Upload photo'),
+        ),
+        PopupMenuItem<String>(
+          value: 'camera',
+          height: 42,
+          child: _photoMenuRow(Icons.photo_camera_outlined, 'Take photo'),
+        ),
+        if (_hasPhoto) ...[
+          const PopupMenuDivider(height: 8),
+          PopupMenuItem<String>(
+            value: 'remove',
+            height: 42,
+            child: _photoMenuRow(
+              Icons.delete_outline,
+              'Remove photo',
+              color: AppColors.error,
+            ),
+          ),
+        ],
+      ],
+      child: badge,
+    );
   }
 
   static const _indiaCountryCode = '+91';
@@ -365,17 +571,19 @@ class _MyProfileScreenState extends State<MyProfileScreen>
   String? _phoneForSave(String local) {
     final digits = local.replaceAll(RegExp(r'\D'), '');
     if (digits.isEmpty) return null;
-    return '$_indiaCountryCode$digits';
+    return digits;
   }
 
   String get _email => AuthSession.instance.currentUser?.email ?? '—';
 
-  String get _username {
-    final email = _email;
-    if (email == '—') return '—';
-    final at = email.indexOf('@');
-    if (at > 0) return email.substring(0, at);
-    return email;
+  String _membershipId(MyProfile profile) {
+    return MembershipNumberFormat.displayOrFallback(
+      storedMembershipNumber: _membership?.membershipNumber ??
+          AuthSession.instance.currentUser?.membershipNumber,
+      batchYear: profile.batchYear,
+      fullName: profile.fullName,
+      fallback: '—',
+    );
   }
 
   @override
@@ -388,7 +596,7 @@ class _MyProfileScreenState extends State<MyProfileScreen>
 
     return SingleChildScrollView(
       controller: _scrollController,
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+      padding: DashboardLayout.screenPadding(context),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 900),
@@ -408,9 +616,9 @@ class _MyProfileScreenState extends State<MyProfileScreen>
               ],
               if (_message != null) ...[
                 const SizedBox(height: 12),
-                Text(
-                  _message!,
-                  style: GoogleFonts.inter(color: AppColors.bodyText),
+                _StatusBanner(
+                  message: _message!,
+                  isError: _messageIsError,
                 ),
               ],
             ],
@@ -421,6 +629,85 @@ class _MyProfileScreenState extends State<MyProfileScreen>
   }
 
   Widget _buildPageHeader() {
+    final isCompact = DashboardLayout.isCompact(context);
+
+    final title = Text(
+      'My Profile',
+      style: GoogleFonts.fraunces(
+        fontSize: DashboardLayout.pageTitleSize(context),
+        fontWeight: FontWeight.w600,
+        color: AppColors.heading,
+        height: 1.1,
+      ),
+    );
+
+    final subtitle = Text(
+      'Manage your MY KMC profile and membership details.',
+      style: GoogleFonts.inter(
+        fontSize: isCompact ? 14 : 15,
+        color: AppColors.bodyText,
+        height: 1.5,
+      ),
+    );
+
+    final editActions = _editing
+        ? Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              OutlinedButton(
+                onPressed: _saving ? null : _toggleEdit,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.heading,
+                  side: const BorderSide(color: AppColors.border),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: isCompact ? 16 : 20,
+                    vertical: isCompact ? 12 : 14,
+                  ),
+                ),
+                child: const Text('Cancel'),
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton(
+                onPressed: _saving ? null : _save,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: isCompact ? 16 : 20,
+                    vertical: isCompact ? 12 : 14,
+                  ),
+                ),
+                child: Text(_saving ? 'Saving…' : 'Save'),
+              ),
+            ],
+          )
+        : ElevatedButton.icon(
+            onPressed: _profile == null ? null : _toggleEdit,
+            icon: const Icon(Icons.edit_outlined, size: 18),
+            label: const Text('Edit'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              padding: EdgeInsets.symmetric(
+                horizontal: isCompact ? 16 : 20,
+                vertical: isCompact ? 12 : 14,
+              ),
+            ),
+          );
+
+    if (isCompact) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          title,
+          const SizedBox(height: 6),
+          subtitle,
+          const SizedBox(height: 12),
+          editActions,
+        ],
+      );
+    }
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -428,202 +715,94 @@ class _MyProfileScreenState extends State<MyProfileScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'My Profile',
-                style: GoogleFonts.fraunces(
-                  fontSize: 36,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.heading,
-                ),
-              ),
+              title,
               const SizedBox(height: 6),
-              Text(
-                'Manage your MY KMC profile and membership details.',
-                style: GoogleFonts.inter(
-                  fontSize: 15,
-                  color: AppColors.bodyText,
-                  height: 1.5,
-                ),
-              ),
+              subtitle,
             ],
           ),
         ),
         const SizedBox(width: 16),
-        if (_editing) ...[
-          OutlinedButton(
-            onPressed: _saving ? null : _toggleEdit,
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.heading,
-              side: const BorderSide(color: AppColors.border),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-            ),
-            child: const Text('Cancel'),
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton(
-            onPressed: _saving ? null : _save,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-            ),
-            child: Text(_saving ? 'Saving…' : 'Save'),
-          ),
-        ] else
-          ElevatedButton.icon(
-            onPressed: _profile == null ? null : _toggleEdit,
-            icon: const Icon(Icons.edit_outlined, size: 18),
-            label: const Text('Edit'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-            ),
-          ),
+        editActions,
       ],
     );
   }
 
   Widget _buildProfileSummary(MyProfile profile) {
-    final initial = profile.fullName.isNotEmpty
-        ? profile.fullName.trim()[0].toUpperCase()
-        : 'K';
+    final isCompact = DashboardLayout.isCompact(context);
+    final avatarSize = isCompact ? 80.0 : 88.0;
+
+    final avatar = SizedBox(
+      width: avatarSize + 8,
+      height: avatarSize + 8,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned(
+            left: 0,
+            top: 0,
+            child: ProfileAvatar(
+              localBytes:
+                  ProfileSession.instance.photoBytes ?? _localPhotoBytes,
+              name: profile.fullName,
+              size: avatarSize,
+              cacheKey: _photoCacheKey,
+            ),
+          ),
+          Positioned(
+            right: 0,
+            bottom: 0,
+            child: _buildPhotoCameraButton(),
+          ),
+        ],
+      ),
+    );
+
+    final name = Text(
+      profile.fullName,
+      maxLines: 3,
+      softWrap: true,
+      overflow: TextOverflow.ellipsis,
+      style: GoogleFonts.fraunces(
+        fontSize: isCompact ? 24 : 28,
+        fontWeight: FontWeight.w600,
+        color: AppColors.heading,
+        height: 1.15,
+      ),
+    );
+
+    if (isCompact) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          avatar,
+          const SizedBox(height: 14),
+          name,
+        ],
+      );
+    }
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              width: 96,
-              height: 96,
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Positioned(
-                    left: 0,
-                    top: 0,
-                    child: ClipOval(
-                      child: SizedBox(
-                        width: 88,
-                        height: 88,
-                        child: profile.photoUrl != null
-                            ? CachedNetworkImage(
-                                key: ValueKey(profile.photoUrl),
-                                imageUrl: profile.photoUrl!,
-                                width: 88,
-                                height: 88,
-                                fit: BoxFit.cover,
-                                errorWidget: (_, _, _) =>
-                                    _avatarPlaceholder(initial),
-                              )
-                            : _avatarPlaceholder(initial),
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    right: 0,
-                    bottom: 0,
-                    child: Material(
-                      elevation: 2,
-                      color: AppColors.secondary,
-                      shape: const CircleBorder(
-                        side: BorderSide(color: Colors.white, width: 2),
-                      ),
-                      child: InkWell(
-                        customBorder: const CircleBorder(),
-                        onTap: _uploadingPhoto
-                            ? null
-                            : () => setState(() => _showPhotoOptions = true),
-                        child: SizedBox(
-                          width: 30,
-                          height: 30,
-                          child: Center(
-                            child: _uploadingPhoto
-                                ? const SizedBox(
-                                    width: 14,
-                                    height: 14,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                : const Icon(
-                                    Icons.camera_alt,
-                                    size: 16,
-                                    color: Colors.white,
-                                  ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (_showPhotoOptions) ...[
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  IconButton.outlined(
-                    onPressed: _uploadingPhoto ? null : _capturePhoto,
-                    icon: const Icon(Icons.photo_camera_outlined),
-                    tooltip: 'Open camera',
-                  ),
-                  const SizedBox(width: 8),
-                  OutlinedButton.icon(
-                    onPressed: _uploadingPhoto ? null : _pickPhotoFromGallery,
-                    icon: const Icon(Icons.upload_outlined, size: 18),
-                    label: const Text('Upload photo'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.heading,
-                      side: const BorderSide(color: AppColors.border),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ],
-        ),
+        avatar,
         const SizedBox(width: 18),
-        Padding(
-          padding: const EdgeInsets.only(top: 8),
-          child: Text(
-            profile.fullName,
-            style: GoogleFonts.fraunces(
-              fontSize: 28,
-              fontWeight: FontWeight.w600,
-              color: AppColors.heading,
-            ),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: name,
           ),
         ),
       ],
     );
   }
 
-  Widget _avatarPlaceholder(String initial) {
-    return Container(
-      width: 88,
-      height: 88,
-      color: AppColors.muted,
-      alignment: Alignment.center,
-      child: Text(
-        initial,
-        style: GoogleFonts.fraunces(
-          fontSize: 32,
-          fontWeight: FontWeight.w600,
-          color: AppColors.mutedText,
-        ),
-      ),
-    );
-  }
-
   Widget _buildDetailsCard(MyProfile profile) {
+    final cardPadding = DashboardLayout.cardPadding(context) + 4;
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       width: double.infinity,
-      padding: const EdgeInsets.all(28),
+      padding: EdgeInsets.all(cardPadding),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -657,7 +836,7 @@ class _MyProfileScreenState extends State<MyProfileScreen>
           ],
           LayoutBuilder(
             builder: (context, constraints) {
-              final wide = constraints.maxWidth > 600;
+              final wide = constraints.maxWidth > 700;
               return Column(
                 children: [
                   if (wide)
@@ -741,8 +920,8 @@ class _MyProfileScreenState extends State<MyProfileScreen>
                   ],
                   const SizedBox(height: 20),
                   _formField(
-                    label: 'USERNAME',
-                    value: _username,
+                    label: 'MEMBERSHIP ID',
+                    value: _membershipId(profile),
                     readOnly: true,
                   ),
                   if (!_editing) ..._buildDirectoryViewFields(profile),
@@ -763,28 +942,37 @@ class _MyProfileScreenState extends State<MyProfileScreen>
                     _formField(
                       label: 'CURRENT TITLE',
                       controller: _currentTitle,
+                      hintText: 'e.g. Consultant Cardiologist',
                     ),
                     const SizedBox(height: 16),
                     _formField(
                       label: 'ORGANIZATION',
                       controller: _organization,
+                      hintText: 'e.g. Apollo Hospitals, Hyderabad',
                     ),
                     const SizedBox(height: 16),
                     _formField(
                       label: 'CITY',
                       controller: _city,
+                      hintText: 'e.g. Hyderabad, India',
                     ),
                     const SizedBox(height: 16),
                     _formField(
                       label: 'BIO',
                       controller: _bio,
-                      maxLines: 3,
+                      maxLines: 4,
+                      hintText:
+                          'A short professional summary for the alumni directory.',
+                      helperText: 'Maximum 500 characters',
                     ),
                     const SizedBox(height: 16),
                     _formField(
                       label: 'LINKEDIN URL',
                       controller: _linkedin,
                       keyboardType: TextInputType.url,
+                      hintText: 'https://www.linkedin.com/in/your-name',
+                      helperText:
+                          'Example: https://www.linkedin.com/in/sooraj-bhardwaj',
                     ),
                     const SizedBox(height: 8),
                     Material(
@@ -826,7 +1014,7 @@ class _MyProfileScreenState extends State<MyProfileScreen>
     add('BIO', profile.bio);
     add('LINKEDIN URL', profile.linkedinUrl);
 
-    if (items.isEmpty) return items;
+    final visible = profile.isDirectoryVisible ?? true;
 
     return [
       const SizedBox(height: 28),
@@ -842,7 +1030,32 @@ class _MyProfileScreenState extends State<MyProfileScreen>
         ),
       ),
       const SizedBox(height: 16),
-      ...items,
+      if (items.isEmpty)
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.background,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Text(
+            'Your alumni directory profile is not complete yet. Tap Edit to add your title, organization, city, bio, and LinkedIn URL.',
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              color: AppColors.bodyText,
+              height: 1.5,
+            ),
+          ),
+        )
+      else
+        ...items,
+      const SizedBox(height: 20),
+      _formField(
+        label: 'DIRECTORY VISIBILITY',
+        value: visible ? 'Visible in alumni directory' : 'Hidden from alumni directory',
+        readOnly: true,
+      ),
     ];
   }
 
@@ -854,6 +1067,7 @@ class _MyProfileScreenState extends State<MyProfileScreen>
     int maxLines = 1,
     TextInputType? keyboardType,
     String? helperText,
+    String? hintText,
     bool isMobileNumber = false,
   }) {
     assert(value != null || controller != null);
@@ -906,6 +1120,12 @@ class _MyProfileScreenState extends State<MyProfileScreen>
             readOnly: readOnly,
             enabled: _editing,
             maxLines: maxLines,
+            maxLength: label == 'BIO' ? 500 : null,
+            maxLengthEnforcement: MaxLengthEnforcement.enforced,
+            buildCounter: label == 'BIO'
+                ? (_, {required currentLength, required isFocused, maxLength}) =>
+                    null
+                : null,
             keyboardType: isMobileNumber ? TextInputType.number : keyboardType,
             inputFormatters:
                 isMobileNumber ? mobileNumberInputFormatters : null,
@@ -913,6 +1133,7 @@ class _MyProfileScreenState extends State<MyProfileScreen>
             decoration: InputDecoration(
               filled: true,
               fillColor: readOnly ? AppColors.background : Colors.white,
+              hintText: hintText,
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 14,
                 vertical: 14,
@@ -960,6 +1181,7 @@ class _MyProfileScreenState extends State<MyProfileScreen>
         TextField(
           controller: _phone,
           keyboardType: TextInputType.phone,
+          inputFormatters: mobileNumberInputFormatters,
           style: GoogleFonts.inter(fontSize: 15, color: AppColors.heading),
           decoration: InputDecoration(
             filled: true,
@@ -971,6 +1193,7 @@ class _MyProfileScreenState extends State<MyProfileScreen>
               color: AppColors.heading,
             ),
             hintText: '9876543210',
+            helperText: 'Enter 10 digits without country code.',
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 14,
               vertical: 14,
@@ -1033,6 +1256,47 @@ class _MyProfileScreenState extends State<MyProfileScreen>
   }
 }
 
+class _StatusBanner extends StatelessWidget {
+  const _StatusBanner({required this.message, required this.isError});
+
+  final String message;
+  final bool isError;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isError ? AppColors.error : AppColors.primary;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            isError ? Icons.error_outline : Icons.check_circle_outline,
+            size: 18,
+            color: color,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: GoogleFonts.inter(
+                color: isError ? AppColors.error : AppColors.heading,
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _InlineError extends StatelessWidget {
   const _InlineError({required this.message, required this.onRetry});
 
@@ -1052,7 +1316,7 @@ class _InlineError extends StatelessWidget {
         children: [
           Expanded(
             child: Text(
-              message,
+              formatUserError(message),
               style: GoogleFonts.inter(color: AppColors.warning),
             ),
           ),

@@ -20,9 +20,9 @@ const dashboardNavItems = <DashboardNavItem>[
   DashboardNavItem('Settings', Icons.settings_outlined, '/settings'),
 ];
 
-String dashboardTitleForPath(String path) {
+String dashboardTitleForPath(String path, {bool compact = false}) {
   if (path == '/connect' || path.startsWith('/connect/')) {
-    return 'Connect to Executive Committee';
+    return compact ? 'Alumni Connect' : 'Connect to Executive Committee';
   }
   for (final item in dashboardNavItems) {
     if (item.path == path || path.startsWith('${item.path}/')) {
