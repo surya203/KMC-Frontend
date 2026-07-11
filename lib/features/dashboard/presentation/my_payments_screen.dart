@@ -3,7 +3,9 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/membership_api_service.dart';
+import '../../../core/network/profiles_api_service.dart';
 import '../../../core/utils/file_download.dart';
+import '../../../core/utils/membership_number_format.dart';
 
 class MyPaymentsScreen extends StatefulWidget {
   const MyPaymentsScreen({super.key});
@@ -14,8 +16,10 @@ class MyPaymentsScreen extends StatefulWidget {
 
 class _MyPaymentsScreenState extends State<MyPaymentsScreen> {
   final _api = MembershipApiService();
+  final _profilesApi = ProfilesApiService();
 
   List<PaymentHistoryItem> _payments = [];
+  String? _membershipDisplayId;
   String? _error;
   bool _loading = true;
 
@@ -32,10 +36,23 @@ class _MyPaymentsScreenState extends State<MyPaymentsScreen> {
     });
 
     try {
-      final payments = await _api.fetchMyPayments();
+      final results = await Future.wait([
+        _api.fetchMyPayments(),
+        _api.fetchMyMembership(),
+        _profilesApi.fetchMyProfile(),
+      ]);
+      final payments = results[0] as List<PaymentHistoryItem>;
+      final membership = results[1] as MemberMembership;
+      final profile = results[2] as MyProfile;
+      final membershipDisplayId = MembershipNumberFormat.displayOrFallback(
+        storedMembershipNumber: membership.membershipNumber,
+        batchYear: profile.batchYear,
+        fullName: profile.fullName,
+      );
       if (!mounted) return;
       setState(() {
         _payments = payments;
+        _membershipDisplayId = membershipDisplayId;
         _loading = false;
       });
     } catch (e) {
@@ -51,7 +68,7 @@ class _MyPaymentsScreenState extends State<MyPaymentsScreen> {
     try {
       final html = await _api.fetchPaymentReceiptHtml(payment.id);
       await downloadTextFile(
-        fileName: '${payment.receiptNumber ?? 'KMC-RCP'}.html',
+        fileName: '${_membershipDisplayId ?? payment.receiptNumber ?? 'KMC-receipt'}.html',
         content: html,
         mimeType: 'text/html',
       );
@@ -107,6 +124,7 @@ class _MyPaymentsScreenState extends State<MyPaymentsScreen> {
                 for (final payment in _payments) ...[
                   _PaymentCard(
                     payment: payment,
+                    membershipDisplayId: _membershipDisplayId,
                     onDownloadReceipt: payment.hasReceipt
                         ? () => _downloadReceipt(payment)
                         : null,
@@ -124,10 +142,12 @@ class _MyPaymentsScreenState extends State<MyPaymentsScreen> {
 class _PaymentCard extends StatelessWidget {
   const _PaymentCard({
     required this.payment,
+    this.membershipDisplayId,
     this.onDownloadReceipt,
   });
 
   final PaymentHistoryItem payment;
+  final String? membershipDisplayId;
   final VoidCallback? onDownloadReceipt;
 
   @override
@@ -182,10 +202,11 @@ class _PaymentCard extends StatelessWidget {
                         color: AppColors.mutedText,
                       ),
                     ),
-                    if (payment.receiptNumber != null) ...[
+                    if (membershipDisplayId != null &&
+                        membershipDisplayId!.isNotEmpty) ...[
                       const SizedBox(height: 4),
                       Text(
-                        payment.receiptNumber!,
+                        'membership id:$membershipDisplayId',
                         style: GoogleFonts.inter(
                           fontSize: 12,
                           color: AppColors.mutedText,
