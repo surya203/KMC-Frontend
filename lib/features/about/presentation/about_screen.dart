@@ -45,8 +45,8 @@ class _AboutScreenState extends State<AboutScreen> {
               title: HeadingStyles.pageHeroTitleWidget(
                 context,
                 dark: true,
-                regular: 'Six decades of medical ',
-                italic: 'excellence from Warangal.',
+                regular: 'Six plus decades of medical ',
+                italic: 'excellence from KMC Warangal.',
               ),
               subtitle:
                   'From its founding in Warangal to a global network of physicians, '

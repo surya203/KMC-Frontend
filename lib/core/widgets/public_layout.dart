@@ -7,6 +7,52 @@ import '../constants/app_colors.dart';
 import 'hover_link.dart';
 import 'safe_asset_image.dart';
 
+/// Navigates back on public pages — pops history when possible, otherwise
+/// returns to a sensible parent route (e.g. event detail → events list).
+void navigatePublicBack(BuildContext context) {
+  if (context.canPop()) {
+    context.pop();
+    return;
+  }
+
+  final path = GoRouterState.of(context).uri.path;
+  if (path.startsWith('/events/') && path.length > '/events/'.length) {
+    context.go('/events');
+    return;
+  }
+  if (path.startsWith('/gallery/') && path.length > '/gallery/'.length) {
+    context.go('/gallery');
+    return;
+  }
+  if (path.startsWith('/profiles/')) {
+    context.go('/');
+    return;
+  }
+  context.go('/');
+}
+
+class PublicBackIcon extends StatelessWidget {
+  const PublicBackIcon({super.key, this.dark = false});
+
+  final bool dark;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      onPressed: () => navigatePublicBack(context),
+      icon: Icon(
+        Icons.arrow_back,
+        color: dark ? Colors.white : AppColors.primary,
+        size: 22,
+      ),
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+      visualDensity: VisualDensity.compact,
+      tooltip: 'Back',
+    );
+  }
+}
+
 class PublicAppBar extends StatelessWidget implements PreferredSizeWidget {
   const PublicAppBar({super.key, this.onMenuPressed});
 
