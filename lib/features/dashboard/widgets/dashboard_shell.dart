@@ -5,10 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/auth/auth_session.dart';
 import '../../../core/search/app_search_result.dart';
 import '../../../core/search/app_search_service.dart';
 import '../../../core/constants/app_assets.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/membership_number_format.dart';
 import '../../../core/widgets/profile_avatar.dart';
 import '../../../core/widgets/safe_asset_image.dart';
 import 'dashboard_nav_items.dart';
@@ -605,11 +607,10 @@ class _DashboardTopBarState extends State<DashboardTopBar> {
                   icon: const Icon(Icons.notifications_none_rounded),
                   visualDensity: VisualDensity.compact,
                 ),
-                ProfileAvatar(
-                  localBytes: widget.profilePhotoBytes,
+                _ProfileAvatarMenu(
                   name: widget.profileName ?? initial,
+                  photoBytes: widget.profilePhotoBytes,
                   size: isCompact ? 28 : 32,
-                  cacheKey: widget.profilePhotoBytes?.length,
                 ),
               ],
             ),
@@ -637,6 +638,258 @@ class _DashboardTopBarState extends State<DashboardTopBar> {
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ProfileAvatarMenu extends StatelessWidget {
+  const _ProfileAvatarMenu({
+    required this.name,
+    required this.size,
+    this.photoBytes,
+  });
+
+  final String name;
+  final double size;
+  final Uint8List? photoBytes;
+
+  Future<void> _open(BuildContext context) async {
+    final box = context.findRenderObject() as RenderBox?;
+    if (box == null || !box.hasSize) return;
+
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox?;
+    if (overlay == null) return;
+
+    final topLeft = box.localToGlobal(Offset.zero, ancestor: overlay);
+    final sizeBox = box.size;
+    final screenSize = overlay.size;
+
+    const menuWidth = 280.0;
+    final right = screenSize.width - (topLeft.dx + sizeBox.width);
+    final top = topLeft.dy + sizeBox.height + 8;
+
+    await showDialog<void>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.12),
+      builder: (dialogContext) {
+        return Stack(
+          children: [
+            Positioned(
+              top: top,
+              right: right.clamp(12.0, screenSize.width - menuWidth - 12),
+              child: Material(
+                color: Colors.transparent,
+                child: _ProfileDetailsCard(
+                  name: name,
+                  photoBytes: photoBytes,
+                  onViewProfile: () {
+                    Navigator.of(dialogContext).pop();
+                    context.go('/my-profile');
+                  },
+                  onSettings: () {
+                    Navigator.of(dialogContext).pop();
+                    context.go('/settings');
+                  },
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: 'Profile',
+      child: Material(
+        color: Colors.transparent,
+        shape: const CircleBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: () => _open(context),
+          child: ProfileAvatar(
+            localBytes: photoBytes,
+            name: name,
+            size: size,
+            cacheKey: photoBytes?.length,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileDetailsCard extends StatelessWidget {
+  const _ProfileDetailsCard({
+    required this.name,
+    required this.onViewProfile,
+    required this.onSettings,
+    this.photoBytes,
+  });
+
+  final String name;
+  final Uint8List? photoBytes;
+  final VoidCallback onViewProfile;
+  final VoidCallback onSettings;
+
+  @override
+  Widget build(BuildContext context) {
+    final user = AuthSession.instance.currentUser;
+    final displayName =
+        (name.trim().isNotEmpty ? name.trim() : null) ??
+        user?.fullName?.trim() ??
+        'Member';
+    final batch = user?.batchYear;
+    final email = user?.email;
+    final membershipId = MembershipNumberFormat.displayOrFallback(
+      storedMembershipNumber: user?.membershipNumber,
+      batchYear: batch,
+      fullName: displayName,
+      fallback: user?.membershipNumber?.trim().isNotEmpty == true
+          ? user!.membershipNumber!.trim()
+          : '—',
+    );
+
+    return Container(
+      width: 280,
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              ProfileAvatar(
+                localBytes: photoBytes,
+                name: displayName,
+                size: 48,
+                cacheKey: photoBytes?.length,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      displayName,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.fraunces(
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.heading,
+                        fontSize: 18,
+                        height: 1.15,
+                      ),
+                    ),
+                    if (batch != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        'Batch of $batch',
+                        style: GoogleFonts.inter(
+                          color: AppColors.mutedText,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          const Divider(height: 1, color: AppColors.border),
+          const SizedBox(height: 10),
+          _ProfileDetailRow(
+            label: 'Membership ID',
+            value: membershipId,
+          ),
+          if (email != null && email.isNotEmpty)
+            _ProfileDetailRow(
+              label: 'Email',
+              value: email,
+            ),
+          const SizedBox(height: 8),
+          TextButton(
+            onPressed: onViewProfile,
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.primary,
+              padding: const EdgeInsets.symmetric(vertical: 8),
+            ),
+            child: Text(
+              'View Profile',
+              style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+            ),
+          ),
+          TextButton(
+            onPressed: onSettings,
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.bodyText,
+              padding: const EdgeInsets.symmetric(vertical: 6),
+            ),
+            child: Text(
+              'Settings',
+              style: GoogleFonts.inter(fontWeight: FontWeight.w500),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfileDetailRow extends StatelessWidget {
+  const _ProfileDetailRow({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: GoogleFonts.inter(
+              color: AppColors.mutedText,
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              letterSpacing: 0.2,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.inter(
+              color: AppColors.heading,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ),
     );
   }

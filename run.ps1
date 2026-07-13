@@ -1,20 +1,36 @@
-# Run KMC Flutter web — keeps server running and opens browser automatically.
+# Run KMC Flutter web - keeps server running and opens browser automatically.
 # Usage: .\run.ps1
 
 $ErrorActionPreference = "Stop"
 $Port = if ($env:KMC_WEB_PORT) { $env:KMC_WEB_PORT } else { "5173" }
 $Url = "http://localhost:$Port"
 
-if (Get-Command flutter -ErrorAction SilentlyContinue) {
-    $env:Path = "C:\Users\user\flutter\bin;" + $env:Path
+# Ensure Flutter is on PATH (Cursor/old terminals may not have refreshed user PATH yet)
+$flutterCandidates = @(
+    (Join-Path $env:USERPROFILE "develop\flutter\bin"),
+    "C:\Users\DELL\develop\flutter\bin",
+    "C:\flutter\bin"
+)
+if (-not (Get-Command flutter -ErrorAction SilentlyContinue)) {
+    foreach ($bin in $flutterCandidates) {
+        if (Test-Path (Join-Path $bin "flutter.bat")) {
+            $env:Path = "$bin;" + $env:Path
+            break
+        }
+    }
+}
+
+if (-not (Get-Command flutter -ErrorAction SilentlyContinue)) {
+    Write-Host "Flutter not found. Install it or add flutter\bin to PATH, then open a new terminal." -ForegroundColor Red
+    exit 1
 }
 
 Set-Location $PSScriptRoot
 
 Write-Host ""
-Write-Host "KMC Alumni Connect — Frontend" -ForegroundColor Cyan
+Write-Host "KMC Alumni Connect - Frontend" -ForegroundColor Cyan
 Write-Host "  Opening: $Url" -ForegroundColor Green
-Write-Host "  (Browser opens when the server is ready — first run may take ~30s)" -ForegroundColor DarkGray
+Write-Host "  (Browser opens when the server is ready - first run may take ~30s)" -ForegroundColor DarkGray
 Write-Host "  Keep this terminal open. Press q to stop." -ForegroundColor DarkGray
 Write-Host ""
 

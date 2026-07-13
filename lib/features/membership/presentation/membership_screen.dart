@@ -1808,7 +1808,7 @@ class _PaymentStepState extends State<_PaymentStep> {
             controller: _upiController,
             keyboardType: TextInputType.emailAddress,
             decoration: InputDecoration(
-              hintText: 'yourname@okhdfcbank',
+              hintText: 'yourmobile@ybl',
               filled: true,
               fillColor: Colors.white,
               contentPadding: const EdgeInsets.symmetric(
