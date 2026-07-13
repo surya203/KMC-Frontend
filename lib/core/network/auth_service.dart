@@ -107,13 +107,32 @@ class AuthService {
   }
 
   Future<AuthTokens> login({
-    required String email,
-    required String password,
+    String? email,
+    String? password,
+    String? phone,
+    String? phoneCountryCode,
+    String? membershipNumber,
   }) async {
+    final Map<String, dynamic> data;
+    if (email != null && email.isNotEmpty) {
+      data = {'email': email, 'password': password};
+    } else if (phone != null && phone.isNotEmpty) {
+      data = {
+        'phone': phone,
+        'phone_country_code': phoneCountryCode ?? '+91',
+        'password': password,
+      };
+    } else {
+      data = {
+        'membership_number': membershipNumber,
+        'password': password,
+      };
+    }
+
     try {
       final response = await _dio.post<Map<String, dynamic>>(
         '${AppConfig.apiPrefix}/auth/login',
-        data: {'email': email, 'password': password},
+        data: data,
       );
       if (response.statusCode == 200 && response.data != null) {
         _tokens = AuthTokens.fromJson(response.data!);
