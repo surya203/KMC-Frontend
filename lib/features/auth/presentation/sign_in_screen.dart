@@ -8,8 +8,48 @@ import '../../../core/auth/profile_session.dart';
 import '../../../core/auth/role_utils.dart';
 import '../../../core/network/auth_service.dart';
 import '../../../core/theme/heading_styles.dart';
+import '../../../core/utils/phone_country_codes.dart';
+import '../../../core/utils/validators.dart';
+import '../../../core/widgets/mobile_number_field.dart';
 import '../../../core/widgets/public_layout.dart';
 import '../../home/widgets/footer_section.dart';
+
+enum _SignInMethod { email, membershipNumber, phone }
+
+class _LoginMethodOption {
+  const _LoginMethodOption({
+    required this.method,
+    required this.label,
+    required this.shortLabel,
+    required this.icon,
+  });
+
+  final _SignInMethod method;
+  final String label;
+  final String shortLabel;
+  final IconData icon;
+}
+
+const _loginMethodOptions = [
+  _LoginMethodOption(
+    method: _SignInMethod.email,
+    label: 'Email',
+    shortLabel: 'Email',
+    icon: Icons.mail_outline_rounded,
+  ),
+  _LoginMethodOption(
+    method: _SignInMethod.membershipNumber,
+    label: 'Membership No.',
+    shortLabel: 'Member ID',
+    icon: Icons.badge_outlined,
+  ),
+  _LoginMethodOption(
+    method: _SignInMethod.phone,
+    label: 'Phone',
+    shortLabel: 'Phone',
+    icon: Icons.phone_outlined,
+  ),
+];
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -22,6 +62,10 @@ class _SignInScreenState extends State<SignInScreen> {
   final _authService = AuthSession.instance.authService;
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _dialCodeController = TextEditingController(text: '+91');
+  final _phoneController = TextEditingController();
+  final _membershipNumberController = TextEditingController();
+  _SignInMethod _signInMethod = _SignInMethod.email;
   bool _isLoading = false;
   String? _errorMessage;
   bool _emailPrefilled = false;
@@ -43,30 +87,75 @@ class _SignInScreenState extends State<SignInScreen> {
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _dialCodeController.dispose();
+    _phoneController.dispose();
+    _membershipNumberController.dispose();
     super.dispose();
   }
 
   Future<void> _signIn() async {
-    final email = _emailController.text.trim();
     final password = _passwordController.text;
 
-    if (email.isEmpty || password.isEmpty) {
-      setState(() => _errorMessage = 'Email and password are required.');
+    if (password.isEmpty) {
+      setState(() => _errorMessage = 'Password is required.');
       return;
     }
 
+    switch (_signInMethod) {
+      case _SignInMethod.email:
+        final email = _emailController.text.trim();
+        if (email.isEmpty) {
+          setState(() => _errorMessage = 'Email and password are required.');
+          return;
+        }
+        await _attemptLogin(
+          () => _authService.login(email: email, password: password),
+        );
+      case _SignInMethod.membershipNumber:
+        final membershipNumber = _membershipNumberController.text.trim();
+        if (membershipNumber.isEmpty) {
+          setState(
+            () => _errorMessage = 'Membership number and password are required.',
+          );
+          return;
+        }
+        await _attemptLogin(
+          () => _authService.login(
+            membershipNumber: membershipNumber,
+            password: password,
+          ),
+        );
+      case _SignInMethod.phone:
+        final phone = normalizeMobileNumber(_phoneController.text);
+        final dialCode = normalizeDialCode(_dialCodeController.text) ?? '+91';
+        final phoneError = validateInternationalMobile(
+          dialCode: dialCode,
+          localNumber: phone,
+          required: true,
+        );
+        if (phoneError != null) {
+          setState(() => _errorMessage = phoneError);
+          return;
+        }
+        await _attemptLogin(
+          () => _authService.login(
+            phone: phone,
+            phoneCountryCode: dialCode,
+            password: password,
+          ),
+        );
+    }
+  }
+
+  Future<void> _attemptLogin(Future<AuthTokens> Function() login) async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
     try {
-      final tokens = await _authService.login(email: email, password: password);
-      await AuthSession.instance.saveLogin(tokens);
-      await _authService.fetchMe();
-      await ProfileSession.instance.ensureLoaded(force: true);
-      if (!mounted) return;
-      context.go(homeRouteForRole(AuthSession.instance.currentUser?.role));
+      final tokens = await login();
+      await _completeSignIn(tokens);
     } on AuthException catch (e) {
       if (!mounted) return;
       setState(() => _errorMessage = e.message);
@@ -76,6 +165,25 @@ class _SignInScreenState extends State<SignInScreen> {
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  String get _helperText {
+    switch (_signInMethod) {
+      case _SignInMethod.email:
+        return 'Use the email and password shown after membership registration.';
+      case _SignInMethod.membershipNumber:
+        return 'Enter your membership number from your dashboard or welcome email.';
+      case _SignInMethod.phone:
+        return 'Use the mobile number you registered with, plus your password.';
+    }
+  }
+
+  Future<void> _completeSignIn(AuthTokens tokens) async {
+    await AuthSession.instance.saveLogin(tokens);
+    await _authService.fetchMe();
+    await ProfileSession.instance.ensureLoaded(force: true);
+    if (!mounted) return;
+    context.go(homeRouteForRole(AuthSession.instance.currentUser?.role));
   }
 
   Future<void> _showForgotPasswordDialog() async {
@@ -108,7 +216,7 @@ class _SignInScreenState extends State<SignInScreen> {
               padding: const EdgeInsets.fromLTRB(24, 56, 24, 72),
               child: Center(
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 460),
+                  constraints: const BoxConstraints(maxWidth: 520),
                   child: Column(
                     children: [
                       const Align(
@@ -127,7 +235,7 @@ class _SignInScreenState extends State<SignInScreen> {
                       ),
                       const SizedBox(height: 14),
                       Text(
-                        'Use the email and one-time password shown after membership registration.',
+                        'Choose how you\'d like to sign in, then enter your password.',
                         textAlign: TextAlign.center,
                         style: GoogleFonts.inter(
                           fontSize: 15,
@@ -135,10 +243,10 @@ class _SignInScreenState extends State<SignInScreen> {
                           color: AppColors.bodyText,
                         ),
                       ),
-                      const SizedBox(height: 32),
+                      const SizedBox(height: 28),
                       Container(
                         width: double.infinity,
-                        padding: const EdgeInsets.all(28),
+                        padding: const EdgeInsets.all(24),
                         decoration: BoxDecoration(
                           color: AppColors.card,
                           borderRadius: BorderRadius.circular(16),
@@ -147,11 +255,98 @@ class _SignInScreenState extends State<SignInScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            _AuthField(
-                              label: 'EMAIL',
-                              controller: _emailController,
-                              keyboardType: TextInputType.emailAddress,
-                              required: true,
+                            _LoginMethodSelector(
+                              selected: _signInMethod,
+                              onChanged: (method) {
+                                setState(() {
+                                  _signInMethod = method;
+                                  _errorMessage = null;
+                                });
+                              },
+                            ),
+                            const SizedBox(height: 20),
+                            AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 220),
+                              switchInCurve: Curves.easeOut,
+                              switchOutCurve: Curves.easeIn,
+                              transitionBuilder: (child, animation) {
+                                return FadeTransition(
+                                  opacity: animation,
+                                  child: SlideTransition(
+                                    position: Tween<Offset>(
+                                      begin: const Offset(0, 0.04),
+                                      end: Offset.zero,
+                                    ).animate(animation),
+                                    child: child,
+                                  ),
+                                );
+                              },
+                              child: Column(
+                                key: ValueKey(_signInMethod),
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                      vertical: 12,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF3F6FB),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(color: AppColors.border),
+                                    ),
+                                    child: Row(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Icon(
+                                          _loginMethodOptions
+                                              .firstWhere(
+                                                (option) =>
+                                                    option.method == _signInMethod,
+                                              )
+                                              .icon,
+                                          size: 18,
+                                          color: AppColors.heading,
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: Text(
+                                            _helperText,
+                                            style: GoogleFonts.inter(
+                                              fontSize: 13,
+                                              height: 1.45,
+                                              color: AppColors.bodyText,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 20),
+                                  if (_signInMethod == _SignInMethod.email)
+                                    _AuthField(
+                                      label: 'EMAIL',
+                                      controller: _emailController,
+                                      keyboardType: TextInputType.emailAddress,
+                                      required: true,
+                                    )
+                                  else if (_signInMethod ==
+                                      _SignInMethod.membershipNumber)
+                                    _AuthField(
+                                      label: 'MEMBERSHIP NUMBER',
+                                      controller: _membershipNumberController,
+                                      hintText: 'e.g. 2022sooraj0007',
+                                      textCapitalization: TextCapitalization.none,
+                                      required: true,
+                                    )
+                                  else
+                                    MobileNumberField(
+                                      dialCodeController: _dialCodeController,
+                                      numberController: _phoneController,
+                                    ),
+                                ],
+                              ),
                             ),
                             const SizedBox(height: 20),
                             _AuthField(
@@ -206,20 +401,22 @@ class _SignInScreenState extends State<SignInScreen> {
                                       ),
                               ),
                             ),
-                            const SizedBox(height: 20),
-                            Center(
-                              child: TextButton(
-                                onPressed: _isLoading ? null : _showForgotPasswordDialog,
-                                child: Text(
-                                  'Forgot password?',
-                                  style: GoogleFonts.inter(
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.heading,
-                                    fontSize: 14,
+                            if (_signInMethod == _SignInMethod.email) ...[
+                              const SizedBox(height: 20),
+                              Center(
+                                child: TextButton(
+                                  onPressed: _isLoading ? null : _showForgotPasswordDialog,
+                                  child: Text(
+                                    'Forgot password?',
+                                    style: GoogleFonts.inter(
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.heading,
+                                      fontSize: 14,
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
+                            ],
                             Center(
                               child: TextButton(
                                 onPressed: () => context.go('/membership'),
@@ -455,6 +652,169 @@ class _ForgotPasswordDialogState extends State<_ForgotPasswordDialog> {
   }
 }
 
+class _LoginMethodSelector extends StatelessWidget {
+  const _LoginMethodSelector({
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final _SignInMethod selected;
+  final ValueChanged<_SignInMethod> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 420;
+
+        if (compact) {
+          return Column(
+            children: [
+              for (var i = 0; i < _loginMethodOptions.length; i++) ...[
+                if (i > 0) const SizedBox(height: 10),
+                _LoginMethodCard(
+                  option: _loginMethodOptions[i],
+                  selected: selected == _loginMethodOptions[i].method,
+                  onTap: () => onChanged(_loginMethodOptions[i].method),
+                  expanded: true,
+                ),
+              ],
+            ],
+          );
+        }
+
+        return Row(
+          children: [
+            for (var i = 0; i < _loginMethodOptions.length; i++) ...[
+              if (i > 0) const SizedBox(width: 10),
+              Expanded(
+                child: _LoginMethodCard(
+                  option: _loginMethodOptions[i],
+                  selected: selected == _loginMethodOptions[i].method,
+                  onTap: () => onChanged(_loginMethodOptions[i].method),
+                ),
+              ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _LoginMethodCard extends StatelessWidget {
+  const _LoginMethodCard({
+    required this.option,
+    required this.selected,
+    required this.onTap,
+    this.expanded = false,
+  });
+
+  final _LoginMethodOption option;
+  final bool selected;
+  final VoidCallback onTap;
+  final bool expanded;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected ? AppColors.primary : Colors.white,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          width: expanded ? double.infinity : null,
+          padding: EdgeInsets.symmetric(
+            horizontal: expanded ? 16 : 12,
+            vertical: expanded ? 14 : 16,
+          ),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: selected ? AppColors.primary : AppColors.border,
+              width: selected ? 1.5 : 1,
+            ),
+            boxShadow: selected
+                ? const [
+                    BoxShadow(
+                      color: AppColors.shadow,
+                      blurRadius: 8,
+                      offset: Offset(0, 2),
+                    ),
+                  ]
+                : null,
+          ),
+          child: expanded
+              ? Row(
+                  children: [
+                    Icon(
+                      option.icon,
+                      size: 20,
+                      color: selected ? Colors.white : AppColors.heading,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            option.label,
+                            style: GoogleFonts.inter(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: selected ? Colors.white : AppColors.heading,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Sign in with ${option.label.toLowerCase()}',
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              color: selected
+                                  ? Colors.white.withValues(alpha: 0.82)
+                                  : AppColors.mutedText,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      selected
+                          ? Icons.check_circle_rounded
+                          : Icons.radio_button_unchecked_rounded,
+                      size: 18,
+                      color: selected ? Colors.white : AppColors.mutedText,
+                    ),
+                  ],
+                )
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      option.icon,
+                      size: 22,
+                      color: selected ? Colors.white : AppColors.heading,
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      option.shortLabel,
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: selected ? Colors.white : AppColors.heading,
+                      ),
+                    ),
+                  ],
+                ),
+        ),
+      ),
+    );
+  }
+}
+
 class _AuthField extends StatefulWidget {
   const _AuthField({
     required this.label,
@@ -463,6 +823,8 @@ class _AuthField extends StatefulWidget {
     this.keyboardType,
     this.onSubmitted,
     this.required = false,
+    this.hintText,
+    this.textCapitalization = TextCapitalization.none,
   });
 
   final String label;
@@ -471,6 +833,8 @@ class _AuthField extends StatefulWidget {
   final TextInputType? keyboardType;
   final ValueChanged<String>? onSubmitted;
   final bool required;
+  final String? hintText;
+  final TextCapitalization textCapitalization;
 
   @override
   State<_AuthField> createState() => _AuthFieldState();
@@ -509,8 +873,14 @@ class _AuthFieldState extends State<_AuthField> {
           controller: widget.controller,
           obscureText: isPassword && _obscured,
           keyboardType: widget.keyboardType,
+          textCapitalization: widget.textCapitalization,
           onSubmitted: widget.onSubmitted,
           decoration: InputDecoration(
+            hintText: widget.hintText,
+            hintStyle: GoogleFonts.inter(
+              color: AppColors.mutedText,
+              fontSize: 14,
+            ),
             filled: true,
             fillColor: AppColors.muted,
             contentPadding: const EdgeInsets.symmetric(
@@ -524,6 +894,10 @@ class _AuthFieldState extends State<_AuthField> {
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
               borderSide: const BorderSide(color: AppColors.border),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
             ),
             suffixIcon: isPassword
                 ? IconButton(
