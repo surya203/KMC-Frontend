@@ -158,11 +158,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                 alignment: Alignment.centerLeft,
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 1200),
-                  child: TextButton.icon(
-                    onPressed: () => context.go('/events'),
-                    icon: const Icon(Icons.arrow_back),
-                    label: const Text('All events'),
-                  ),
+                  child: const PublicBackIcon(),
                 ),
               ),
             ),
