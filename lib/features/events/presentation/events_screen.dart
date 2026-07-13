@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/constants/app_assets.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/events_api_service.dart';
 import '../../../core/theme/heading_styles.dart';
@@ -146,7 +147,7 @@ class _EventGrid extends StatelessWidget {
               dateLabel: event.displayDate,
               venueLabel: event.displayVenue,
               registeredCount: event.registeredCount,
-              coverImageUrl: event.coverImageUrl,
+              coverAssetPath: AppAssets.eventBanner,
               registrationOpen: event.registrationOpen,
               isRegistered: event.isRegistered ?? false,
               onTap: () => context.go('/events/${event.slug}'),

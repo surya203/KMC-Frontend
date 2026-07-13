@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/constants/app_assets.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/events_api_service.dart';
 import '../widgets/dashboard_layout.dart';
@@ -262,7 +263,7 @@ class _ProgramEventGrid extends StatelessWidget {
                       dateLabel: program.dateLabel,
                       venueLabel: program.venueLabel,
                       registeredCount: program.event.registeredCount,
-                      coverImageUrl: program.event.coverImageUrl,
+                      coverAssetPath: AppAssets.eventBanner,
                       registrationOpen: program.event.registrationOpen,
                       isRegistered: isRegistered,
                       onTap: () => onOpenDetail(program.event),
@@ -309,7 +310,7 @@ class _PastEventGrid extends StatelessWidget {
                   dateLabel: event.displayDate,
                   venueLabel: event.displayVenue,
                   registeredCount: event.registeredCount,
-                  coverImageUrl: event.coverImageUrl,
+                  coverAssetPath: AppAssets.eventBanner,
                   registrationOpen: false,
                   isRegistered: false,
                   onTap: () => onOpen(event),
