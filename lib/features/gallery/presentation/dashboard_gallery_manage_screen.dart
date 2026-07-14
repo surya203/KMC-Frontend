@@ -6,14 +6,20 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/gallery_api_service.dart';
-import '../../../core/utils/download_file.dart';
-import '../../../core/utils/open_external_url.dart';
 import '../widgets/gallery_album_dialogs.dart';
 
+/// Admin-only album photo manager: upload and delete photos (no external links).
 class DashboardGalleryManageScreen extends StatefulWidget {
-  const DashboardGalleryManageScreen({super.key, required this.slug});
+  const DashboardGalleryManageScreen({
+    super.key,
+    required this.slug,
+    this.basePath = '/admin/gallery',
+  });
 
   final String slug;
+
+  /// Route prefix for back navigation (`/admin/gallery`).
+  final String basePath;
 
   @override
   State<DashboardGalleryManageScreen> createState() =>
@@ -72,7 +78,7 @@ class _DashboardGalleryManageScreenState
     }
   }
 
-  Future<void> _loadMoreMedia() async {
+  Future<void> _loadMore() async {
     if (_loadingMore || !_hasMore) return;
     setState(() => _loadingMore = true);
     try {
@@ -109,6 +115,9 @@ class _DashboardGalleryManageScreenState
   }
 
   Future<void> _uploadPhotos() async {
+    final album = _album;
+    if (album == null) return;
+
     final result = await FilePicker.platform.pickFiles(
       type: FileType.image,
       allowMultiple: true,
@@ -117,14 +126,20 @@ class _DashboardGalleryManageScreenState
     if (result == null || result.files.isEmpty) return;
 
     await _runBusy(() async {
-      await _api.uploadAlbumMedia(
-        albumId: _album!.id,
+      final uploaded = await _api.uploadAlbumMedia(
+        albumId: album.id,
         files: result.files,
       );
       await _load();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Photos uploaded.')),
+        SnackBar(
+          content: Text(
+            uploaded.length == 1
+                ? '1 photo uploaded.'
+                : '${uploaded.length} photos uploaded.',
+          ),
+        ),
       );
     });
   }
@@ -136,12 +151,16 @@ class _DashboardGalleryManageScreenState
     final confirmed = await confirmDelete(
       context,
       title: 'Delete photo',
-      message: 'Remove this photo from the album?',
+      message: 'Remove this photo from the album? This cannot be undone.',
     );
     if (!confirmed) return;
 
     await _runBusy(() async {
-      await _api.deleteMedia(albumId: album.id, mediaId: item.id);
+      await _api.deleteMedia(
+        albumId: album.id,
+        mediaId: item.id,
+        asAdmin: true,
+      );
       await _load();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -150,108 +169,10 @@ class _DashboardGalleryManageScreenState
     });
   }
 
-  Future<void> _addDriveLink() async {
-    final album = _album;
-    if (album == null) return;
-
-    final values = await showDriveLinkDialog(context);
-    if (values == null) return;
-
-    await _runBusy(() async {
-      await _api.addDriveLink(
-        albumId: album.id,
-        title: values.title,
-        url: values.url,
-        linkType: values.linkType,
-      );
-      await _load();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Drive link added.')),
-      );
-    });
-  }
-
-  Future<void> _editDriveLink(GalleryExternalLink link) async {
-    final album = _album;
-    if (album == null) return;
-
-    final values = await showDriveLinkDialog(
-      context,
-      initialTitle: link.title,
-      initialUrl: link.url,
-      initialLinkType: link.linkType,
-    );
-    if (values == null) return;
-
-    await _runBusy(() async {
-      await _api.updateDriveLink(
-        albumId: album.id,
-        linkId: link.id,
-        title: values.title,
-        url: values.url,
-        linkType: values.linkType,
-      );
-      await _load();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Drive link updated.')),
-      );
-    });
-  }
-
-  Future<void> _deleteDriveLink(GalleryExternalLink link) async {
-    final album = _album;
-    if (album == null) return;
-
-    final confirmed = await confirmDelete(
-      context,
-      title: 'Remove Drive link',
-      message: 'Remove "${link.title ?? 'this link'}" from the album?',
-    );
-    if (!confirmed) return;
-
-    await _runBusy(() async {
-      await _api.deleteDriveLink(albumId: album.id, linkId: link.id);
-      await _load();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Drive link removed.')),
-      );
-    });
-  }
-
-  Future<void> _downloadPhoto(GalleryMediaItem item) async {
-    final ok = await downloadFromUrl(
-      item.imageUrl,
-      filename: galleryDownloadFilename(item.imageUrl, caption: item.caption),
-    );
-    if (!mounted) return;
-    if (!ok) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Download failed. Please try again.')),
-      );
-    }
-  }
-
-  void _openLightbox(int initialIndex) {
-    showDialog<void>(
-      context: context,
-      barrierColor: Colors.black87,
-      builder: (context) => _ManageLightbox(
-        media: _media,
-        initialIndex: initialIndex,
-        onDownload: _downloadPhoto,
-      ),
-    );
-  }
-
-  int _columnCount(double width) => width > 900 ? 3 : 2;
+  int _columnCount(double width) => width > 900 ? 4 : width > 600 ? 3 : 2;
 
   @override
   Widget build(BuildContext context) {
-    final columns = _columnCount(MediaQuery.sizeOf(context).width);
-
     return Stack(
       children: [
         SingleChildScrollView(
@@ -266,7 +187,7 @@ class _DashboardGalleryManageScreenState
                     )
                   : _error != null
                       ? _ErrorBanner(message: _error!, onRetry: _load)
-                      : _buildContent(columns),
+                      : _buildContent(),
             ),
           ),
         ),
@@ -281,14 +202,15 @@ class _DashboardGalleryManageScreenState
     );
   }
 
-  Widget _buildContent(int columns) {
+  Widget _buildContent() {
     final album = _album!;
+    final columns = _columnCount(MediaQuery.sizeOf(context).width);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         TextButton.icon(
-          onPressed: () => context.go('/my-gallery'),
+          onPressed: () => context.go(widget.basePath),
           icon: const Icon(Icons.arrow_back),
           label: const Text('Back to gallery'),
         ),
@@ -322,36 +244,35 @@ class _DashboardGalleryManageScreenState
                 ],
               ),
             ),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                ElevatedButton.icon(
-                  onPressed: _uploadPhotos,
-                  icon: const Icon(Icons.upload_outlined, size: 18),
-                  label: const Text('Upload photos'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.secondary,
-                    foregroundColor: AppColors.primary,
-                  ),
-                ),
-              ],
+            ElevatedButton.icon(
+              onPressed: _busy ? null : _uploadPhotos,
+              icon: const Icon(Icons.upload_outlined, size: 18),
+              label: const Text('Upload photos'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.secondary,
+                foregroundColor: AppColors.primary,
+              ),
             ),
           ],
         ),
         const SizedBox(height: 28),
         Text(
-          'Photos (${album.mediaCount})',
+          'Photos',
           style: GoogleFonts.inter(
             fontSize: 18,
             fontWeight: FontWeight.w600,
             color: AppColors.heading,
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
+        Text(
+          'Upload images only. These photos appear in the public Gallery for members to view and download.',
+          style: GoogleFonts.inter(color: AppColors.bodyText, fontSize: 13),
+        ),
+        const SizedBox(height: 16),
         if (_media.isEmpty)
           Text(
-            'No photos yet. Upload images to get started.',
+            'No photos yet. Upload images to this album.',
             style: GoogleFonts.inter(color: AppColors.bodyText),
           )
         else
@@ -362,277 +283,71 @@ class _DashboardGalleryManageScreenState
               crossAxisCount: columns,
               crossAxisSpacing: 12,
               mainAxisSpacing: 12,
-              childAspectRatio: 1.2,
+              childAspectRatio: 1,
             ),
             itemCount: _media.length,
             itemBuilder: (context, index) {
               final item = _media[index];
-              return Stack(
-                fit: StackFit.expand,
-                children: [
-                  Material(
-                    color: AppColors.card,
-                    borderRadius: BorderRadius.circular(8),
-                    clipBehavior: Clip.antiAlias,
-                    child: InkWell(
-                      onTap: () => _openLightbox(index),
-                      child: CachedNetworkImage(
-                        imageUrl: item.imageUrl,
-                        fit: BoxFit.cover,
-                        errorWidget: (_, _, _) => Container(
-                          color: AppColors.muted,
-                          child: const Icon(Icons.broken_image),
-                        ),
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    top: 6,
-                    right: 6,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _IconAction(
-                          icon: Icons.download_outlined,
-                          tooltip: 'Download',
-                          onPressed: () => _downloadPhoto(item),
-                        ),
-                        const SizedBox(width: 4),
-                        _IconAction(
-                          icon: Icons.delete_outline,
-                          tooltip: 'Delete',
-                          onPressed: () => _deletePhoto(item),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+              return _PhotoTile(
+                item: item,
+                onDelete: () => _deletePhoto(item),
               );
             },
           ),
         if (_hasMore) ...[
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
           Center(
             child: _loadingMore
                 ? const CircularProgressIndicator()
                 : OutlinedButton(
-                    onPressed: _loadMoreMedia,
-                    child: const Text('Load more photos'),
+                    onPressed: _loadMore,
+                    child: const Text('Load more'),
                   ),
           ),
         ],
-        const SizedBox(height: 32),
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                'Google Drive links',
-                style: GoogleFonts.inter(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.heading,
-                ),
-              ),
-            ),
-            ElevatedButton.icon(
-              onPressed: _addDriveLink,
-              icon: const Icon(Icons.add_link, size: 18),
-              label: const Text('Add link'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.secondary,
-                foregroundColor: AppColors.primary,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        if (album.externalLinks.isEmpty)
-          Text(
-            'No Drive links yet. Add a folder or album link from Google Drive.',
-            style: GoogleFonts.inter(color: AppColors.bodyText),
-          )
-        else
-          ...album.externalLinks.map(_buildDriveLinkTile),
       ],
-    );
-  }
-
-  Widget _buildDriveLinkTile(GalleryExternalLink link) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            link.linkType == 'drive_album'
-                ? Icons.photo_album_outlined
-                : Icons.folder_outlined,
-            color: AppColors.secondary,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  link.title ?? 'Google Drive',
-                  style: GoogleFonts.inter(
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.heading,
-                  ),
-                ),
-                Text(
-                  link.url,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.inter(
-                    fontSize: 12,
-                    color: AppColors.mutedText,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            tooltip: 'Open',
-            onPressed: () => openExternalUrl(link.url),
-            icon: const Icon(Icons.open_in_new),
-          ),
-          IconButton(
-            tooltip: 'Edit',
-            onPressed: () => _editDriveLink(link),
-            icon: const Icon(Icons.edit_outlined),
-          ),
-          IconButton(
-            tooltip: 'Remove',
-            onPressed: () => _deleteDriveLink(link),
-            icon: Icon(Icons.delete_outline, color: AppColors.error),
-          ),
-        ],
-      ),
     );
   }
 }
 
-class _IconAction extends StatelessWidget {
-  const _IconAction({
-    required this.icon,
-    required this.tooltip,
-    required this.onPressed,
-  });
+class _PhotoTile extends StatelessWidget {
+  const _PhotoTile({required this.item, required this.onDelete});
 
-  final IconData icon;
-  final String tooltip;
-  final VoidCallback onPressed;
+  final GalleryMediaItem item;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.black54,
-      borderRadius: BorderRadius.circular(6),
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(6),
-        child: Tooltip(
-          message: tooltip,
-          child: Padding(
-            padding: const EdgeInsets.all(6),
-            child: Icon(icon, color: Colors.white, size: 18),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ManageLightbox extends StatefulWidget {
-  const _ManageLightbox({
-    required this.media,
-    required this.initialIndex,
-    required this.onDownload,
-  });
-
-  final List<GalleryMediaItem> media;
-  final int initialIndex;
-  final Future<void> Function(GalleryMediaItem item) onDownload;
-
-  @override
-  State<_ManageLightbox> createState() => _ManageLightboxState();
-}
-
-class _ManageLightboxState extends State<_ManageLightbox> {
-  late final PageController _controller;
-  late int _index;
-
-  @override
-  void initState() {
-    super.initState();
-    _index = widget.initialIndex;
-    _controller = PageController(initialPage: widget.initialIndex);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final item = widget.media[_index];
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.all(16),
+      color: AppColors.muted,
+      borderRadius: BorderRadius.circular(10),
+      clipBehavior: Clip.antiAlias,
       child: Stack(
+        fit: StackFit.expand,
         children: [
-          PageView.builder(
-            controller: _controller,
-            itemCount: widget.media.length,
-            onPageChanged: (i) => setState(() => _index = i),
-            itemBuilder: (context, index) {
-              final media = widget.media[index];
-              return InteractiveViewer(
-                child: CachedNetworkImage(
-                  imageUrl: media.imageUrl,
-                  fit: BoxFit.contain,
-                ),
-              );
-            },
+          CachedNetworkImage(
+            imageUrl: item.imageUrl,
+            fit: BoxFit.cover,
+            errorWidget: (_, _, _) => const Center(
+              child: Icon(Icons.broken_image_outlined),
+            ),
           ),
           Positioned(
-            top: 0,
-            right: 0,
-            child: Row(
-              children: [
-                IconButton(
-                  onPressed: () => widget.onDownload(item),
-                  icon: const Icon(Icons.download_outlined,
-                      color: Colors.white, size: 24),
-                  tooltip: 'Download',
-                ),
-                IconButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close, color: Colors.white, size: 28),
-                ),
-              ],
-            ),
-          ),
-          if (item.caption != null)
-            Positioned(
-              left: 16,
-              right: 16,
-              bottom: 16,
-              child: Text(
-                item.caption!,
-                textAlign: TextAlign.center,
-                style: GoogleFonts.inter(color: Colors.white, fontSize: 14),
+            top: 6,
+            right: 6,
+            child: Material(
+              color: Colors.black54,
+              borderRadius: BorderRadius.circular(20),
+              child: IconButton(
+                tooltip: 'Delete photo',
+                iconSize: 18,
+                padding: const EdgeInsets.all(6),
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                onPressed: onDelete,
+                icon: const Icon(Icons.delete_outline, color: Colors.white),
               ),
             ),
+          ),
         ],
       ),
     );

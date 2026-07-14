@@ -465,32 +465,32 @@ class _ForgotPasswordDialog extends StatefulWidget {
 }
 
 class _ForgotPasswordDialogState extends State<_ForgotPasswordDialog> {
-  final _tokenController = TextEditingController();
+  final _codeController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
   String? _statusMessage;
   bool _busy = false;
   bool _obscureNewPassword = true;
+  bool _obscureConfirmPassword = true;
 
   @override
   void dispose() {
-    _tokenController.dispose();
+    _codeController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
   Future<void> _requestReset() async {
     setState(() {
       _busy = true;
-      _statusMessage = 'Sending reset instructions...';
+      _statusMessage = 'Sending 6-digit code...';
     });
     try {
       final result = await widget.authService.forgotPassword(email: widget.email);
       if (!mounted) return;
       setState(() {
         _statusMessage = result.message;
-        if (result.debugResetToken != null) {
-          _tokenController.text = result.debugResetToken!;
-        }
       });
     } on AuthException catch (e) {
       if (!mounted) return;
@@ -501,12 +501,20 @@ class _ForgotPasswordDialogState extends State<_ForgotPasswordDialog> {
   }
 
   Future<void> _applyReset() async {
-    final token = _tokenController.text.trim();
+    final code = _codeController.text.trim();
     final password = _passwordController.text;
-    if (token.isEmpty || password.length < 8) {
-      setState(() {
-        _statusMessage = 'Enter the reset token and a password (8+ characters).';
-      });
+    final confirmPassword = _confirmPasswordController.text;
+
+    if (!RegExp(r'^\d{6}$').hasMatch(code)) {
+      setState(() => _statusMessage = 'Enter the 6-digit code from your email.');
+      return;
+    }
+    if (password.length < 8) {
+      setState(() => _statusMessage = 'Password must be at least 8 characters.');
+      return;
+    }
+    if (password != confirmPassword) {
+      setState(() => _statusMessage = 'New password and confirm password must match.');
       return;
     }
 
@@ -515,7 +523,12 @@ class _ForgotPasswordDialogState extends State<_ForgotPasswordDialog> {
       _statusMessage = 'Updating password...';
     });
     try {
-      await widget.authService.resetPassword(token: token, newPassword: password);
+      await widget.authService.resetPassword(
+        email: widget.email,
+        code: code,
+        newPassword: password,
+        confirmPassword: confirmPassword,
+      );
       if (!mounted) return;
       Navigator.of(context).pop(password);
     } on AuthException catch (e) {
@@ -553,28 +566,34 @@ class _ForgotPasswordDialogState extends State<_ForgotPasswordDialog> {
               ),
             ),
             const SizedBox(height: 12),
-            OutlinedButton(
+            FilledButton(
               onPressed: _busy ? null : _requestReset,
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: AppColors.border),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.secondary,
+                foregroundColor: Colors.white,
+                elevation: 2,
+                shadowColor: AppColors.secondary.withValues(alpha: 0.45),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(999),
                 ),
-                padding: const EdgeInsets.symmetric(vertical: 14),
+                padding: const EdgeInsets.symmetric(vertical: 16),
               ),
               child: Text(
-                'Send reset link',
+                'Send 6-digit code',
                 style: GoogleFonts.inter(
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.primary,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
                 ),
               ),
             ),
             const SizedBox(height: 12),
             TextField(
-              controller: _tokenController,
+              controller: _codeController,
+              keyboardType: TextInputType.number,
+              maxLength: 6,
               decoration: InputDecoration(
-                labelText: 'Reset token',
+                labelText: '6-digit code',
+                counterText: '',
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
@@ -612,6 +631,42 @@ class _ForgotPasswordDialogState extends State<_ForgotPasswordDialog> {
                   tooltip: _obscureNewPassword ? 'Show password' : 'Hide password',
                   icon: Icon(
                     _obscureNewPassword
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                    color: AppColors.mutedText,
+                    size: 20,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _confirmPasswordController,
+              obscureText: _obscureConfirmPassword,
+              decoration: InputDecoration(
+                labelText: 'Confirm password',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: AppColors.border),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+                ),
+                suffixIcon: IconButton(
+                  onPressed: () {
+                    setState(
+                      () => _obscureConfirmPassword = !_obscureConfirmPassword,
+                    );
+                  },
+                  tooltip: _obscureConfirmPassword
+                      ? 'Show password'
+                      : 'Hide password',
+                  icon: Icon(
+                    _obscureConfirmPassword
                         ? Icons.visibility_off_outlined
                         : Icons.visibility_outlined,
                     color: AppColors.mutedText,

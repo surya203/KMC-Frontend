@@ -155,14 +155,19 @@ class _MobileGallery extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final columns = width < 420 ? 1 : 2;
+    // Taller tiles so full vertical photos fit on phones.
+    final aspectRatio = columns == 1 ? 0.75 : 0.8;
+
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: columns,
         crossAxisSpacing: 16,
         mainAxisSpacing: 16,
-        childAspectRatio: 0.85,
+        childAspectRatio: aspectRatio,
       ),
       itemCount: albums.length,
       itemBuilder: (context, index) {
@@ -170,7 +175,6 @@ class _MobileGallery extends StatelessWidget {
         return _GalleryImage(
           title: album.title,
           imageUrl: album.coverImageUrl,
-          height: 220,
           onTap: () => context.go('/gallery/${album.slug}'),
         );
       },
@@ -182,13 +186,13 @@ class _GalleryImage extends StatefulWidget {
   const _GalleryImage({
     required this.title,
     required this.imageUrl,
-    required this.height,
     required this.onTap,
+    this.height,
   });
 
   final String title;
   final String? imageUrl;
-  final double height;
+  final double? height;
   final VoidCallback onTap;
 
   @override
@@ -222,17 +226,23 @@ class _GalleryImageState extends State<_GalleryImage> {
               fit: StackFit.expand,
               children: [
                 AnimatedScale(
-                  scale: _hovered ? 1.08 : 1.0,
+                  scale: _hovered ? 1.03 : 1.0,
                   duration: const Duration(milliseconds: 600),
                   curve: Curves.easeInOut,
-                  child: widget.imageUrl != null
-                      ? CachedNetworkImage(
-                          imageUrl: widget.imageUrl!,
-                          fit: BoxFit.cover,
-                          errorWidget: (context, url, error) =>
-                              Container(color: AppColors.muted),
-                        )
-                      : Container(color: AppColors.muted),
+                  child: ColoredBox(
+                    color: AppColors.muted,
+                    child: widget.imageUrl != null
+                        ? CachedNetworkImage(
+                            imageUrl: widget.imageUrl!,
+                            fit: BoxFit.contain,
+                            width: double.infinity,
+                            height: double.infinity,
+                            alignment: Alignment.center,
+                            errorWidget: (context, url, error) =>
+                                const SizedBox.expand(),
+                          )
+                        : const SizedBox.expand(),
+                  ),
                 ),
                 Positioned(
                   left: 0,

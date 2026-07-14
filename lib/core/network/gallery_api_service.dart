@@ -252,6 +252,55 @@ class GalleryApiService {
     }
   }
 
+  /// Staff create — uses admin API and publishes immediately.
+  Future<GalleryAlbum> createAlbumAsAdmin({
+    required String slug,
+    required String title,
+    String? description,
+  }) async {
+    try {
+      final response = await _apiClient.post<Map<String, dynamic>>(
+        '${AppConfig.apiPrefix}/admin/gallery/albums',
+        data: {
+          'slug': slug,
+          'title': title,
+          if (description != null && description.isNotEmpty)
+            'description': description,
+          'publish': true,
+        },
+        options: _authOptions,
+      );
+      if (response.data == null) throw Exception('Album creation failed.');
+      return GalleryAlbum.fromJson({
+        ...response.data!,
+        'media_count': response.data!['media_count'] ?? 0,
+      });
+    } on DioException catch (e) {
+      throw Exception(_readDetail(e));
+    }
+  }
+
+  Future<List<GalleryAlbum>> fetchAlbumsAsAdmin() async {
+    try {
+      final response = await _apiClient.get<dynamic>(
+        '${AppConfig.apiPrefix}/admin/gallery/albums',
+        options: _authOptions,
+      );
+      final raw = response.data;
+      final albums = raw is List
+          ? raw
+          : (raw is Map ? (raw['albums'] as List<dynamic>? ?? []) : <dynamic>[]);
+      return albums
+          .map((e) => GalleryAlbum.fromJson({
+                ...(e as Map<String, dynamic>),
+                'media_count': e['media_count'] ?? 0,
+              }))
+          .toList();
+    } on DioException catch (e) {
+      throw Exception(_readDetail(e));
+    }
+  }
+
   Future<GalleryAlbumDetail> updateAlbum({
     required String albumId,
     String? title,
@@ -273,10 +322,40 @@ class GalleryApiService {
     }
   }
 
+  Future<void> updateAlbumAsAdmin({
+    required String albumId,
+    String? title,
+    String? description,
+  }) async {
+    try {
+      await _apiClient.patch<Map<String, dynamic>>(
+        '${AppConfig.apiPrefix}/admin/gallery/albums/$albumId',
+        data: {
+          if (title != null) 'title': title,
+          if (description != null) 'description': description,
+        },
+        options: _authOptions,
+      );
+    } on DioException catch (e) {
+      throw Exception(_readDetail(e));
+    }
+  }
+
   Future<void> deleteAlbum(String albumId) async {
     try {
       await _apiClient.delete<void>(
         '${AppConfig.apiPrefix}/gallery/albums/$albumId',
+        options: _authOptions,
+      );
+    } on DioException catch (e) {
+      throw Exception(_readDetail(e));
+    }
+  }
+
+  Future<void> deleteAlbumAsAdmin(String albumId) async {
+    try {
+      await _apiClient.delete<void>(
+        '${AppConfig.apiPrefix}/admin/gallery/albums/$albumId',
         options: _authOptions,
       );
     } on DioException catch (e) {
@@ -306,9 +385,16 @@ class GalleryApiService {
 
     try {
       final response = await _apiClient.dio.post<Map<String, dynamic>>(
-        '${AppConfig.apiPrefix}/gallery/albums/$albumId/upload',
-        data: FormData.fromMap({'files': multipartFiles}),
-        options: Options(headers: {'Authorization': header}),
+        '${AppConfig.apiPrefix}/admin/gallery/media',
+        data: FormData.fromMap({
+          'album_id': albumId,
+          'files': multipartFiles,
+        }),
+        options: Options(
+          headers: {'Authorization': header},
+          sendTimeout: const Duration(minutes: 2),
+          receiveTimeout: const Duration(minutes: 2),
+        ),
       );
       final uploaded = response.data?['uploaded'] as List<dynamic>? ?? [];
       return uploaded
@@ -330,12 +416,13 @@ class GalleryApiService {
   Future<void> deleteMedia({
     required String albumId,
     required String mediaId,
+    bool asAdmin = false,
   }) async {
     try {
-      await _apiClient.delete<void>(
-        '${AppConfig.apiPrefix}/gallery/albums/$albumId/media/$mediaId',
-        options: _authOptions,
-      );
+      final path = asAdmin
+          ? '${AppConfig.apiPrefix}/admin/gallery/albums/$albumId/media/$mediaId'
+          : '${AppConfig.apiPrefix}/gallery/albums/$albumId/media/$mediaId';
+      await _apiClient.delete<void>(path, options: _authOptions);
     } on DioException catch (e) {
       throw Exception(_readDetail(e));
     }

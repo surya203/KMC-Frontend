@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:file_picker/file_picker.dart';
 
 import '../auth/auth_refresh.dart';
 import '../auth/auth_session.dart';
@@ -197,6 +198,71 @@ class AdminMembersPage {
   }
 }
 
+class AdminEventItem {
+  const AdminEventItem({
+    required this.id,
+    required this.slug,
+    required this.title,
+    required this.startsAt,
+    required this.isOnline,
+    required this.registrationOpen,
+    required this.registeredCount,
+    this.description,
+    this.endsAt,
+    this.venueName,
+    this.venueAddress,
+    this.city,
+    this.meetingUrl,
+    this.capacity,
+    this.coverImageUrl,
+    this.publishedAt,
+  });
+
+  final String id;
+  final String slug;
+  final String title;
+  final String? description;
+  final DateTime startsAt;
+  final DateTime? endsAt;
+  final String? venueName;
+  final String? venueAddress;
+  final String? city;
+  final bool isOnline;
+  final String? meetingUrl;
+  final int? capacity;
+  final bool registrationOpen;
+  final String? coverImageUrl;
+  final DateTime? publishedAt;
+  final int registeredCount;
+
+  bool get isPublished => publishedAt != null;
+
+  factory AdminEventItem.fromJson(Map<String, dynamic> json) {
+    return AdminEventItem(
+      id: json['id'] as String,
+      slug: json['slug'] as String,
+      title: json['title'] as String,
+      description: json['description'] as String?,
+      startsAt: DateTime.parse(json['starts_at'] as String),
+      endsAt: json['ends_at'] != null
+          ? DateTime.parse(json['ends_at'] as String)
+          : null,
+      venueName: json['venue_name'] as String?,
+      venueAddress: json['venue_address'] as String?,
+      city: json['city'] as String?,
+      isOnline: json['is_online'] as bool? ?? false,
+      meetingUrl: json['meeting_url'] as String?,
+      capacity: json['capacity'] as int?,
+      registrationOpen: json['registration_open'] as bool? ?? true,
+      coverImageUrl: json['cover_image_url'] as String?,
+      publishedAt: json['published_at'] != null
+          ? DateTime.parse(json['published_at'] as String)
+          : null,
+      registeredCount: json['registered_count'] as int? ?? 0,
+    );
+  }
+}
+
 class AdminApiService {
   AdminApiService({ApiClient? apiClient}) : _apiClient = apiClient ?? ApiClient();
 
@@ -364,6 +430,106 @@ class AdminApiService {
     } on DioException catch (e) {
       throw Exception(_readDetail(e));
     }
+  }
+
+  Future<List<AdminEventItem>> fetchEvents() async {
+    try {
+      await AuthSession.instance.ensureReady();
+      final response = await _apiClient.get<dynamic>(
+        '${AppConfig.apiPrefix}/admin/events',
+        options: _authOptions,
+      );
+      final raw = response.data;
+      if (raw is! List) return [];
+      return raw
+          .whereType<Map>()
+          .map((e) => AdminEventItem.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+    } on DioException catch (e) {
+      throw Exception(_readDetail(e));
+    }
+  }
+
+  Future<AdminEventItem> createEvent(Map<String, dynamic> data) async {
+    try {
+      await AuthSession.instance.ensureReady();
+      final response = await _apiClient.post<Map<String, dynamic>>(
+        '${AppConfig.apiPrefix}/admin/events',
+        data: data,
+        options: _authOptions,
+      );
+      return AdminEventItem.fromJson(response.data ?? {});
+    } on DioException catch (e) {
+      throw Exception(_readDetail(e));
+    }
+  }
+
+  Future<AdminEventItem> updateEvent(
+    String eventId,
+    Map<String, dynamic> data,
+  ) async {
+    try {
+      final response = await _authenticatedPatch(
+        '${AppConfig.apiPrefix}/admin/events/$eventId',
+        data: data,
+      );
+      return AdminEventItem.fromJson(response.data ?? {});
+    } on DioException catch (e) {
+      throw Exception(_readDetail(e));
+    }
+  }
+
+  Future<void> deleteEvent(String eventId) async {
+    try {
+      await AuthSession.instance.ensureReady();
+      await _apiClient.delete(
+        '${AppConfig.apiPrefix}/admin/events/$eventId',
+        options: _authOptions,
+      );
+    } on DioException catch (e) {
+      // 204 No Content is success; some clients still raise on empty body.
+      if (e.response?.statusCode == 204) return;
+      throw Exception(_readDetail(e));
+    }
+  }
+
+  Future<String> uploadEventCover(PlatformFile file) async {
+    final header = AuthService.authorizationHeader;
+    if (header == null) throw Exception('Sign in required.');
+    if (file.bytes == null || file.bytes!.isEmpty) {
+      throw Exception('Could not read image file.');
+    }
+
+    final mimeType = _mimeTypeFromFilename(file.name);
+    try {
+      await AuthSession.instance.ensureReady();
+      final response = await _apiClient.dio.post<Map<String, dynamic>>(
+        '${AppConfig.apiPrefix}/admin/events/cover',
+        data: FormData.fromMap({
+          'file': MultipartFile.fromBytes(
+            file.bytes!,
+            filename: file.name,
+            contentType: DioMediaType.parse(mimeType),
+          ),
+        }),
+        options: Options(headers: {'Authorization': header}),
+      );
+      final url = response.data?['cover_image_url'] as String?;
+      if (url == null || url.isEmpty) {
+        throw Exception('Cover upload failed.');
+      }
+      return url;
+    } on DioException catch (e) {
+      throw Exception(_readDetail(e));
+    }
+  }
+
+  String _mimeTypeFromFilename(String name) {
+    final lower = name.toLowerCase();
+    if (lower.endsWith('.png')) return 'image/png';
+    if (lower.endsWith('.webp')) return 'image/webp';
+    if (lower.endsWith('.gif')) return 'image/gif';
+    return 'image/jpeg';
   }
 
   String membersExportUrl({String? search}) {

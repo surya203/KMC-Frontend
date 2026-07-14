@@ -25,7 +25,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
       slug: 'hospital_training',
       label: 'Hospital Training',
     ),
-    AnnouncementCategory(slug: 'cme_programs', label: 'CME Programs'),
+    AnnouncementCategory(slug: 'cme_programs', label: 'Events'),
     AnnouncementCategory(
       slug: 'medical_workshops',
       label: 'Medical Workshops',
@@ -495,10 +495,13 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                     detail: _expandedId == item.id ? _expandedDetail : null,
                     loadingDetail: _loadingDetailId == item.id,
                     onTap: () => _toggleDetail(item),
-                    onEdit: canEditAnnouncementForUser(item.authorId)
+                    onEdit: !item.id.startsWith('event:') &&
+                            canEditAnnouncementForUser(item.authorId)
                         ? () => _editAnnouncement(item)
                         : null,
-                    onDelete: isAdminUser ? () => _deleteAnnouncement(item) : null,
+                    onDelete: !item.id.startsWith('event:') && isAdminUser
+                        ? () => _deleteAnnouncement(item)
+                        : null,
                     onContact: _expandedDetail != null &&
                             _expandedId == item.id &&
                             _expandedDetail!.contactEnabled &&
