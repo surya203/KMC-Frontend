@@ -1,4 +1,5 @@
 import 'auth_session.dart';
+import 'jwt_role.dart';
 
 /// Staff roles that can access the admin area.
 const staffRoles = {'admin', 'staff', 'verifier', 'executive'};
@@ -16,31 +17,55 @@ const announcementPublisherRoles = {
   ...officerRoles,
 };
 
-bool isStaffRole(String? role) => role != null && staffRoles.contains(role);
+/// Prefer `/auth/me` role; fall back to JWT claim when user profile is not loaded yet.
+String? resolveUserRole([String? role]) {
+  final fromArg = role?.trim();
+  if (fromArg != null && fromArg.isNotEmpty) return fromArg;
 
-bool isAdminRole(String? role) => role == 'admin';
+  final rawUserRole = AuthSession.instance.currentUser?.role;
+  final fromUser = rawUserRole?.trim();
+  if (fromUser != null && fromUser.isNotEmpty) return fromUser;
 
-bool canViewAdminAnalytics(String? role) => role == 'admin';
+  return roleFromAccessToken();
+}
 
-bool canReviewVerifications(String? role) =>
-    role == 'admin' || role == 'verifier' || role == 'staff';
+bool isStaffRole(String? role) {
+  final resolved = resolveUserRole(role);
+  return resolved != null && staffRoles.contains(resolved);
+}
 
-bool canManageMembers(String? role) => role == 'admin';
+bool isAdminRole(String? role) => resolveUserRole(role) == 'admin';
 
-bool canManageGallery(String? role) => role == 'admin';
+bool canViewAdminAnalytics(String? role) => resolveUserRole(role) == 'admin';
 
-bool canManageEvents(String? role) => role == 'admin';
+bool canReviewVerifications(String? role) {
+  final resolved = resolveUserRole(role);
+  return resolved == 'admin' || resolved == 'verifier' || resolved == 'staff';
+}
 
-bool isAnnouncementPublisher(String? role) =>
-    role != null && announcementPublisherRoles.contains(role);
+bool canManageMembers(String? role) => resolveUserRole(role) == 'admin';
+
+bool canManageGallery(String? role) => resolveUserRole(role) == 'admin';
+
+bool canManageEvents(String? role) => resolveUserRole(role) == 'admin';
+
+bool canManageDrugs(String? role) => resolveUserRole(role) == 'admin';
+
+bool isAnnouncementPublisher(String? role) {
+  final resolved = resolveUserRole(role);
+  return resolved != null && announcementPublisherRoles.contains(resolved);
+}
 
 /// President, Vice President, Secretary, and Treasurer can post to General Group.
-bool canPostToGeneralGroup(String? role) =>
-    role != null && officerRoles.contains(role);
+bool canPostToGeneralGroup(String? role) {
+  final resolved = resolveUserRole(role);
+  return resolved != null && officerRoles.contains(resolved);
+}
 
 String generalGroupRoleLabel(String? role) {
-  if (role == null) return 'Member';
-  switch (role) {
+  final resolved = resolveUserRole(role);
+  if (resolved == null) return 'Member';
+  switch (resolved) {
     case 'president':
       return 'President';
     case 'vice_president':
@@ -62,13 +87,17 @@ bool canEditAnnouncement(String? authorId, String? currentUserId, String? role) 
   return authorId == currentUserId;
 }
 
-String homeRouteForRole(String? role) {
+/// Post-login / splash destination for every role (including admin).
+String homeRouteForRole(String? role) => '/dashboard';
+
+/// Staff console entry from Settings (admin analytics or verification queue).
+String staffConsoleRouteForRole(String? role) {
   if (canViewAdminAnalytics(role)) return '/admin';
   if (canReviewVerifications(role)) return '/admin/verifications';
   return '/dashboard';
 }
 
-String? get currentUserRole => AuthSession.instance.currentUser?.role;
+String? get currentUserRole => resolveUserRole();
 
 bool get isAnnouncementPublisherUser =>
     isAnnouncementPublisher(currentUserRole);

@@ -26,7 +26,7 @@ class _SplashScreenState extends State<SplashScreen> {
       await AuthSession.instance.ensureReady();
       if (!mounted) return;
       if (AuthSession.instance.isAuthenticated) {
-        context.go(homeRouteForRole(AuthSession.instance.currentUser?.role));
+        context.go(homeRouteForRole(currentUserRole));
         return;
       }
       context.go('/');

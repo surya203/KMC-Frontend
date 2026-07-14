@@ -61,7 +61,11 @@ class _ProfileDetailScreenState extends State<ProfileDetailScreen> {
                 alignment: Alignment.centerLeft,
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 1200),
-                  child: const PublicBackIcon(),
+                  child: TextButton.icon(
+                    onPressed: () => context.go('/'),
+                    icon: const Icon(Icons.arrow_back),
+                    label: const Text('Back to home'),
+                  ),
                 ),
               ),
             ),

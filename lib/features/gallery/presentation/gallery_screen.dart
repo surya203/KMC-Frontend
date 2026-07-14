@@ -220,7 +220,11 @@ class _GalleryAlbumScreenState extends State<GalleryAlbumScreen> {
                 alignment: Alignment.centerLeft,
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 1200),
-                  child: const PublicBackIcon(),
+                  child: TextButton.icon(
+                    onPressed: () => context.go('/gallery'),
+                    icon: const Icon(Icons.arrow_back),
+                    label: const Text('All albums'),
+                  ),
                 ),
               ),
             ),

@@ -26,11 +26,16 @@ class _DashboardShellHostState extends State<DashboardShellHost> {
   void initState() {
     super.initState();
     _profileSession.addListener(_onProfileChanged);
+    AuthSession.instance.addListener(_onAuthChanged);
     _bootstrapProfile();
   }
 
   Future<void> _bootstrapProfile() async {
     await AuthSession.instance.ensureReady();
+    if (AuthSession.instance.isAuthenticated &&
+        AuthSession.instance.currentUser == null) {
+      await AuthSession.instance.refreshCurrentUser();
+    }
     await _profileSession.ensureLoaded(force: true);
     if (mounted) setState(() {});
   }
@@ -38,11 +43,16 @@ class _DashboardShellHostState extends State<DashboardShellHost> {
   @override
   void dispose() {
     _profileSession.removeListener(_onProfileChanged);
+    AuthSession.instance.removeListener(_onAuthChanged);
     _searchController.dispose();
     super.dispose();
   }
 
   void _onProfileChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void _onAuthChanged() {
     if (mounted) setState(() {});
   }
 
