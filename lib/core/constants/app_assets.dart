@@ -11,6 +11,9 @@ class AppAssets {
   /// Place the shared cover image for all program event cards at this path.
   static const String eventsProgramCover = 'assets/images/events_program_cover.webp';
 
+  /// Phase 1 sample drug artwork (SEMABEST).
+  static const String drugSemabest = 'assets/images/drug_semabest.png';
+
   static const galleryImages = [
     'assets/images/gallery_01.webp',
     'assets/images/gallery_02.webp',

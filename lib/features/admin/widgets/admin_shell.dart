@@ -5,6 +5,8 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/auth/auth_session.dart';
 import '../../../core/auth/role_utils.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/drugs_header_card.dart';
+import '../../../core/widgets/drugs_sidebar_banner.dart';
 
 class AdminNavItem {
   const AdminNavItem(this.label, this.icon, this.path, this.visible);
@@ -33,6 +35,12 @@ const adminNavItems = <AdminNavItem>[
     Icons.groups_2_outlined,
     '/admin/members',
     canManageMembers,
+  ),
+  AdminNavItem(
+    'Drugs',
+    Icons.medication_outlined,
+    '/admin/drugs',
+    canManageDrugs,
   ),
 ];
 
@@ -151,21 +159,27 @@ class _AdminSidebar extends StatelessWidget {
             ),
             const Divider(color: Colors.white12, height: 1),
             Expanded(
-              child: ListView(
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
-                children: [
-                  for (final item in items)
-                    _AdminNavTile(
-                      item: item,
-                      selected: currentPath == item.path,
-                    ),
-                ],
+              child: ScrollConfiguration(
+                behavior: ScrollConfiguration.of(context).copyWith(
+                  scrollbars: false,
+                ),
+                child: ListView(
+                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+                  children: [
+                    for (final item in items)
+                      _AdminNavTile(
+                        item: item,
+                        selected: currentPath == item.path,
+                      ),
+                  ],
+                ),
               ),
             ),
             Padding(
               padding: const EdgeInsets.all(12),
               child: Column(
                 children: [
+                  const DrugsSidebarBanner(),
                   Semantics(
                     button: true,
                     label: 'Open member dashboard',
@@ -274,27 +288,52 @@ class _AdminTopBar extends StatelessWidget {
           decoration: const BoxDecoration(
             border: Border(bottom: BorderSide(color: AppColors.border)),
           ),
-          child: Row(
-            children: [
-              if (onMenuTap != null)
-                Semantics(
-                  button: true,
-                  label: 'Open navigation menu',
-                  child: IconButton(
-                    onPressed: onMenuTap,
-                    icon: const Icon(Icons.menu),
-                    color: AppColors.primary,
+          child: ListenableBuilder(
+            listenable: AuthSession.instance,
+            builder: (context, _) {
+              final showDrugs = canManageDrugs(null);
+
+              return Row(
+                children: [
+                  if (onMenuTap != null)
+                    Semantics(
+                      button: true,
+                      label: 'Open navigation menu',
+                      child: IconButton(
+                        onPressed: onMenuTap,
+                        icon: const Icon(Icons.menu),
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  Expanded(
+                    child: Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.inter(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.heading,
+                      ),
+                    ),
                   ),
-                ),
-              Text(
-                title,
-                style: GoogleFonts.inter(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.heading,
-                ),
-              ),
-            ],
+                  if (showDrugs) ...[
+                    const DrugsHeaderCard(),
+                    const SizedBox(width: 10),
+                  ],
+                  Semantics(
+                    button: true,
+                    label: 'Notifications',
+                    child: IconButton(
+                      onPressed: () => context.go('/announcements'),
+                      icon: const Icon(Icons.notifications_none_rounded),
+                      color: AppColors.primary,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         ),
       ),
