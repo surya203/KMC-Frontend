@@ -61,6 +61,8 @@ class DirectoryProfile {
     this.city,
     this.country,
     this.photoUrl,
+    this.membershipNumber,
+    this.practiceLocation,
   });
 
   final String id;
@@ -73,9 +75,20 @@ class DirectoryProfile {
   final String? city;
   final String? country;
   final String? photoUrl;
+  final String? membershipNumber;
+  final String? practiceLocation;
 
   String get subtitle {
     final parts = <String>[];
+    if (specialization != null && specialization!.isNotEmpty) {
+      parts.add(specialization!);
+    } else if (degree != null && degree!.isNotEmpty) {
+      parts.add(degree!);
+    }
+    final place = city ?? practiceLocation;
+    if (place != null && place.isNotEmpty) {
+      parts.add(place);
+    }
     if (currentTitle != null && currentTitle!.isNotEmpty) {
       parts.add(currentTitle!);
     }
@@ -98,6 +111,8 @@ class DirectoryProfile {
       city: json['city'] as String?,
       country: json['country'] as String?,
       photoUrl: json['photo_url'] as String?,
+      membershipNumber: json['membership_number'] as String?,
+      practiceLocation: json['practice_location'] as String?,
     );
   }
 }
@@ -116,6 +131,9 @@ class ProfileDetail {
     this.bio,
     this.linkedinUrl,
     this.photoUrl,
+    this.practiceLocation,
+    this.phone,
+    this.membershipNumber,
   });
 
   final String id;
@@ -130,6 +148,9 @@ class ProfileDetail {
   final String? bio;
   final String? linkedinUrl;
   final String? photoUrl;
+  final String? practiceLocation;
+  final String? phone;
+  final String? membershipNumber;
 
   factory ProfileDetail.fromJson(Map<String, dynamic> json) {
     return ProfileDetail(
@@ -145,6 +166,9 @@ class ProfileDetail {
       bio: json['bio'] as String?,
       linkedinUrl: json['linkedin_url'] as String?,
       photoUrl: json['photo_url'] as String?,
+      practiceLocation: json['practice_location'] as String?,
+      phone: json['phone'] as String?,
+      membershipNumber: json['membership_number'] as String?,
     );
   }
 }
@@ -273,6 +297,10 @@ class ProfilesApiService {
     String? search,
     int? batchYear,
     String? country,
+    String? location,
+    String? category,
+    String? membershipNumber,
+    String? phone,
     int page = 1,
     int pageSize = 20,
   }) async {
@@ -281,15 +309,23 @@ class ProfilesApiService {
         'search': search,
         'batch_year': batchYear,
         'country': country,
+        'location': location,
+        'category': category,
+        'membership_number': membershipNumber,
+        'phone': phone,
         'page': page,
         'page_size': pageSize,
       };
       queryParameters.removeWhere(
         (key, value) => value == null || (value is String && value.isEmpty),
       );
+      final header = AuthService.authorizationHeader;
       final response = await _apiClient.get<Map<String, dynamic>>(
         '${AppConfig.apiPrefix}/profiles',
         queryParameters: queryParameters,
+        options: header != null
+            ? Options(headers: {'Authorization': header})
+            : null,
       );
       final data = response.data ?? {};
       final profiles = data['profiles'] as List<dynamic>? ?? [];
@@ -309,8 +345,12 @@ class ProfilesApiService {
 
   Future<ProfileDetail> fetchProfileById(String id) async {
     try {
+      final header = AuthService.authorizationHeader;
       final response = await _apiClient.get<Map<String, dynamic>>(
         '${AppConfig.apiPrefix}/profiles/$id',
+        options: header != null
+            ? Options(headers: {'Authorization': header})
+            : null,
       );
       if (response.data == null) throw Exception('Profile not found.');
       return ProfileDetail.fromJson(response.data!);

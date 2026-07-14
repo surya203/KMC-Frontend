@@ -11,6 +11,7 @@ class DashboardNavItem {
 const dashboardNavItems = <DashboardNavItem>[
   DashboardNavItem('Dashboard', Icons.grid_view_rounded, '/dashboard'),
   DashboardNavItem('My Profile', Icons.person_outline_rounded, '/my-profile'),
+  DashboardNavItem('Alumni Roll', Icons.badge_outlined, '/member/alumni-roll'),
   DashboardNavItem('Executive Committee', Icons.people_outline_rounded, '/connect'),
   DashboardNavItem('Events', Icons.event_outlined, '/my-events'),
   DashboardNavItem('Announcements', Icons.campaign_outlined, '/announcements'),
@@ -23,6 +24,12 @@ const dashboardNavItems = <DashboardNavItem>[
 String dashboardTitleForPath(String path, {bool compact = false}) {
   if (path == '/connect' || path.startsWith('/connect/')) {
     return 'Executive Committee';
+  }
+  if (path == '/member/alumni-roll') {
+    return 'Alumni Roll';
+  }
+  if (path.startsWith('/member/profiles/')) {
+    return 'Alumni Profile';
   }
   for (final item in dashboardNavItems) {
     if (item.path == path || path.startsWith('${item.path}/')) {

@@ -30,9 +30,50 @@ bool canManageMembers(String? role) => role == 'admin';
 bool isAnnouncementPublisher(String? role) =>
     role != null && announcementPublisherRoles.contains(role);
 
+/// President, VP, Secretary, Treasurer, or Admin can start an Executive Committee DM.
+bool canStartExecutiveDm(String? role) =>
+    role != null && (officerRoles.contains(role) || role == 'admin');
+
 /// President, Vice President, Secretary, and Treasurer can post to General Group.
-bool canPostToGeneralGroup(String? role) =>
-    role != null && officerRoles.contains(role);
+bool canPostToGeneralGroup(String? role) {
+  return role != null && officerRoles.contains(role);
+}
+
+const financeCouncilViewRoles = {
+  'president',
+  'vice_president',
+  'treasurer',
+  'admin',
+};
+
+const financeCouncilPostRoles = {
+  'president',
+  'vice_president',
+  'treasurer',
+};
+
+/// Finance Council: President, VP, Treasurer chat; Admin view-only.
+bool canViewFinanceCouncil(String? role) =>
+    role != null && financeCouncilViewRoles.contains(role);
+
+bool canPostToFinanceCouncil(String? role) =>
+    role != null && financeCouncilPostRoles.contains(role);
+
+String financeCouncilRoleLabel(String? role) {
+  if (role == null) return 'Member';
+  switch (role) {
+    case 'president':
+      return 'President';
+    case 'vice_president':
+      return 'Vice President';
+    case 'treasurer':
+      return 'Treasurer';
+    case 'admin':
+      return 'Admin';
+    default:
+      return 'Member';
+  }
+}
 
 String generalGroupRoleLabel(String? role) {
   if (role == null) return 'Member';
@@ -65,6 +106,8 @@ String homeRouteForRole(String? role) {
 }
 
 String? get currentUserRole => AuthSession.instance.currentUser?.role;
+
+bool get canStartExecutiveDmUser => canStartExecutiveDm(currentUserRole);
 
 bool get isAnnouncementPublisherUser =>
     isAnnouncementPublisher(currentUserRole);

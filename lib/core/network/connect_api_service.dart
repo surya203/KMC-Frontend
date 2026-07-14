@@ -37,6 +37,224 @@ class ConnectOfficer {
   }
 }
 
+class CommunityMessageItem {
+  const CommunityMessageItem({
+    required this.id,
+    required this.body,
+    required this.authorId,
+    required this.authorName,
+    required this.authorInitials,
+    required this.createdAt,
+    this.batchYear,
+    this.authorRoleLabel,
+    this.targetName,
+    this.targetMembershipNumber,
+    this.targetBatchYear,
+    this.targetLocation,
+    this.targetSpecialization,
+    this.targetPhone,
+    this.audienceLabel,
+    this.isTargeted = false,
+  });
+
+  final String id;
+  final String body;
+  final String authorId;
+  final String authorName;
+  final String authorInitials;
+  final DateTime createdAt;
+  final int? batchYear;
+  final String? authorRoleLabel;
+  final String? targetName;
+  final String? targetMembershipNumber;
+  final int? targetBatchYear;
+  final String? targetLocation;
+  final String? targetSpecialization;
+  final String? targetPhone;
+  final String? audienceLabel;
+  final bool isTargeted;
+
+  factory CommunityMessageItem.fromJson(Map<String, dynamic> json) {
+    final audience = json['audience_label'] as String?;
+    final isTargeted = json['is_targeted'] as bool? ??
+        (audience != null && audience.trim().isNotEmpty);
+    return CommunityMessageItem(
+      id: '${json['id']}',
+      body: '${json['body']}',
+      authorId: '${json['author_id']}',
+      authorName: '${json['author_name']}',
+      authorInitials: '${json['author_initials']}',
+      batchYear: json['batch_year'] as int?,
+      authorRoleLabel: json['author_role_label'] as String?,
+      targetName: json['target_name'] as String?,
+      targetMembershipNumber: json['target_membership_number'] as String?,
+      targetBatchYear: json['target_batch_year'] as int?,
+      targetLocation: json['target_location'] as String?,
+      targetSpecialization: json['target_specialization'] as String?,
+      targetPhone: json['target_phone'] as String?,
+      audienceLabel: audience,
+      isTargeted: isTargeted,
+      createdAt: DateTime.parse('${json['created_at']}'),
+    );
+  }
+}
+
+class AlumniChatTargets {
+  const AlumniChatTargets({
+    this.name,
+    this.membershipNumber,
+    this.batchYear,
+    this.location,
+    this.specialization,
+    this.phone,
+  });
+
+  final String? name;
+  final String? membershipNumber;
+  final int? batchYear;
+  final String? location;
+  final String? specialization;
+  final String? phone;
+
+  bool get hasAny {
+    return (name != null && name!.trim().isNotEmpty) ||
+        (membershipNumber != null && membershipNumber!.trim().isNotEmpty) ||
+        batchYear != null ||
+        (location != null && location!.trim().isNotEmpty) ||
+        (specialization != null && specialization!.trim().isNotEmpty) ||
+        (phone != null && phone!.trim().isNotEmpty);
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      if (name != null && name!.trim().isNotEmpty) 'target_name': name!.trim(),
+      if (membershipNumber != null && membershipNumber!.trim().isNotEmpty)
+        'target_membership_number': membershipNumber!.trim(),
+      if (batchYear != null) 'target_batch_year': batchYear,
+      if (location != null && location!.trim().isNotEmpty)
+        'target_location': location!.trim(),
+      if (specialization != null && specialization!.trim().isNotEmpty)
+        'target_specialization': specialization!.trim(),
+      if (phone != null && phone!.trim().isNotEmpty) 'target_phone': phone!.trim(),
+    };
+  }
+}
+
+class DmMemberCandidate {
+  const DmMemberCandidate({
+    required this.userId,
+    required this.fullName,
+    required this.initials,
+    this.batchYear,
+  });
+
+  final String userId;
+  final String fullName;
+  final String initials;
+  final int? batchYear;
+
+  factory DmMemberCandidate.fromJson(Map<String, dynamic> json) {
+    return DmMemberCandidate(
+      userId: '${json['user_id']}',
+      fullName: '${json['full_name']}',
+      initials: '${json['initials']}',
+      batchYear: json['batch_year'] as int?,
+    );
+  }
+}
+
+class DmThreadItem {
+  const DmThreadItem({
+    required this.id,
+    required this.peerUserId,
+    required this.peerName,
+    required this.peerInitials,
+    this.peerRoleLabel,
+    this.lastMessage,
+    this.updatedAt,
+    this.iBlockedPeer = false,
+    this.peerBlockedMe = false,
+    this.canMessage = true,
+  });
+
+  final String id;
+  final String peerUserId;
+  final String peerName;
+  final String peerInitials;
+  final String? peerRoleLabel;
+  final String? lastMessage;
+  final DateTime? updatedAt;
+  final bool iBlockedPeer;
+  final bool peerBlockedMe;
+  final bool canMessage;
+
+  factory DmThreadItem.fromJson(Map<String, dynamic> json) {
+    return DmThreadItem(
+      id: '${json['id']}',
+      peerUserId: '${json['peer_user_id']}',
+      peerName: '${json['peer_name']}',
+      peerInitials: '${json['peer_initials']}',
+      peerRoleLabel: json['peer_role_label'] as String?,
+      lastMessage: json['last_message'] as String?,
+      updatedAt: json['updated_at'] == null
+          ? null
+          : DateTime.tryParse('${json['updated_at']}'),
+      iBlockedPeer: json['i_blocked_peer'] as bool? ?? false,
+      peerBlockedMe: json['peer_blocked_me'] as bool? ?? false,
+      canMessage: json['can_message'] as bool? ?? true,
+    );
+  }
+}
+
+class DmMessageItem {
+  const DmMessageItem({
+    required this.id,
+    required this.threadId,
+    required this.body,
+    required this.senderId,
+    required this.senderName,
+    required this.senderInitials,
+    required this.isMine,
+    required this.createdAt,
+    this.status = 'sent',
+  });
+
+  final String id;
+  final String threadId;
+  final String body;
+  final String senderId;
+  final String senderName;
+  final String senderInitials;
+  final bool isMine;
+  final DateTime createdAt;
+  /// sent | delivered | read
+  final String status;
+
+  factory DmMessageItem.fromJson(Map<String, dynamic> json) {
+    return DmMessageItem(
+      id: '${json['id']}',
+      threadId: '${json['thread_id']}',
+      body: '${json['body']}',
+      senderId: '${json['sender_id']}',
+      senderName: '${json['sender_name']}',
+      senderInitials: '${json['sender_initials']}',
+      isMine: json['is_mine'] as bool? ?? false,
+      status: '${json['status'] ?? 'sent'}',
+      createdAt: DateTime.parse('${json['created_at']}'),
+    );
+  }
+}
+
+class DmConversation {
+  const DmConversation({
+    required this.thread,
+    required this.messages,
+  });
+
+  final DmThreadItem thread;
+  final List<DmMessageItem> messages;
+}
+
 class ConnectApiService {
   ConnectApiService({
     ApiClient? apiClient,
@@ -74,6 +292,86 @@ class ConnectApiService {
     );
   }
 
+  Future<List<CommunityMessageItem>> fetchCommunityMessages() async {
+    await AuthSession.instance.ensureReady();
+    final options = _authOptions;
+    if (options == null) throw Exception('Sign in to view Alumni Chat.');
+    try {
+      final response = await _apiClient.get<Map<String, dynamic>>(
+        '${AppConfig.apiPrefix}/connect/community/messages',
+        options: options,
+      );
+      final items = response.data?['messages'] as List<dynamic>? ?? [];
+      return items
+          .map((e) => CommunityMessageItem.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } on DioException catch (e) {
+      throw Exception(_readDetail(e));
+    }
+  }
+
+  Future<void> postCommunityMessage(
+    String body, [
+    AlumniChatTargets? targets,
+  ]) async {
+    await AuthSession.instance.ensureReady();
+    final options = _authOptions;
+    if (options == null) throw Exception('Sign in to post to Alumni Chat.');
+    final trimmed = body.trim();
+    if (trimmed.isEmpty) return;
+
+    final data = <String, dynamic>{
+      'body': trimmed,
+      ...?targets?.toJson(),
+    };
+
+    try {
+      await _apiClient.post<Map<String, dynamic>>(
+        '${AppConfig.apiPrefix}/connect/community/messages',
+        data: data,
+        options: options,
+      );
+    } on DioException catch (e) {
+      throw Exception(_readDetail(e));
+    }
+  }
+
+  Future<List<CommunityMessageItem>> fetchFinanceCouncilMessages() async {
+    await AuthSession.instance.ensureReady();
+    final options = _authOptions;
+    if (options == null) throw Exception('Sign in to view Finance Council.');
+    try {
+      final response = await _apiClient.get<Map<String, dynamic>>(
+        '${AppConfig.apiPrefix}/connect/finance-council/messages',
+        options: options,
+      );
+      final items = response.data?['messages'] as List<dynamic>? ?? [];
+      return items
+          .map((e) => CommunityMessageItem.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } on DioException catch (e) {
+      throw Exception(_readDetail(e));
+    }
+  }
+
+  Future<void> postFinanceCouncilMessage(String body) async {
+    await AuthSession.instance.ensureReady();
+    final options = _authOptions;
+    if (options == null) throw Exception('Sign in to post to Finance Council.');
+    final trimmed = body.trim();
+    if (trimmed.isEmpty) return;
+
+    try {
+      await _apiClient.post<Map<String, dynamic>>(
+        '${AppConfig.apiPrefix}/connect/finance-council/messages',
+        data: {'body': trimmed},
+        options: options,
+      );
+    } on DioException catch (e) {
+      throw Exception(_readDetail(e));
+    }
+  }
+
   Future<List<ConnectOfficer>> fetchOfficers() async {
     await AuthSession.instance.ensureReady();
     final options = _authOptions;
@@ -92,6 +390,158 @@ class ConnectApiService {
     }
   }
 
+  Future<List<DmThreadItem>> fetchDmThreads() async {
+    await AuthSession.instance.ensureReady();
+    final options = _authOptions;
+    if (options == null) throw Exception('Sign in to view DMs.');
+    try {
+      final response = await _apiClient.get<Map<String, dynamic>>(
+        '${AppConfig.apiPrefix}/connect/dm/threads',
+        options: options,
+      );
+      final items = response.data?['threads'] as List<dynamic>? ?? [];
+      return items
+          .map((e) => DmThreadItem.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } on DioException catch (e) {
+      throw Exception(_readDetail(e));
+    }
+  }
+
+  Future<List<DmMemberCandidate>> searchDmMembers({String? query}) async {
+    await AuthSession.instance.ensureReady();
+    final options = _authOptions;
+    if (options == null) throw Exception('Sign in to search members.');
+    try {
+      final response = await _apiClient.get<Map<String, dynamic>>(
+        '${AppConfig.apiPrefix}/connect/dm/members',
+        queryParameters: {
+          if (query != null && query.trim().isNotEmpty) 'q': query.trim(),
+          'limit': 30,
+        },
+        options: options,
+      );
+      final items = response.data?['members'] as List<dynamic>? ?? [];
+      return items
+          .map((e) => DmMemberCandidate.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } on DioException catch (e) {
+      throw Exception(_readDetail(e));
+    }
+  }
+
+  Future<DmConversation> startDm({
+    required String memberUserId,
+    required String body,
+  }) async {
+    await AuthSession.instance.ensureReady();
+    final options = _authOptions;
+    if (options == null) throw Exception('Sign in to start a DM.');
+    try {
+      final response = await _apiClient.post<Map<String, dynamic>>(
+        '${AppConfig.apiPrefix}/connect/dm/threads',
+        data: {
+          'member_user_id': memberUserId,
+          'body': body.trim(),
+        },
+        options: options,
+      );
+      return _conversationFromResponse(response.data);
+    } on DioException catch (e) {
+      throw Exception(_readDetail(e));
+    }
+  }
+
+  Future<DmConversation> fetchDmMessages(String threadId) async {
+    await AuthSession.instance.ensureReady();
+    final options = _authOptions;
+    if (options == null) throw Exception('Sign in to view this DM.');
+    try {
+      final response = await _apiClient.get<Map<String, dynamic>>(
+        '${AppConfig.apiPrefix}/connect/dm/threads/$threadId/messages',
+        options: options,
+      );
+      return _conversationFromResponse(response.data);
+    } on DioException catch (e) {
+      throw Exception(_readDetail(e));
+    }
+  }
+
+  Future<void> sendDmReply({
+    required String threadId,
+    required String body,
+  }) async {
+    await AuthSession.instance.ensureReady();
+    final options = _authOptions;
+    if (options == null) throw Exception('Sign in to reply.');
+    final trimmed = body.trim();
+    if (trimmed.isEmpty) return;
+    try {
+      await _apiClient.post<Map<String, dynamic>>(
+        '${AppConfig.apiPrefix}/connect/dm/threads/$threadId/messages',
+        data: {'body': trimmed},
+        options: options,
+      );
+    } on DioException catch (e) {
+      throw Exception(_readDetail(e));
+    }
+  }
+
+  Future<DmConversation> markDmRead(String threadId) async {
+    await AuthSession.instance.ensureReady();
+    final options = _authOptions;
+    if (options == null) throw Exception('Sign in required.');
+    try {
+      final response = await _apiClient.post<Map<String, dynamic>>(
+        '${AppConfig.apiPrefix}/connect/dm/threads/$threadId/read',
+        options: options,
+      );
+      return _conversationFromResponse(response.data);
+    } on DioException catch (e) {
+      throw Exception(_readDetail(e));
+    }
+  }
+
+  Future<void> blockDmUser(String userId) async {
+    await AuthSession.instance.ensureReady();
+    final options = _authOptions;
+    if (options == null) throw Exception('Sign in required.');
+    try {
+      await _apiClient.post<Map<String, dynamic>>(
+        '${AppConfig.apiPrefix}/connect/dm/block',
+        data: {'user_id': userId},
+        options: options,
+      );
+    } on DioException catch (e) {
+      throw Exception(_readDetail(e));
+    }
+  }
+
+  Future<void> unblockDmUser(String userId) async {
+    await AuthSession.instance.ensureReady();
+    final options = _authOptions;
+    if (options == null) throw Exception('Sign in required.');
+    try {
+      await _apiClient.delete<Map<String, dynamic>>(
+        '${AppConfig.apiPrefix}/connect/dm/block/$userId',
+        options: options,
+      );
+    } on DioException catch (e) {
+      throw Exception(_readDetail(e));
+    }
+  }
+
+  DmConversation _conversationFromResponse(Map<String, dynamic>? data) {
+    final threadJson = data?['thread'] as Map<String, dynamic>? ?? {};
+    final items = data?['messages'] as List<dynamic>? ?? [];
+    return DmConversation(
+      thread: DmThreadItem.fromJson(threadJson),
+      messages: items
+          .map((e) => DmMessageItem.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+
   String _readDetail(DioException e) {
     final detail = e.response?.data;
     if (detail is Map && detail['detail'] != null) {
@@ -106,8 +556,25 @@ class ConnectApiService {
     }
     if (detail is String && detail.isNotEmpty) return detail;
     final status = e.response?.statusCode;
+    if (status == 403) {
+      final detailText = detail is Map && detail['detail'] != null
+          ? '${detail['detail']}'.toLowerCase()
+          : '';
+      if (detailText.contains('finance council')) {
+        return 'Finance Council access required.';
+      }
+      return 'Active membership required.';
+    }
+    if (status == 503) {
+      return detail is Map && detail['detail'] != null
+          ? '${detail['detail']}'
+          : 'Connect feature needs a database update.';
+    }
+    if (status == 500) {
+      return 'Server error. Restart the backend and try again.';
+    }
     if (status == 404) {
-      return 'Connect API not found. Restart the backend on port 8001 with the latest code.';
+      return 'Connect API not found. Restart the backend on port 8000 with the latest code.';
     }
     return e.response?.statusMessage ?? 'Connect request failed.';
   }

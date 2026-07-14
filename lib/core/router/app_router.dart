@@ -19,6 +19,7 @@ import '../../features/dashboard/presentation/my_membership_screen.dart';
 import '../../features/dashboard/presentation/settings_screen.dart';
 import '../../features/dashboard/presentation/my_profile_screen.dart';
 import '../../features/dashboard/widgets/dashboard_shell_host.dart';
+import '../../features/directory/presentation/directory_screen.dart';
 import '../../features/directory/presentation/profile_detail_screen.dart';
 import '../../features/events/presentation/event_detail_screen.dart';
 import '../../features/events/presentation/dashboard_event_detail_screen.dart';
@@ -40,6 +41,11 @@ bool _requiresAuth(String location) {
       location == '/my-payments' ||
       location.startsWith('/my-gallery') ||
       location == '/connect' ||
+      location == '/member/alumni-roll' ||
+      location.startsWith('/member/profiles/') ||
+      location == '/alumni-roll' ||
+      location == '/directory' ||
+      location.startsWith('/profiles/') ||
       location == '/settings';
 }
 
@@ -61,11 +67,19 @@ final GoRouter appRouter = GoRouter(
   initialLocation: '/splash',
   refreshListenable: AuthSession.instance,
   redirect: (context, state) {
-    final location = state.matchedLocation;
+    var location = state.matchedLocation;
     final isAuthenticated = AuthSession.instance.isAuthenticated;
     final role = AuthSession.instance.currentUser?.role;
 
     if (location == '/splash') return null;
+
+    // Convert legacy public URLs into member URLs first, then auth-check.
+    if (location == '/alumni-roll' || location == '/directory') {
+      location = '/member/alumni-roll';
+    } else if (location.startsWith('/profiles/')) {
+      final id = location.split('/').last;
+      if (id.isNotEmpty) location = '/member/profiles/$id';
+    }
 
     if (_requiresAuth(location) && !isAuthenticated) {
       return '/auth';
@@ -89,6 +103,17 @@ final GoRouter appRouter = GoRouter(
     if (location == '/auth' && isAuthenticated) {
       return homeRouteForRole(role);
     }
+
+    // Keep users on member URLs (never stay on legacy public paths).
+    final original = state.matchedLocation;
+    if (original == '/alumni-roll' || original == '/directory') {
+      return '/member/alumni-roll';
+    }
+    if (original.startsWith('/profiles/')) {
+      final id = original.split('/').last;
+      if (id.isNotEmpty) return '/member/profiles/$id';
+    }
+
     return null;
   },
   routes: [
@@ -104,11 +129,19 @@ final GoRouter appRouter = GoRouter(
       path: '/about',
       builder: (context, state) => const AboutScreen(),
     ),
+    // Legacy public URLs — always go into the authenticated member area.
+    GoRoute(
+      path: '/alumni-roll',
+      redirect: (context, state) => '/member/alumni-roll',
+    ),
+    GoRoute(
+      path: '/directory',
+      redirect: (context, state) => '/member/alumni-roll',
+    ),
     GoRoute(
       path: '/profiles/:id',
-      builder: (context, state) => ProfileDetailScreen(
-        profileId: state.pathParameters['id']!,
-      ),
+      redirect: (context, state) =>
+          '/member/profiles/${state.pathParameters['id']}',
     ),
     GoRoute(
       path: '/events',
@@ -256,6 +289,22 @@ final GoRouter appRouter = GoRouter(
           pageBuilder: (context, state) => dashboardPage(
             key: state.pageKey,
             child: const DashboardConnectScreen(),
+          ),
+        ),
+        GoRoute(
+          path: '/member/alumni-roll',
+          pageBuilder: (context, state) => dashboardPage(
+            key: state.pageKey,
+            child: const DirectoryScreen(embeddedInDashboard: true),
+          ),
+        ),
+        GoRoute(
+          path: '/member/profiles/:id',
+          pageBuilder: (context, state) => dashboardPage(
+            key: state.pageKey,
+            child: ProfileDetailScreen(
+              profileId: state.pathParameters['id']!,
+            ),
           ),
         ),
         GoRoute(

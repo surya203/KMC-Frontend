@@ -24,8 +24,8 @@ void navigatePublicBack(BuildContext context) {
     context.go('/gallery');
     return;
   }
-  if (path.startsWith('/profiles/')) {
-    context.go('/');
+  if (path.startsWith('/profiles/') || path.startsWith('/member/profiles/')) {
+    context.go('/member/alumni-roll');
     return;
   }
   context.go('/');
