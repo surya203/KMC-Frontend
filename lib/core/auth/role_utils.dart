@@ -27,6 +27,10 @@ bool canReviewVerifications(String? role) =>
 
 bool canManageMembers(String? role) => role == 'admin';
 
+bool canManageGallery(String? role) => role == 'admin';
+
+bool canManageEvents(String? role) => role == 'admin';
+
 bool isAnnouncementPublisher(String? role) =>
     role != null && announcementPublisherRoles.contains(role);
 

@@ -104,7 +104,10 @@ class _EventsScreenState extends State<EventsScreen> {
                             style: GoogleFonts.inter(color: AppColors.bodyText),
                           )
                         else
-                          _EventGrid(events: _upcoming),
+                          _EventGrid(
+                            events: _upcoming,
+                            useAlumniMeetCopy: true,
+                          ),
                         if (_past.isNotEmpty) ...[
                           const SizedBox(height: 48),
                           Text(
@@ -129,9 +132,13 @@ class _EventsScreenState extends State<EventsScreen> {
 }
 
 class _EventGrid extends StatelessWidget {
-  const _EventGrid({required this.events});
+  const _EventGrid({
+    required this.events,
+    this.useAlumniMeetCopy = false,
+  });
 
   final List<EventItem> events;
+  final bool useAlumniMeetCopy;
 
   @override
   Widget build(BuildContext context) {
@@ -143,15 +150,16 @@ class _EventGrid extends StatelessWidget {
           SizedBox(
             width: 520,
             child: EventCard(
-              title: event.title,
+              title: useAlumniMeetCopy ? 'Alumni Meet 2027' : event.title,
+              subtitle: useAlumniMeetCopy
+                  ? 'details will be announced soon'
+                  : null,
               dateLabel: event.displayDate,
               venueLabel: event.displayVenue,
               registeredCount: event.registeredCount,
               coverAssetPath: AppAssets.eventBanner,
-              registrationOpen: event.registrationOpen,
-              isRegistered: event.isRegistered ?? false,
+              showRegistrationUi: false,
               onTap: () => context.go('/events/${event.slug}'),
-              onRegister: () => context.go('/events/${event.slug}'),
             ),
           ),
       ],

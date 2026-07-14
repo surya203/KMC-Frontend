@@ -9,7 +9,17 @@ import '../../../core/network/gallery_api_service.dart';
 import '../../gallery/widgets/gallery_album_dialogs.dart';
 
 class DashboardGalleryScreen extends StatefulWidget {
-  const DashboardGalleryScreen({super.key});
+  const DashboardGalleryScreen({
+    super.key,
+    this.basePath = '/my-gallery',
+    this.canManage = false,
+  });
+
+  /// Route prefix used for album navigate links (`/my-gallery` or `/admin/gallery`).
+  final String basePath;
+
+  /// When true (admin gallery), create/edit/delete albums is enabled.
+  final bool canManage;
 
   @override
   State<DashboardGalleryScreen> createState() => _DashboardGalleryScreenState();
@@ -39,13 +49,20 @@ class _DashboardGalleryScreenState extends State<DashboardGalleryScreen> {
     } catch (_) {}
   }
 
-  bool get _isSignedIn => AuthSession.instance.isAuthenticated;
+  String get _basePath => widget.basePath;
+  bool get _canManage => widget.canManage;
+
+  String _albumOpenPath(GalleryAlbum album) {
+    if (_canManage) return '$_basePath/manage/${album.slug}';
+    return '$_basePath/album/${album.slug}';
+  }
 
   void _handleAlbumAction(String action, GalleryAlbum album) {
     switch (action) {
       case 'view':
+        context.go('$_basePath/album/${album.slug}');
       case 'manage':
-        context.go('/my-gallery/manage/${album.slug}');
+        context.go('$_basePath/manage/${album.slug}');
       case 'edit':
         _editAlbum(album);
       case 'delete':
@@ -60,7 +77,9 @@ class _DashboardGalleryScreenState extends State<DashboardGalleryScreen> {
     });
 
     try {
-      final albums = await _api.fetchAlbums();
+      final albums = _canManage
+          ? await _api.fetchAlbumsAsAdmin()
+          : await _api.fetchAlbums();
       if (!mounted) return;
       setState(() {
         _albums = albums;
@@ -81,7 +100,7 @@ class _DashboardGalleryScreenState extends State<DashboardGalleryScreen> {
 
     setState(() => _busy = true);
     try {
-      final album = await _api.createAlbum(
+      final album = await _api.createAlbumAsAdmin(
         slug: values.slug,
         title: values.title,
         description: values.description,
@@ -92,7 +111,7 @@ class _DashboardGalleryScreenState extends State<DashboardGalleryScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Album created.')),
       );
-      context.go('/my-gallery/manage/${album.slug}');
+      context.go('$_basePath/manage/${album.slug}');
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -116,7 +135,7 @@ class _DashboardGalleryScreenState extends State<DashboardGalleryScreen> {
 
     setState(() => _busy = true);
     try {
-      await _api.updateAlbum(
+      await _api.updateAlbumAsAdmin(
         albumId: album.id,
         title: values.title,
         description: values.description,
@@ -148,7 +167,7 @@ class _DashboardGalleryScreenState extends State<DashboardGalleryScreen> {
 
     setState(() => _busy = true);
     try {
-      await _api.deleteAlbum(album.id);
+      await _api.deleteAlbumAsAdmin(album.id);
       if (!mounted) return;
       await _loadAlbums();
       if (!mounted) return;
@@ -185,16 +204,35 @@ class _DashboardGalleryScreenState extends State<DashboardGalleryScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  ElevatedButton.icon(
-                    onPressed: _busy ? null : _createAlbum,
-                    icon: const Icon(Icons.add_photo_alternate_outlined, size: 18),
-                    label: const Text('Create album'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.secondary,
-                      foregroundColor: AppColors.primary,
+                  if (_canManage) ...[
+                    ElevatedButton.icon(
+                      onPressed: _busy ? null : _createAlbum,
+                      icon: const Icon(Icons.add_photo_alternate_outlined, size: 18),
+                      label: const Text('Create album'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.secondary,
+                        foregroundColor: AppColors.primary,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 28),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Create albums and upload photos. Members can view and download them in Gallery.',
+                      style: GoogleFonts.inter(
+                        color: AppColors.bodyText,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 28),
+                  ] else ...[
+                    Text(
+                      'Browse albums and download admin photos. You can also add Google Drive links inside each album.',
+                      style: GoogleFonts.inter(
+                        color: AppColors.bodyText,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
                   if (_loading)
                     const Padding(
                       padding: EdgeInsets.all(48),
@@ -204,7 +242,9 @@ class _DashboardGalleryScreenState extends State<DashboardGalleryScreen> {
                     _ErrorBanner(message: _error!, onRetry: _loadAlbums)
                   else if (_albums.isEmpty)
                     Text(
-                      'No albums yet. Create your first album to share memories.',
+                      _canManage
+                          ? 'No albums yet. Create your first album to share memories.'
+                          : 'No albums available yet.',
                       style: GoogleFonts.inter(color: AppColors.bodyText),
                     )
                   else
@@ -222,8 +262,8 @@ class _DashboardGalleryScreenState extends State<DashboardGalleryScreen> {
                         final album = _albums[index];
                         return _GalleryAlbumCard(
                           album: album,
-                          showMenu: _isSignedIn,
-                          onTap: () => context.go('/my-gallery/manage/${album.slug}'),
+                          showMenu: _canManage,
+                          onTap: () => context.go(_albumOpenPath(album)),
                           onMenuAction: (action) =>
                               _handleAlbumAction(action, album),
                         );
@@ -299,13 +339,26 @@ class _GalleryAlbumCard extends StatelessWidget {
                         ],
                       ),
                     ),
-                    child: Text(
-                      album.title,
-                      style: GoogleFonts.inter(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
-                        color: Colors.white,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          album.title,
+                          style: GoogleFonts.inter(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                            color: Colors.white,
+                          ),
+                        ),
+                        if (album.mediaCount > 0)
+                          Text(
+                            '${album.mediaCount} photos',
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              color: Colors.white70,
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                 ),
@@ -342,8 +395,8 @@ class _GalleryAlbumCard extends StatelessWidget {
                     ),
                     _albumMenuItem(
                       value: 'manage',
-                      icon: Icons.settings_outlined,
-                      label: 'Manage',
+                      icon: Icons.upload_outlined,
+                      label: 'Photos',
                     ),
                     _albumMenuItem(
                       value: 'edit',

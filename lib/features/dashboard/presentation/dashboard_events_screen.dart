@@ -5,10 +5,9 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/constants/app_assets.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/events_api_service.dart';
-import '../widgets/dashboard_layout.dart';
 import '../../../core/widgets/event_card.dart';
 import '../../events/widgets/dashboard_events_hero.dart';
-import '../../events/widgets/event_basic_registration_dialog.dart';
+import '../widgets/dashboard_layout.dart';
 
 class DashboardEventsScreen extends StatefulWidget {
   const DashboardEventsScreen({super.key});
@@ -22,10 +21,8 @@ class _DashboardEventsScreenState extends State<DashboardEventsScreen> {
 
   List<EventItem> _upcoming = [];
   List<EventItem> _past = [];
-  List<MyEventRegistration> _myRegistrations = [];
   String? _error;
   bool _loading = true;
-  String? _registeringTrack;
 
   @override
   void initState() {
@@ -43,17 +40,14 @@ class _DashboardEventsScreenState extends State<DashboardEventsScreen> {
       final results = await Future.wait([
         _api.fetchEvents(upcoming: true),
         _api.fetchEvents(upcoming: false),
-        _api.fetchMyRegistrations(),
       ]);
       if (!mounted) return;
-      final upcoming = results[0] as List<EventItem>;
-      final all = results[1] as List<EventItem>;
-      final myRegs = results[2] as List<MyEventRegistration>;
+      final upcoming = results[0];
+      final all = results[1];
       final upcomingIds = upcoming.map((e) => e.id).toSet();
       setState(() {
         _upcoming = upcoming;
         _past = all.where((e) => !upcomingIds.contains(e.id)).toList();
-        _myRegistrations = myRegs;
         _loading = false;
       });
     } catch (e) {
@@ -67,39 +61,6 @@ class _DashboardEventsScreenState extends State<DashboardEventsScreen> {
 
   EventItem? get _primaryEvent =>
       _upcoming.isNotEmpty ? _upcoming.first : null;
-
-  Future<void> _registerForProgram(EventProgramCardData program) async {
-    if (!program.event.registrationOpen) return;
-
-    final details = await showEventBasicRegistrationDialog(
-      context,
-      programTitle: program.title,
-    );
-    if (details == null || !mounted) return;
-
-    setState(() => _registeringTrack = program.programTrack);
-    try {
-      await submitBasicEventRegistration(
-        api: _api,
-        eventId: program.event.id,
-        programTrack: program.programTrack,
-        details: details,
-      );
-      if (!mounted) return;
-      await _loadEvents();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Registered for ${program.title}.')),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
-      );
-    } finally {
-      if (mounted) setState(() => _registeringTrack = null);
-    }
-  }
 
   void _openEventDetail(EventItem event) {
     context.go('/my-events/${event.slug}');
@@ -119,19 +80,6 @@ class _DashboardEventsScreenState extends State<DashboardEventsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (!_loading && _error == null && _myRegistrations.isNotEmpty) ...[
-                const SizedBox(height: 32),
-                Text(
-                  'My registrations',
-                  style: GoogleFonts.fraunces(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.heading,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                ..._myRegistrations.map(_buildRegistrationTile),
-              ],
               const SizedBox(height: 28),
               Text(
                 'Upcoming',
@@ -154,9 +102,6 @@ class _DashboardEventsScreenState extends State<DashboardEventsScreen> {
               else
                 _ProgramEventGrid(
                   programs: programCards,
-                  registrations: _myRegistrations,
-                  registeringTrack: _registeringTrack,
-                  onRegister: _registerForProgram,
                   onOpenDetail: _openEventDetail,
                 ),
               if (!_loading && _error == null && _past.isNotEmpty) ...[
@@ -181,58 +126,15 @@ class _DashboardEventsScreenState extends State<DashboardEventsScreen> {
       ),
     );
   }
-
-  Widget _buildRegistrationTile(MyEventRegistration reg) {
-    final details = <String>[
-      reg.displayKind,
-      reg.status,
-      if (reg.programTracks.isNotEmpty) reg.programTracks.join(', '),
-      if (reg.registrationTypes.isNotEmpty)
-        reg.registrationTypes.map((t) => t.replaceAll('_', ' ')).join(', '),
-    ].join(' · ');
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: ListTile(
-        onTap: () => context.go('/my-events/${reg.slug}'),
-        title: Text(
-          reg.title,
-          style: GoogleFonts.inter(
-            fontWeight: FontWeight.w600,
-            color: AppColors.heading,
-          ),
-        ),
-        subtitle: Text(
-          '${reg.displayDate} · $details',
-          style: GoogleFonts.inter(
-            fontSize: 13,
-            color: AppColors.bodyText,
-          ),
-        ),
-        trailing: const Icon(Icons.chevron_right),
-      ),
-    );
-  }
 }
 
 class _ProgramEventGrid extends StatelessWidget {
   const _ProgramEventGrid({
     required this.programs,
-    required this.registrations,
-    required this.registeringTrack,
-    required this.onRegister,
     required this.onOpenDetail,
   });
 
   final List<EventProgramCardData> programs;
-  final List<MyEventRegistration> registrations;
-  final String? registeringTrack;
-  final Future<void> Function(EventProgramCardData program) onRegister;
   final void Function(EventItem event) onOpenDetail;
 
   @override
@@ -246,35 +148,18 @@ class _ProgramEventGrid extends StatelessWidget {
           runSpacing: 24,
           children: [
             for (final program in programs)
-              Builder(
-                builder: (context) {
-                  final isRegistered = isRegisteredForProgramTrack(
-                    registrations,
-                    program.event.id,
-                    program.programTrack,
-                  );
-                  final isSubmitting =
-                      registeringTrack == program.programTrack;
-
-                  return SizedBox(
-                    width: cardWidth,
-                    child: EventCard(
-                      title: program.title,
-                      dateLabel: program.dateLabel,
-                      venueLabel: program.venueLabel,
-                      registeredCount: program.event.registeredCount,
-                      coverAssetPath: AppAssets.eventBanner,
-                      registrationOpen: program.event.registrationOpen,
-                      isRegistered: isRegistered,
-                      onTap: () => onOpenDetail(program.event),
-                      onRegister: program.event.registrationOpen &&
-                              !isRegistered &&
-                              !isSubmitting
-                          ? () => onRegister(program)
-                          : null,
-                    ),
-                  );
-                },
+              SizedBox(
+                width: cardWidth,
+                child: EventCard(
+                  title: 'Alumni Meet 2027',
+                  subtitle: 'details will be announced soon',
+                  dateLabel: program.dateLabel,
+                  venueLabel: program.venueLabel,
+                  registeredCount: program.event.registeredCount,
+                  coverAssetPath: AppAssets.eventBanner,
+                  showRegistrationUi: false,
+                  onTap: () => onOpenDetail(program.event),
+                ),
               ),
           ],
         );
@@ -311,8 +196,7 @@ class _PastEventGrid extends StatelessWidget {
                   venueLabel: event.displayVenue,
                   registeredCount: event.registeredCount,
                   coverAssetPath: AppAssets.eventBanner,
-                  registrationOpen: false,
-                  isRegistered: false,
+                  showRegistrationUi: false,
                   onTap: () => onOpen(event),
                 ),
               ),
