@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -9,6 +8,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/network/profiles_api_service.dart';
 import '../../../core/utils/membership_number_format.dart';
 import '../../../core/utils/open_external_url.dart';
+import '../../../core/utils/resilient_profile_image.dart';
 
 /// Member-only alumni profile page (opened inside dashboard shell).
 class ProfileDetailScreen extends StatefulWidget {
@@ -600,17 +600,12 @@ class _ProfilePhoto extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
+    return ResilientProfileImage(
+      photoUrl: url,
+      width: size,
+      height: size,
       borderRadius: BorderRadius.circular(16),
-      child: url != null && url!.isNotEmpty
-          ? CachedNetworkImage(
-              imageUrl: url!,
-              width: size,
-              height: size,
-              fit: BoxFit.cover,
-              errorWidget: (_, error, stackTrace) => _fallback(),
-            )
-          : _fallback(),
+      fallback: _fallback(),
     );
   }
 

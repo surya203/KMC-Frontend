@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -7,6 +6,7 @@ import '../../../core/auth/auth_session.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/profiles_api_service.dart';
 import '../../../core/utils/membership_number_format.dart';
+import '../../../core/utils/resilient_profile_image.dart';
 import '../../dashboard/widgets/dashboard_layout.dart';
 
 class DirectoryScreen extends StatefulWidget {
@@ -213,7 +213,8 @@ class _DirectoryScreenState extends State<DirectoryScreen> {
                         crossAxisCount: columns,
                         crossAxisSpacing: 14,
                         mainAxisSpacing: 14,
-                        mainAxisExtent: compact ? 118 : 124,
+                        // Room for name + ID + one chip row + location on mobile.
+                        mainAxisExtent: compact ? 138 : 128,
                       ),
                       itemCount: _profiles.length,
                       itemBuilder: (context, index) {
@@ -635,15 +636,16 @@ class _DirectoryCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: AppColors.border),
           ),
-          padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+          padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
           child: Row(
             children: [
               _Avatar(photoUrl: profile.photoUrl, name: _displayName),
-              const SizedBox(width: 14),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       _displayName,
@@ -651,12 +653,12 @@ class _DirectoryCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.inter(
                         fontWeight: FontWeight.w700,
-                        fontSize: 15.5,
+                        fontSize: 15,
                         color: AppColors.heading,
                       ),
                     ),
                     if (membershipId.isNotEmpty) ...[
-                      const SizedBox(height: 3),
+                      const SizedBox(height: 2),
                       Text(
                         membershipId,
                         maxLines: 1,
@@ -668,31 +670,42 @@ class _DirectoryCard extends StatelessWidget {
                         ),
                       ),
                     ],
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 6),
                     Wrap(
                       spacing: 6,
-                      runSpacing: 6,
+                      runSpacing: 4,
                       children: [
                         _MiniChip(label: 'Batch ${profile.batchYear}'),
                         if (specialty != null) _MiniChip(label: specialty),
-                        if (place != null && place.isNotEmpty)
-                          _MiniChip(label: _titleCase(place)),
                       ],
                     ),
+                    if (place != null && place.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        _titleCase(place),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.inter(
+                          fontSize: 11.5,
+                          color: AppColors.mutedText,
+                          height: 1.2,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
-              const SizedBox(width: 6),
+              const SizedBox(width: 4),
               Container(
-                width: 32,
-                height: 32,
+                width: 30,
+                height: 30,
                 decoration: BoxDecoration(
                   color: const Color(0xFFF3F6FB),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Icon(
                   Icons.arrow_forward_ios_rounded,
-                  size: 13,
+                  size: 12,
                   color: AppColors.primary,
                 ),
               ),
@@ -767,18 +780,12 @@ class _Avatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final url = photoUrl;
-    return ClipRRect(
+    return ResilientProfileImage(
+      photoUrl: photoUrl,
+      width: 56,
+      height: 56,
       borderRadius: BorderRadius.circular(14),
-      child: url != null && url.isNotEmpty
-          ? CachedNetworkImage(
-              imageUrl: url,
-              width: 56,
-              height: 56,
-              fit: BoxFit.cover,
-              errorWidget: (_, error, stackTrace) => _fallback(),
-            )
-          : _fallback(),
+      fallback: _fallback(),
     );
   }
 

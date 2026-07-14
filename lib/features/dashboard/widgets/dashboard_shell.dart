@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/auth/auth_session.dart';
+import '../../../core/auth/profile_session.dart';
 import '../../../core/search/app_search_result.dart';
 import '../../../core/search/app_search_service.dart';
 import '../../../core/constants/app_assets.dart';
@@ -620,6 +621,7 @@ class _DashboardTopBarState extends State<DashboardTopBar> {
                 _ProfileAvatarMenu(
                   name: widget.profileName ?? initial,
                   photoBytes: widget.profilePhotoBytes,
+                  photoUrl: ProfileSession.instance.photoUrl,
                   size: isCompact ? 28 : 32,
                 ),
               ],
@@ -658,11 +660,13 @@ class _ProfileAvatarMenu extends StatelessWidget {
     required this.name,
     required this.size,
     this.photoBytes,
+    this.photoUrl,
   });
 
   final String name;
   final double size;
   final Uint8List? photoBytes;
+  final String? photoUrl;
 
   Future<void> _open(BuildContext context) async {
     final box = context.findRenderObject() as RenderBox?;
@@ -693,6 +697,7 @@ class _ProfileAvatarMenu extends StatelessWidget {
                 child: _ProfileDetailsCard(
                   name: name,
                   photoBytes: photoBytes,
+                  photoUrl: photoUrl,
                   onViewProfile: () {
                     Navigator.of(dialogContext).pop();
                     context.go('/my-profile');
@@ -723,9 +728,10 @@ class _ProfileAvatarMenu extends StatelessWidget {
           onTap: () => _open(context),
           child: ProfileAvatar(
             localBytes: photoBytes,
+            networkUrl: photoUrl,
             name: name,
             size: size,
-            cacheKey: photoBytes?.length,
+            cacheKey: photoBytes?.length ?? photoUrl,
           ),
         ),
       ),
@@ -739,10 +745,12 @@ class _ProfileDetailsCard extends StatelessWidget {
     required this.onViewProfile,
     required this.onSettings,
     this.photoBytes,
+    this.photoUrl,
   });
 
   final String name;
   final Uint8List? photoBytes;
+  final String? photoUrl;
   final VoidCallback onViewProfile;
   final VoidCallback onSettings;
 
@@ -764,142 +772,209 @@ class _ProfileDetailsCard extends StatelessWidget {
           : '—',
     );
 
-    return Container(
-      width: 280,
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              ProfileAvatar(
-                localBytes: photoBytes,
-                name: displayName,
-                size: 48,
-                cacheKey: photoBytes?.length,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      displayName,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.fraunces(
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.heading,
-                        fontSize: 18,
-                        height: 1.15,
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        width: 288,
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFFE8E4DC)),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF1A2744).withValues(alpha: 0.08),
+              blurRadius: 28,
+              offset: const Offset(0, 14),
+            ),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 22, 20, 18),
+              child: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(3),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: AppColors.secondary.withValues(alpha: 0.45),
+                        width: 1.5,
                       ),
                     ),
-                    if (batch != null) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        'Batch of $batch',
-                        style: GoogleFonts.inter(
-                          color: AppColors.mutedText,
-                          fontSize: 13,
-                        ),
+                    child: ProfileAvatar(
+                      localBytes: photoBytes,
+                      networkUrl: photoUrl,
+                      name: displayName,
+                      size: 64,
+                      cacheKey: photoBytes?.length ?? photoUrl,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    displayName,
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.inter(
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.heading,
+                      fontSize: 16,
+                      letterSpacing: -0.2,
+                      height: 1.25,
+                    ),
+                  ),
+                  if (email != null && email.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      email,
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.inter(
+                        color: AppColors.mutedText,
+                        fontSize: 12.5,
+                        height: 1.3,
                       ),
-                    ],
+                    ),
                   ],
-                ),
+                  if (batch != null) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      'Batch $batch',
+                      style: GoogleFonts.inter(
+                        color: AppColors.secondary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                  ],
+                ],
               ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          const Divider(height: 1, color: AppColors.border),
-          const SizedBox(height: 10),
-          _ProfileDetailRow(
-            label: 'Membership ID',
-            value: membershipId,
-          ),
-          if (email != null && email.isNotEmpty)
-            _ProfileDetailRow(
-              label: 'Email',
-              value: email,
             ),
-          const SizedBox(height: 8),
-          TextButton(
-            onPressed: onViewProfile,
-            style: TextButton.styleFrom(
-              foregroundColor: AppColors.primary,
-              padding: const EdgeInsets.symmetric(vertical: 8),
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8F6F2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.verified_outlined,
+                    size: 16,
+                    color: AppColors.primary.withValues(alpha: 0.7),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Membership',
+                          style: GoogleFonts.inter(
+                            color: AppColors.mutedText,
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w500,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                        const SizedBox(height: 1),
+                        Text(
+                          membershipId,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.inter(
+                            color: AppColors.heading,
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.1,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-            child: Text(
-              'View Profile',
-              style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+            const SizedBox(height: 14),
+            Container(height: 1, color: const Color(0xFFEEEAE3)),
+            _ProfileMenuItem(
+              icon: Icons.person_outline_rounded,
+              label: 'View profile',
+              onTap: onViewProfile,
             ),
-          ),
-          TextButton(
-            onPressed: onSettings,
-            style: TextButton.styleFrom(
-              foregroundColor: AppColors.bodyText,
-              padding: const EdgeInsets.symmetric(vertical: 6),
+            Container(
+              height: 1,
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              color: const Color(0xFFF0ECE5),
             ),
-            child: Text(
-              'Settings',
-              style: GoogleFonts.inter(fontWeight: FontWeight.w500),
+            _ProfileMenuItem(
+              icon: Icons.settings_outlined,
+              label: 'Settings',
+              onTap: onSettings,
             ),
-          ),
-        ],
+            const SizedBox(height: 6),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _ProfileDetailRow extends StatelessWidget {
-  const _ProfileDetailRow({
+class _ProfileMenuItem extends StatelessWidget {
+  const _ProfileMenuItem({
+    required this.icon,
     required this.label,
-    required this.value,
+    required this.onTap,
   });
 
+  final IconData icon;
   final String label;
-  final String value;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: GoogleFonts.inter(
-              color: AppColors.mutedText,
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-              letterSpacing: 0.2,
-            ),
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
+          child: Row(
+            children: [
+              Icon(icon, size: 18, color: AppColors.heading),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  label,
+                  style: GoogleFonts.inter(
+                    color: AppColors.heading,
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: -0.1,
+                  ),
+                ),
+              ),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 18,
+                color: AppColors.mutedText.withValues(alpha: 0.7),
+              ),
+            ],
           ),
-          const SizedBox(height: 2),
-          Text(
-            value,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.inter(
-              color: AppColors.heading,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

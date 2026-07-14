@@ -19,6 +19,7 @@ import '../../../core/utils/membership_number_format.dart';
 import '../../../core/utils/phone_country_codes.dart';
 import '../../../core/utils/validators.dart';
 import '../../../core/widgets/mobile_number_field.dart';
+import '../../../core/widgets/profile_photo_cropper.dart';
 import '../../../core/widgets/public_layout.dart';
 import '../../home/widgets/footer_section.dart';
 
@@ -677,39 +678,48 @@ class _MembershipScreenState extends State<MembershipScreen> {
   }
 
   Future<void> _pickProfilePhoto() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.image,
-      withData: true,
-    );
-    final file = result?.files.single;
-    if (file == null || file.bytes == null) return;
-    if (file.bytes!.length > 3 * 1024 * 1024) {
-      setState(() => _error = 'Profile photo must be 3 MB or smaller.');
-      return;
+    try {
+      final file = await pickAndCropProfilePhoto(context);
+      if (file == null || file.bytes == null) return;
+      if (file.bytes!.length > 3 * 1024 * 1024) {
+        setState(() => _error = 'Profile photo must be 3 MB or smaller.');
+        return;
+      }
+      setState(() {
+        _profilePhoto = file;
+        _profilePhotoBytes = file.bytes;
+        _error = null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = e.toString());
     }
-    setState(() {
-      _profilePhoto = file;
-      _profilePhotoBytes = file.bytes;
-      _error = null;
-    });
   }
 
   Future<void> _captureProfilePhoto() async {
-    final captured = await captureImageWithLivePreview(context);
-    if (captured == null) return;
-    if (captured.bytes.length > 3 * 1024 * 1024) {
-      setState(() => _error = 'Profile photo must be 3 MB or smaller.');
-      return;
-    }
-    setState(() {
-      _profilePhoto = PlatformFile(
-        name: captured.fileName,
-        size: captured.bytes.length,
+    try {
+      final captured = await captureImageWithLivePreview(context);
+      if (captured == null) return;
+      if (!mounted) return;
+      final cropped = await cropProfilePhotoFile(
+        context,
         bytes: captured.bytes,
+        fileName: captured.fileName,
       );
-      _profilePhotoBytes = captured.bytes;
-      _error = null;
-    });
+      if (cropped == null || cropped.bytes == null) return;
+      if (cropped.bytes!.length > 3 * 1024 * 1024) {
+        setState(() => _error = 'Profile photo must be 3 MB or smaller.');
+        return;
+      }
+      setState(() {
+        _profilePhoto = cropped;
+        _profilePhotoBytes = cropped.bytes;
+        _error = null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = e.toString());
+    }
   }
 
   void _removeProfilePhoto() {
