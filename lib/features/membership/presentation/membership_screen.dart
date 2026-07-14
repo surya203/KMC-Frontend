@@ -572,11 +572,6 @@ class _MembershipScreenState extends State<MembershipScreen> {
                   constraints: const BoxConstraints(maxWidth: 640),
                   child: Column(
                     children: [
-                      const Align(
-                        alignment: Alignment.centerLeft,
-                        child: PublicBackIcon(),
-                      ),
-                      const SizedBox(height: 8),
                       Text('MY KMC', style: HeadingStyles.eyebrow),
                       const SizedBox(height: 14),
                       HeadingStyles.sectionTitleWidget(
@@ -1808,7 +1803,7 @@ class _PaymentStepState extends State<_PaymentStep> {
             controller: _upiController,
             keyboardType: TextInputType.emailAddress,
             decoration: InputDecoration(
-              hintText: 'yourname@okhdfcbank',
+              hintText: 'yourmobile@ybl',
               filled: true,
               fillColor: Colors.white,
               contentPadding: const EdgeInsets.symmetric(

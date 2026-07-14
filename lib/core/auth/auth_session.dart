@@ -102,6 +102,18 @@ class AuthSession extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Loads `/auth/me` into memory and notifies listeners (role-gated UI).
+  Future<AuthUser?> refreshCurrentUser() async {
+    if (!AuthService.isAuthenticated) return null;
+    try {
+      final user = await _authService.fetchMe(allowRefresh: true);
+      notifyListeners();
+      return user;
+    } on AuthException {
+      return AuthService.currentUser;
+    }
+  }
+
   Future<void> clearSession() async {
     _authService.logout();
     await AuthTokenStorage.clear();

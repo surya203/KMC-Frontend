@@ -180,10 +180,10 @@ class _SignInScreenState extends State<SignInScreen> {
 
   Future<void> _completeSignIn(AuthTokens tokens) async {
     await AuthSession.instance.saveLogin(tokens);
-    await _authService.fetchMe();
+    await AuthSession.instance.refreshCurrentUser();
     await ProfileSession.instance.ensureLoaded(force: true);
     if (!mounted) return;
-    context.go(homeRouteForRole(AuthSession.instance.currentUser?.role));
+    context.go(homeRouteForRole(currentUserRole));
   }
 
   Future<void> _showForgotPasswordDialog() async {
@@ -219,11 +219,6 @@ class _SignInScreenState extends State<SignInScreen> {
                   constraints: const BoxConstraints(maxWidth: 520),
                   child: Column(
                     children: [
-                      const Align(
-                        alignment: Alignment.centerLeft,
-                        child: PublicBackIcon(),
-                      ),
-                      const SizedBox(height: 8),
                       Text('MY KMC', style: HeadingStyles.eyebrow),
                       const SizedBox(height: 14),
                       Text(

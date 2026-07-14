@@ -4,11 +4,13 @@ import '../auth/auth_session.dart';
 import '../auth/role_utils.dart';
 import '../../features/about/presentation/about_screen.dart';
 import '../../features/admin/presentation/admin_dashboard_screen.dart';
+import '../../features/admin/presentation/admin_drugs_screen.dart';
 import '../../features/admin/presentation/admin_members_screen.dart';
 import '../../features/admin/presentation/admin_verifications_screen.dart';
 import '../../features/admin/widgets/admin_shell.dart';
 import '../../features/admin/widgets/admin_shell_host.dart';
 import '../../features/auth/presentation/sign_in_screen.dart';
+import '../../features/drugs/presentation/drug_details_screen.dart';
 import '../../features/dashboard/presentation/announcements_screen.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
 import '../../features/dashboard/presentation/dashboard_connect_screen.dart';
@@ -60,6 +62,9 @@ bool _canAccessAdminPath(String location, String? role) {
   if (location.startsWith('/admin/members')) {
     return canManageMembers(role);
   }
+  if (location.startsWith('/admin/drugs')) {
+    return canManageDrugs(role);
+  }
   return isStaffRole(role);
 }
 
@@ -69,7 +74,7 @@ final GoRouter appRouter = GoRouter(
   redirect: (context, state) {
     var location = state.matchedLocation;
     final isAuthenticated = AuthSession.instance.isAuthenticated;
-    final role = AuthSession.instance.currentUser?.role;
+    final role = currentUserRole;
 
     if (location == '/splash') return null;
 
@@ -98,6 +103,11 @@ final GoRouter appRouter = GoRouter(
         !canViewAdminAnalytics(role) &&
         canReviewVerifications(role)) {
       return '/admin/verifications';
+    }
+
+    if (location.startsWith('/drugs/') && isAuthenticated) {
+      final id = location.split('/').last;
+      if (id.isNotEmpty) return '/dashboard/drugs/$id';
     }
 
     if (location == '/auth' && isAuthenticated) {
@@ -175,6 +185,12 @@ final GoRouter appRouter = GoRouter(
       path: '/membership',
       builder: (context, state) => const MembershipScreen(),
     ),
+    GoRoute(
+      path: '/drugs/:id',
+      builder: (context, state) => DrugDetailsScreen(
+        drugId: state.pathParameters['id']!,
+      ),
+    ),
     ShellRoute(
       builder: (context, state, child) => AdminShellHost(child: child),
       routes: [
@@ -197,6 +213,13 @@ final GoRouter appRouter = GoRouter(
           pageBuilder: (context, state) => adminPage(
             key: state.pageKey,
             child: const AdminMembersScreen(),
+          ),
+        ),
+        GoRoute(
+          path: '/admin/drugs',
+          pageBuilder: (context, state) => adminPage(
+            key: state.pageKey,
+            child: const AdminDrugsScreen(),
           ),
         ),
       ],
@@ -312,6 +335,15 @@ final GoRouter appRouter = GoRouter(
           pageBuilder: (context, state) => dashboardPage(
             key: state.pageKey,
             child: const SettingsScreen(),
+          ),
+        ),
+        GoRoute(
+          path: '/dashboard/drugs/:id',
+          pageBuilder: (context, state) => dashboardPage(
+            key: state.pageKey,
+            child: DrugDetailsScreen(
+              drugId: state.pathParameters['id']!,
+            ),
           ),
         ),
       ],

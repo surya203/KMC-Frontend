@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../theme/heading_styles.dart';
 import '../constants/app_colors.dart';
-import 'public_layout.dart';
 
 class PageHero extends StatelessWidget {
   const PageHero({
@@ -11,14 +10,12 @@ class PageHero extends StatelessWidget {
     required this.title,
     this.subtitle,
     this.dark = false,
-    this.showBackButton = true,
   });
 
   final String eyebrow;
   final Widget title;
   final String? subtitle;
   final bool dark;
-  final bool showBackButton;
 
   @override
   Widget build(BuildContext context) {
@@ -37,10 +34,6 @@ class PageHero extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (showBackButton) ...[
-                PublicBackIcon(dark: dark),
-                SizedBox(height: dark ? 8 : 4),
-              ],
               Text(eyebrow.toUpperCase(), style: HeadingStyles.eyebrow),
               const SizedBox(height: 20),
               ConstrainedBox(
