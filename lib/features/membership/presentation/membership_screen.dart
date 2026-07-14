@@ -572,11 +572,6 @@ class _MembershipScreenState extends State<MembershipScreen> {
                   constraints: const BoxConstraints(maxWidth: 640),
                   child: Column(
                     children: [
-                      const Align(
-                        alignment: Alignment.centerLeft,
-                        child: PublicBackIcon(),
-                      ),
-                      const SizedBox(height: 8),
                       Text('MY KMC', style: HeadingStyles.eyebrow),
                       const SizedBox(height: 14),
                       HeadingStyles.sectionTitleWidget(

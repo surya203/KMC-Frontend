@@ -111,11 +111,6 @@ class _SignInScreenState extends State<SignInScreen> {
                   constraints: const BoxConstraints(maxWidth: 460),
                   child: Column(
                     children: [
-                      const Align(
-                        alignment: Alignment.centerLeft,
-                        child: PublicBackIcon(),
-                      ),
-                      const SizedBox(height: 8),
                       Text('MY KMC', style: HeadingStyles.eyebrow),
                       const SizedBox(height: 14),
                       Text(
