@@ -1,10 +1,10 @@
-import 'package:cached_network_image/cached_network_image.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/profiles_api_service.dart';
+import '../../../core/widgets/profile_photo_cropper.dart';
+import '../../../core/utils/resilient_profile_image.dart';
 
 class ProfileEditorSection extends StatefulWidget {
   const ProfileEditorSection({super.key});
@@ -112,19 +112,18 @@ class _ProfileEditorSectionState extends State<ProfileEditorSection> {
   }
 
   Future<void> _pickPhoto() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.image,
-      withData: true,
-    );
-    final file = result?.files.single;
-    if (file == null) return;
-
     setState(() {
       _uploadingPhoto = true;
       _message = null;
     });
 
     try {
+      final file = await pickAndCropProfilePhoto(context);
+      if (file == null) {
+        if (!mounted) return;
+        setState(() => _uploadingPhoto = false);
+        return;
+      }
       await _api.uploadProfilePhoto(file);
       if (!mounted) return;
       await _loadProfile(silent: true);
@@ -202,13 +201,12 @@ class _ProfileEditorSectionState extends State<ProfileEditorSection> {
               children: [
                 ClipOval(
                   child: profile.photoUrl != null
-                      ? CachedNetworkImage(
-                          imageUrl: profile.photoUrl!,
+                      ? ResilientProfileImage(
+                          photoUrl: profile.photoUrl,
                           width: 72,
                           height: 72,
                           fit: BoxFit.cover,
-                          errorWidget: (context, url, error) =>
-                              _photoPlaceholder(),
+                          fallback: _photoPlaceholder(),
                         )
                       : _photoPlaceholder(),
                 ),

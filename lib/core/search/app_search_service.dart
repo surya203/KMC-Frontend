@@ -14,7 +14,8 @@ const _pageKeywords = <String, List<String>>{
   '/my-events': ['events', 'event', 'annual meet', 'reunion', 'meet'],
   '/my-gallery': ['gallery', 'photos', 'album', 'pictures'],
   '/announcements': ['announcements', 'announcement', 'news', 'notification'],
-  '/connect': ['connect', 'chat', 'message', 'community'],
+  '/connect': ['connect', 'chat', 'message', 'community', 'finance council'],
+  '/member/alumni-roll': ['alumni roll', 'alumni', 'directory', 'membership', 'batchmates', 'registry'],
   '/my-payments': ['payments', 'payment', 'receipt', 'invoice'],
   '/settings': ['settings', 'setting', 'preferences', 'account'],
 };
@@ -120,14 +121,18 @@ class AppSearchService {
 
   Future<void> _searchAlumni(String query, List<AppSearchResult> results) async {
     try {
-      final page = await _profilesApi.fetchDirectory(search: query, pageSize: 5);
+      final page = await _profilesApi.fetchDirectory(
+        search: query,
+        membershipNumber: _looksLikeMembershipId(query) ? query : null,
+        pageSize: 5,
+      );
       for (final profile in page.profiles) {
         results.add(
           AppSearchResult(
             type: AppSearchResultType.alumni,
             title: profile.fullName,
             subtitle: profile.subtitle,
-            route: '/profiles/${profile.id}',
+            route: '/member/profiles/${profile.id}',
             icon: Icons.person_outline_rounded,
             score: _textScore(profile.fullName, query) + 10,
           ),
@@ -228,5 +233,10 @@ class AppSearchService {
     if (value.startsWith(q)) return 80;
     if (value.contains(q)) return 60;
     return 40;
+  }
+
+  bool _looksLikeMembershipId(String query) {
+    final q = query.trim().toLowerCase();
+    return q.startsWith('kmc-') || RegExp(r'^\d{4}[a-z]+\d{3,6}$').hasMatch(q);
   }
 }

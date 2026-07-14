@@ -15,6 +15,7 @@ import '../../../core/utils/media_url.dart';
 import '../../../core/utils/validators.dart';
 import '../widgets/dashboard_layout.dart';
 import '../../../core/widgets/profile_avatar.dart';
+import '../../../core/widgets/profile_photo_cropper.dart';
 
 class MyProfileScreen extends StatefulWidget {
   const MyProfileScreen({super.key});
@@ -301,32 +302,6 @@ class _MyProfileScreenState extends State<MyProfileScreen>
 
   static const _maxPhotoBytes = 3 * 1024 * 1024;
 
-  Future<PlatformFile?> _pickImageFile() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.image,
-      withData: true,
-      allowMultiple: false,
-    );
-    final file = result?.files.single;
-    if (file == null) return null;
-
-    if (file.bytes != null && file.bytes!.isNotEmpty) return file;
-
-    final stream = file.readStream;
-    if (stream != null) {
-      final chunks = await stream.toList();
-      final bytes = Uint8List.fromList(chunks.expand((chunk) => chunk).toList());
-      if (bytes.isEmpty) throw Exception('Could not read image file.');
-      return PlatformFile(
-        name: file.name,
-        size: bytes.length,
-        bytes: bytes,
-      );
-    }
-
-    throw Exception('Could not read image file. Try a smaller JPG or PNG.');
-  }
-
   Future<void> _uploadPhotoFile(PlatformFile file) async {
     if (file.bytes == null || file.bytes!.isEmpty) {
       throw Exception('Could not read image file.');
@@ -384,7 +359,7 @@ class _MyProfileScreenState extends State<MyProfileScreen>
 
   Future<void> _pickPhotoFromGallery() async {
     try {
-      final file = await _pickImageFile();
+      final file = await pickAndCropProfilePhoto(context);
       if (file == null) return;
       await _uploadPhotoFile(file);
     } catch (e) {
@@ -397,13 +372,14 @@ class _MyProfileScreenState extends State<MyProfileScreen>
     try {
       final captured = await captureImageWithLivePreview(context);
       if (captured == null) return;
-      await _uploadPhotoFile(
-        PlatformFile(
-          name: captured.fileName,
-          size: captured.bytes.length,
-          bytes: captured.bytes,
-        ),
+      if (!mounted) return;
+      final cropped = await cropProfilePhotoFile(
+        context,
+        bytes: captured.bytes,
+        fileName: captured.fileName,
       );
+      if (cropped == null) return;
+      await _uploadPhotoFile(cropped);
     } catch (e) {
       if (!mounted) return;
       _showFeedback(formatUserError(e), isError: true);
@@ -724,6 +700,7 @@ class _MyProfileScreenState extends State<MyProfileScreen>
             child: ProfileAvatar(
               localBytes:
                   ProfileSession.instance.photoBytes ?? _localPhotoBytes,
+              networkUrl: ProfileSession.instance.photoUrl ?? profile.photoUrl,
               name: profile.fullName,
               size: avatarSize,
               cacheKey: _photoCacheKey,

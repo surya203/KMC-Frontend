@@ -56,10 +56,58 @@ bool isAnnouncementPublisher(String? role) {
   return resolved != null && announcementPublisherRoles.contains(resolved);
 }
 
+/// President, VP, Secretary, Treasurer, or Admin can start an Executive Committee DM.
+bool canStartExecutiveDm(String? role) {
+  final resolved = resolveUserRole(role);
+  return resolved != null &&
+      (officerRoles.contains(resolved) || resolved == 'admin');
+}
+
 /// President, Vice President, Secretary, and Treasurer can post to General Group.
 bool canPostToGeneralGroup(String? role) {
   final resolved = resolveUserRole(role);
   return resolved != null && officerRoles.contains(resolved);
+}
+
+const financeCouncilViewRoles = {
+  'president',
+  'vice_president',
+  'treasurer',
+  'admin',
+};
+
+const financeCouncilPostRoles = {
+  'president',
+  'vice_president',
+  'treasurer',
+};
+
+/// Finance Council: President, VP, Treasurer chat; Admin view-only.
+bool canViewFinanceCouncil(String? role) {
+  final resolved = resolveUserRole(role);
+  return resolved != null && financeCouncilViewRoles.contains(resolved);
+}
+
+bool canPostToFinanceCouncil(String? role) {
+  final resolved = resolveUserRole(role);
+  return resolved != null && financeCouncilPostRoles.contains(resolved);
+}
+
+String financeCouncilRoleLabel(String? role) {
+  final resolved = resolveUserRole(role);
+  if (resolved == null) return 'Member';
+  switch (resolved) {
+    case 'president':
+      return 'President';
+    case 'vice_president':
+      return 'Vice President';
+    case 'treasurer':
+      return 'Treasurer';
+    case 'admin':
+      return 'Admin';
+    default:
+      return 'Member';
+  }
 }
 
 String generalGroupRoleLabel(String? role) {
@@ -98,6 +146,8 @@ String staffConsoleRouteForRole(String? role) {
 }
 
 String? get currentUserRole => resolveUserRole();
+
+bool get canStartExecutiveDmUser => canStartExecutiveDm(currentUserRole);
 
 bool get isAnnouncementPublisherUser =>
     isAnnouncementPublisher(currentUserRole);

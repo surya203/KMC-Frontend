@@ -6,6 +6,7 @@ import '../utils/compress_profile_photo.dart';
 import '../utils/media_url.dart';
 import '../utils/profile_photo_loader.dart';
 import '../utils/profile_photo_storage.dart';
+import '../utils/profile_photo_url.dart';
 import 'auth_session.dart';
 
 /// Shared profile display state for My Profile and dashboard top bar.
@@ -71,7 +72,14 @@ class ProfileSession extends ChangeNotifier {
   Future<void> updateFromProfile(MyProfile profile) async {
     fullName = profile.fullName;
     _profileId = profile.id;
-    photoUrl = _normalizeUrl(profile.photoUrl);
+
+    final incomingUrl = _normalizeUrl(profile.photoUrl);
+    if (incomingUrl != null) {
+      photoUrl = incomingUrl;
+    } else {
+      // Keep previously known URL / local URL if API has no photo yet.
+      photoUrl ??= await _loadStoredUrl();
+    }
 
     Uint8List? bytes;
     for (final id in _storageIds) {
@@ -86,8 +94,9 @@ class ProfileSession extends ChangeNotifier {
       );
     }
 
-    photoBytes = bytes;
-    if (bytes != null) {
+    // Never discard a known-good local photo when remote fetch fails.
+    if (bytes != null && bytes.isNotEmpty) {
+      photoBytes = bytes;
       await ProfilePhotoLoader.instance.remember(
         photoUrl,
         bytes,
@@ -97,6 +106,14 @@ class ProfileSession extends ChangeNotifier {
 
     _loaded = true;
     notifyListeners();
+  }
+
+  Future<String?> _loadStoredUrl() async {
+    for (final id in _storageIds) {
+      final url = await ProfilePhotoStorage.instance.loadUrl(id);
+      if (url != null && url.trim().isNotEmpty) return url.trim();
+    }
+    return null;
   }
 
   Future<void> setPhoto({
@@ -143,23 +160,26 @@ class ProfileSession extends ChangeNotifier {
   }
 
   Future<void> clear() async {
-    final ids = List<String>.from(_storageIds);
+    // Keep SharedPreferences photo bytes for this device so login can restore
+    // the photo even if the remote URL is briefly unavailable.
     fullName = null;
     photoUrl = null;
     photoBytes = null;
     _profileId = null;
     _loaded = false;
     ProfilePhotoLoader.instance.clear();
-    for (final id in ids) {
-      await ProfilePhotoStorage.instance.clear(id);
-    }
     notifyListeners();
   }
 
   String? _normalizeUrl(String? url) {
     if (url == null || url.trim().isEmpty) return null;
-    final trimmed = url.trim();
-    if (trimmed.startsWith('http')) return trimmed.split('?').first;
+    final trimmed = url.trim().split('?').first;
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return trimmed;
+    }
+    // Storage keys must resolve to Supabase public URLs, not the API host.
+    final candidates = profilePhotoUrlCandidates(trimmed);
+    if (candidates.isNotEmpty) return candidates.first;
     return resolveMediaUrl(trimmed);
   }
 }

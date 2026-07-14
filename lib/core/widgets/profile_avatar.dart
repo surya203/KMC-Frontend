@@ -4,18 +4,21 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../constants/app_colors.dart';
+import '../utils/resilient_profile_image.dart';
 
-/// Circular profile photo — displays saved bytes only (no broken network URLs).
+/// Circular profile photo — prefers local bytes, then network URL.
 class ProfileAvatar extends StatelessWidget {
   const ProfileAvatar({
     super.key,
     this.localBytes,
+    this.networkUrl,
     required this.name,
     required this.size,
     this.cacheKey,
   });
 
   final Uint8List? localBytes;
+  final String? networkUrl;
   final String name;
   final double size;
   final Object? cacheKey;
@@ -39,15 +42,28 @@ class ProfileAvatar extends StatelessWidget {
         fit: BoxFit.cover,
         gaplessPlayback: true,
         key: ValueKey(cacheKey ?? bytes.length),
-        errorBuilder: (_, _, _) => _placeholder(),
+        errorBuilder: (_, _, _) => _networkOrPlaceholder(),
       );
     } else {
-      child = _placeholder();
+      child = _networkOrPlaceholder();
     }
 
     return ClipOval(
       child: SizedBox(width: size, height: size, child: child),
     );
+  }
+
+  Widget _networkOrPlaceholder() {
+    final url = networkUrl?.trim();
+    if (url != null && url.isNotEmpty) {
+      return ResilientProfileImage(
+        photoUrl: url,
+        width: size,
+        height: size,
+        fallback: _placeholder(),
+      );
+    }
+    return _placeholder();
   }
 
   Widget _placeholder() {

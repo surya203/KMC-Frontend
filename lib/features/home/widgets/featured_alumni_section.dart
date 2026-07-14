@@ -1,12 +1,13 @@
 import 'dart:async';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/auth/auth_session.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/profiles_api_service.dart';
+import '../../../core/utils/resilient_profile_image.dart';
 import 'section_header.dart';
 
 class FeaturedAlumniSection extends StatefulWidget {
@@ -157,6 +158,21 @@ class _FeaturedAlumniSectionState extends State<FeaturedAlumniSection> {
                   ],
                 ),
               ],
+              const SizedBox(height: 28),
+              OutlinedButton(
+                onPressed: () {
+                  if (AuthSession.instance.isAuthenticated) {
+                    context.go('/member/alumni-roll');
+                  } else {
+                    context.go('/auth');
+                  }
+                },
+                child: Text(
+                  AuthSession.instance.isAuthenticated
+                      ? 'Browse Alumni Roll'
+                      : 'Sign in to browse Alumni Roll',
+                ),
+              ),
             ],
           ),
         ),
@@ -193,7 +209,15 @@ class _AlumniCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(16),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: data.id != null ? () => context.go('/profiles/${data.id}') : null,
+        onTap: data.id == null
+            ? null
+            : () {
+                if (AuthSession.instance.isAuthenticated) {
+                  context.go('/member/profiles/${data.id}');
+                } else {
+                  context.go('/auth');
+                }
+              },
         child: Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
@@ -227,13 +251,12 @@ class _AlumniCard extends StatelessWidget {
                     ),
                     child: ClipOval(
                       child: data.photoUrl != null
-                          ? CachedNetworkImage(
-                              imageUrl: data.photoUrl!,
+                          ? ResilientProfileImage(
+                              photoUrl: data.photoUrl,
                               width: 48,
                               height: 48,
                               fit: BoxFit.cover,
-                              errorWidget: (context, url, error) =>
-                                  _avatarFallback(),
+                              fallback: _avatarFallback(),
                             )
                           : _avatarFallback(),
                     ),

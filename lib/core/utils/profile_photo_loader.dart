@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import '../network/auth_service.dart';
 import '../utils/compress_profile_photo.dart';
 import '../utils/media_url.dart';
+import '../utils/profile_photo_url.dart';
 import 'profile_photo_storage.dart';
 
 /// Loads and caches profile photos for profile page and top bar avatars.
@@ -95,19 +96,18 @@ class ProfilePhotoLoader {
     final local = await loadLocal(userId);
     if (local != null) return local;
 
-    final key = _baseKey(url);
-    if (key == null) return null;
-
-    final remote = await _fetchRemote(key);
-    if (remote != null) {
-      _cache[key] = remote;
-      _cache['local_$userId'] = remote;
-      await ProfilePhotoStorage.instance.save(
-        userId: userId,
-        bytes: remote,
-        url: key,
-      );
-      return remote;
+    for (final candidate in profilePhotoUrlCandidates(url)) {
+      final remote = await _fetchRemote(candidate);
+      if (remote != null) {
+        _cache[candidate] = remote;
+        _cache['local_$userId'] = remote;
+        await ProfilePhotoStorage.instance.save(
+          userId: userId,
+          bytes: remote,
+          url: candidate,
+        );
+        return remote;
+      }
     }
     return null;
   }
