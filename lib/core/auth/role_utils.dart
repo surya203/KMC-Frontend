@@ -45,6 +45,10 @@ bool canReviewVerifications(String? role) {
 
 bool canManageMembers(String? role) => resolveUserRole(role) == 'admin';
 
+bool canManageGallery(String? role) => resolveUserRole(role) == 'admin';
+
+bool canManageEvents(String? role) => resolveUserRole(role) == 'admin';
+
 bool canManageDrugs(String? role) => resolveUserRole(role) == 'admin';
 
 bool isAnnouncementPublisher(String? role) {

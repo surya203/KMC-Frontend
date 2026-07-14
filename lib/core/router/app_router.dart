@@ -5,6 +5,7 @@ import '../auth/role_utils.dart';
 import '../../features/about/presentation/about_screen.dart';
 import '../../features/admin/presentation/admin_dashboard_screen.dart';
 import '../../features/admin/presentation/admin_drugs_screen.dart';
+import '../../features/admin/presentation/admin_events_screen.dart';
 import '../../features/admin/presentation/admin_members_screen.dart';
 import '../../features/admin/presentation/admin_verifications_screen.dart';
 import '../../features/admin/widgets/admin_shell.dart';
@@ -55,6 +56,12 @@ bool _canAccessAdminPath(String location, String? role) {
   }
   if (location.startsWith('/admin/members')) {
     return canManageMembers(role);
+  }
+  if (location.startsWith('/admin/events')) {
+    return canManageEvents(role);
+  }
+  if (location.startsWith('/admin/gallery')) {
+    return canManageGallery(role);
   }
   if (location.startsWith('/admin/drugs')) {
     return canManageDrugs(role);
@@ -183,6 +190,45 @@ final GoRouter appRouter = GoRouter(
           ),
         ),
         GoRoute(
+          path: '/admin/events',
+          pageBuilder: (context, state) => adminPage(
+            key: state.pageKey,
+            child: const AdminEventsScreen(),
+          ),
+        ),
+        GoRoute(
+          path: '/admin/gallery',
+          pageBuilder: (context, state) => adminPage(
+            key: state.pageKey,
+            child: const DashboardGalleryScreen(
+              basePath: '/admin/gallery',
+              canManage: true,
+            ),
+          ),
+          routes: [
+            GoRoute(
+              path: 'album/:slug',
+              pageBuilder: (context, state) => adminPage(
+                key: state.pageKey,
+                child: DashboardGalleryAlbumScreen(
+                  slug: state.pathParameters['slug']!,
+                  basePath: '/admin/gallery',
+                ),
+              ),
+            ),
+            GoRoute(
+              path: 'manage/:slug',
+              pageBuilder: (context, state) => adminPage(
+                key: state.pageKey,
+                child: DashboardGalleryManageScreen(
+                  slug: state.pathParameters['slug']!,
+                  basePath: '/admin/gallery',
+                ),
+              ),
+            ),
+          ],
+        ),
+        GoRoute(
           path: '/admin/drugs',
           pageBuilder: (context, state) => adminPage(
             key: state.pageKey,
@@ -260,15 +306,7 @@ final GoRouter appRouter = GoRouter(
                 key: state.pageKey,
                 child: DashboardGalleryAlbumScreen(
                   slug: state.pathParameters['slug']!,
-                ),
-              ),
-            ),
-            GoRoute(
-              path: 'manage/:slug',
-              pageBuilder: (context, state) => dashboardPage(
-                key: state.pageKey,
-                child: DashboardGalleryManageScreen(
-                  slug: state.pathParameters['slug']!,
+                  allowDriveLinks: true,
                 ),
               ),
             ),

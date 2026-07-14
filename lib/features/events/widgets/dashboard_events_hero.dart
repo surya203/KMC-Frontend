@@ -66,27 +66,15 @@ class EventProgramCardData {
 }
 
 List<EventProgramCardData> buildEventProgramCards(EventItem event) {
-  const defaultTitles = [
-    'Scientific Sessions',
-    'CME Programs',
-    'NRI Programs',
-  ];
-
-  final tracks = event.programs.length >= 3
-      ? event.programs.take(3).toList()
-      : <String>[
-          event.title,
-          defaultTitles[1],
-          defaultTitles[2],
-        ];
+  final track =
+      event.programs.isNotEmpty ? event.programs.first : event.title;
 
   return [
-    for (final track in tracks)
-      EventProgramCardData(
-        title: track,
-        programTrack: track,
-        event: event,
-      ),
+    EventProgramCardData(
+      title: track,
+      programTrack: track,
+      event: event,
+    ),
   ];
 }
 

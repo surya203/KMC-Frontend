@@ -37,6 +37,18 @@ const adminNavItems = <AdminNavItem>[
     canManageMembers,
   ),
   AdminNavItem(
+    'Events',
+    Icons.event_outlined,
+    '/admin/events',
+    canManageEvents,
+  ),
+  AdminNavItem(
+    'Gallery',
+    Icons.photo_library_outlined,
+    '/admin/gallery',
+    canManageGallery,
+  ),
+  AdminNavItem(
     'Drugs',
     Icons.medication_outlined,
     '/admin/drugs',
@@ -169,7 +181,7 @@ class _AdminSidebar extends StatelessWidget {
                     for (final item in items)
                       _AdminNavTile(
                         item: item,
-                        selected: currentPath == item.path,
+                        selected: _isAdminNavSelected(currentPath, item.path),
                       ),
                   ],
                 ),
@@ -341,9 +353,17 @@ class _AdminTopBar extends StatelessWidget {
   }
 }
 
+bool _isAdminNavSelected(String currentPath, String itemPath) {
+  if (itemPath == '/admin') {
+    return currentPath == '/admin' ||
+        currentPath.startsWith('/admin/analytics');
+  }
+  return currentPath == itemPath || currentPath.startsWith('$itemPath/');
+}
+
 String adminTitleForPath(String path) {
   for (final item in adminNavItems) {
-    if (item.path == path) return item.label;
+    if (_isAdminNavSelected(path, item.path)) return item.label;
   }
   return 'Admin';
 }

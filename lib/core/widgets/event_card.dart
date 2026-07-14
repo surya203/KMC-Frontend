@@ -13,15 +13,18 @@ class EventCard extends StatelessWidget {
     required this.dateLabel,
     required this.venueLabel,
     required this.registeredCount,
+    this.subtitle,
     this.coverImageUrl,
     this.coverAssetPath,
     this.registrationOpen = true,
     this.isRegistered = false,
+    this.showRegistrationUi = true,
     this.onTap,
     this.onRegister,
   });
 
   final String title;
+  final String? subtitle;
   final String dateLabel;
   final String venueLabel;
   final int registeredCount;
@@ -29,6 +32,7 @@ class EventCard extends StatelessWidget {
   final String? coverAssetPath;
   final bool registrationOpen;
   final bool isRegistered;
+  final bool showRegistrationUi;
   final VoidCallback? onTap;
   final VoidCallback? onRegister;
 
@@ -80,103 +84,116 @@ class EventCard extends StatelessWidget {
                       color: AppColors.heading,
                     ),
                   ),
-                  const SizedBox(height: 18),
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final stackActions = constraints.maxWidth < 340;
-                      final countLabel = '$registeredCount registered';
-                      final buttonLabel = isRegistered
-                          ? 'Registered'
-                          : registrationOpen
-                              ? 'Register'
-                              : 'Closed';
+                  if (subtitle != null && subtitle!.trim().isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      subtitle!,
+                      style: GoogleFonts.inter(
+                        fontSize: 15,
+                        color: AppColors.bodyText,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                  if (showRegistrationUi) ...[
+                    const SizedBox(height: 18),
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final stackActions = constraints.maxWidth < 340;
+                        final countLabel = '$registeredCount registered';
+                        final buttonLabel = isRegistered
+                            ? 'Registered'
+                            : registrationOpen
+                                ? 'Register'
+                                : 'Closed';
 
-                      if (stackActions) {
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(
-                                  Icons.people_outline,
-                                  size: 18,
-                                  color: AppColors.bodyText,
-                                ),
-                                const SizedBox(width: 6),
-                                Flexible(
-                                  child: Text(
-                                    countLabel,
-                                    style: GoogleFonts.inter(
-                                      color: AppColors.bodyText,
+                        if (stackActions) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    Icons.people_outline,
+                                    size: 18,
+                                    color: AppColors.bodyText,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Flexible(
+                                    child: Text(
+                                      countLabel,
+                                      style: GoogleFonts.inter(
+                                        color: AppColors.bodyText,
+                                      ),
                                     ),
                                   ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            Align(
-                              alignment: Alignment.centerLeft,
-                              child: ElevatedButton(
-                                onPressed: canRegister ? onRegister : null,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppColors.primary,
-                                  foregroundColor: Colors.white,
-                                  disabledBackgroundColor:
-                                      AppColors.muted.withValues(alpha: 0.4),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 24,
-                                    vertical: 14,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(24),
-                                  ),
-                                ),
-                                child: Text(buttonLabel),
+                                ],
                               ),
+                              const SizedBox(height: 12),
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: ElevatedButton(
+                                  onPressed: canRegister ? onRegister : null,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppColors.primary,
+                                    foregroundColor: Colors.white,
+                                    disabledBackgroundColor:
+                                        AppColors.muted.withValues(alpha: 0.4),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 24,
+                                      vertical: 14,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(24),
+                                    ),
+                                  ),
+                                  child: Text(buttonLabel),
+                                ),
+                              ),
+                            ],
+                          );
+                        }
+
+                        return Row(
+                          children: [
+                            const Icon(
+                              Icons.people_outline,
+                              size: 18,
+                              color: AppColors.bodyText,
+                            ),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                countLabel,
+                                style: GoogleFonts.inter(
+                                  color: AppColors.bodyText,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            ElevatedButton(
+                              onPressed: canRegister ? onRegister : null,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primary,
+                                foregroundColor: Colors.white,
+                                disabledBackgroundColor:
+                                    AppColors.muted.withValues(alpha: 0.4),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 24,
+                                  vertical: 14,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(24),
+                                ),
+                              ),
+                              child: Text(buttonLabel),
                             ),
                           ],
                         );
-                      }
-
-                      return Row(
-                        children: [
-                          const Icon(
-                            Icons.people_outline,
-                            size: 18,
-                            color: AppColors.bodyText,
-                          ),
-                          const SizedBox(width: 6),
-                          Flexible(
-                            child: Text(
-                              countLabel,
-                              style: GoogleFonts.inter(
-                                color: AppColors.bodyText,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          ElevatedButton(
-                            onPressed: canRegister ? onRegister : null,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primary,
-                              foregroundColor: Colors.white,
-                              disabledBackgroundColor:
-                                  AppColors.muted.withValues(alpha: 0.4),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 24,
-                                vertical: 14,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(24),
-                              ),
-                            ),
-                            child: Text(buttonLabel),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
+                      },
+                    ),
+                  ],
                 ],
               ),
             ),

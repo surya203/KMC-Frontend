@@ -403,12 +403,10 @@ class _GalleryLightbox extends StatefulWidget {
 
 class _GalleryLightboxState extends State<_GalleryLightbox> {
   late final PageController _controller;
-  late int _index;
 
   @override
   void initState() {
     super.initState();
-    _index = widget.initialIndex;
     _controller = PageController(initialPage: widget.initialIndex);
   }
 
@@ -420,7 +418,6 @@ class _GalleryLightboxState extends State<_GalleryLightbox> {
 
   @override
   Widget build(BuildContext context) {
-    final item = widget.media[_index];
     return Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.all(16),
@@ -429,7 +426,6 @@ class _GalleryLightboxState extends State<_GalleryLightbox> {
           PageView.builder(
             controller: _controller,
             itemCount: widget.media.length,
-            onPageChanged: (i) => setState(() => _index = i),
             itemBuilder: (context, index) {
               final media = widget.media[index];
               return InteractiveViewer(
@@ -448,17 +444,6 @@ class _GalleryLightboxState extends State<_GalleryLightbox> {
               icon: const Icon(Icons.close, color: Colors.white, size: 28),
             ),
           ),
-          if (item.caption != null)
-            Positioned(
-              left: 16,
-              right: 16,
-              bottom: 16,
-              child: Text(
-                item.caption!,
-                textAlign: TextAlign.center,
-                style: GoogleFonts.inter(color: Colors.white, fontSize: 14),
-              ),
-            ),
         ],
       ),
     );

@@ -206,9 +206,9 @@ class AuthService {
       if (data == null) {
         throw AuthException('Could not send reset instructions.');
       }
-      return ForgotPasswordResult(
-        message: data['message'] as String? ?? 'Check your email for reset instructions.',
-        debugResetToken: data['debug_reset_token'] as String?,
+            return ForgotPasswordResult(
+        message: data['message'] as String? ??
+            'Check your email for the 6-digit reset code.',
       );
     } on DioException catch (e) {
       final detail = e.response?.data;
@@ -222,15 +222,19 @@ class AuthService {
   }
 
   Future<void> resetPassword({
-    required String token,
+    required String email,
+    required String code,
     required String newPassword,
+    required String confirmPassword,
   }) async {
     try {
       await _dio.post<Map<String, dynamic>>(
         '${AppConfig.apiPrefix}/auth/reset-password',
         data: {
-          'token': token,
+          'email': email,
+          'code': code,
           'new_password': newPassword,
+          'confirm_password': confirmPassword,
         },
       );
     } on DioException catch (e) {
@@ -246,11 +250,7 @@ class AuthService {
 }
 
 class ForgotPasswordResult {
-  const ForgotPasswordResult({
-    required this.message,
-    this.debugResetToken,
-  });
+  const ForgotPasswordResult({required this.message});
 
   final String message;
-  final String? debugResetToken;
 }
