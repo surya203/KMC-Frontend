@@ -48,6 +48,16 @@
     flt-glass-pane {
       scrollbar-width: thin;
       scrollbar-color: var(--kmc-scroll-thumb) var(--kmc-scroll-track);
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    /* Keep typing fields selectable/copyable */
+    input,
+    textarea,
+    [contenteditable="true"] {
+      -webkit-user-select: text;
+      user-select: text;
     }
 
     * {
