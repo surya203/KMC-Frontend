@@ -197,8 +197,8 @@ class _FooterBottomBar extends StatelessWidget {
 
     final copyright = Text(
       isCompact
-          ? '© $year KMC Alumni Association'
-          : '© $year KMC Alumni Association. All rights reserved.',
+          ? '© $year KMC Alumni welfare Association'
+          : '© $year KMC Alumni welfare Association. All rights reserved.',
       style: _mutedStyle,
       textAlign: isCompact ? TextAlign.center : TextAlign.start,
     );
@@ -206,6 +206,11 @@ class _FooterBottomBar extends StatelessWidget {
       'All rights reserved.',
       style: _mutedStyle,
       textAlign: TextAlign.center,
+    );
+    final credit = Text(
+      'Designed & developed by quantum strategies edgies in Association with Logiq Gen Private Limited.',
+      style: _mutedStyle,
+      textAlign: isCompact ? TextAlign.center : TextAlign.start,
     );
     final tagline = Text(
       'Official Platform · Estd. 1959',
@@ -218,9 +223,13 @@ class _FooterBottomBar extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Expanded(
-            child: Text(
-              '© $year KMC Alumni welfare Association. All rights reserved.',
-              style: _mutedStyle,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                copyright,
+                const SizedBox(height: 4),
+                credit,
+              ],
             ),
           ),
           const SizedBox(width: 24),
@@ -236,6 +245,8 @@ class _FooterBottomBar extends StatelessWidget {
           copyright,
           const SizedBox(height: 4),
           rights,
+          const SizedBox(height: 4),
+          credit,
           const SizedBox(height: 10),
           tagline,
         ],
@@ -246,6 +257,8 @@ class _FooterBottomBar extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         copyright,
+        const SizedBox(height: 4),
+        credit,
         const SizedBox(height: 8),
         tagline,
       ],
