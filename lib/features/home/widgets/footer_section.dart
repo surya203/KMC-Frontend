@@ -219,7 +219,7 @@ class _FooterBottomBar extends StatelessWidget {
         children: [
           Expanded(
             child: Text(
-              '© $year KMC Alumni Association. All rights reserved.',
+              '© $year KMC Alumni welfare Association. All rights reserved.',
               style: _mutedStyle,
             ),
           ),
