@@ -313,7 +313,7 @@ class _DashboardGalleryAlbumScreenState
                   onTap: () => _openLightbox(index),
                   child: CachedNetworkImage(
                     imageUrl: item.imageUrl,
-                    fit: BoxFit.cover,
+                    fit: BoxFit.contain,
                     errorWidget: (_, _, _) => Container(
                       color: AppColors.muted,
                       child: const Icon(Icons.broken_image),

@@ -327,7 +327,7 @@ class _PhotoTile extends StatelessWidget {
         children: [
           CachedNetworkImage(
             imageUrl: item.imageUrl,
-            fit: BoxFit.cover,
+            fit: BoxFit.contain,
             errorWidget: (_, _, _) => const Center(
               child: Icon(Icons.broken_image_outlined),
             ),
