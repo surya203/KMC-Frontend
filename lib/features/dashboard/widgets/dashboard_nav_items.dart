@@ -21,6 +21,9 @@ const dashboardNavItems = <DashboardNavItem>[
 ];
 
 String dashboardTitleForPath(String path, {bool compact = false}) {
+  if (path.startsWith('/dashboard/drugs')) {
+    return 'Dashboard';
+  }
   if (path == '/connect' || path.startsWith('/connect/')) {
     return 'Executive Committee';
   }

@@ -159,7 +159,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () => context.go(
-                        homeRouteForRole(
+                        staffConsoleRouteForRole(
                           AuthSession.instance.currentUser?.role,
                         ),
                       ),

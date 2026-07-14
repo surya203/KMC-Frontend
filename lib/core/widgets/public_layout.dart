@@ -197,18 +197,37 @@ class _BrandLockup extends StatelessWidget {
             ],
           ),
           const SizedBox(height: _kmcToSubtitleGap),
-          Text(
-            'ALUMNI CONNECT',
-            textAlign: TextAlign.left,
-            maxLines: 1,
-            overflow: TextOverflow.clip,
-            style: GoogleFonts.inter(
-              fontSize: subtitleSize,
-              fontWeight: FontWeight.w600,
-              height: 1.1,
-              letterSpacing: compact ? 1.0 : 1.2,
-              color: AppColors.primary,
-            ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: compact ? 4 : 5,
+                  vertical: compact ? 1.5 : 2,
+                ),
+                color: AppColors.secondary,
+                child: Text(
+                  'ALUMNI',
+                  style: GoogleFonts.inter(
+                    fontSize: subtitleSize,
+                    fontWeight: FontWeight.w600,
+                    height: 1.1,
+                    letterSpacing: compact ? 1.0 : 1.2,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+              Text(
+                ' CONNECT',
+                style: GoogleFonts.inter(
+                  fontSize: subtitleSize,
+                  fontWeight: FontWeight.w600,
+                  height: 1.1,
+                  letterSpacing: compact ? 1.0 : 1.2,
+                  color: AppColors.primary,
+                ),
+              ),
+            ],
           ),
         ],
       ),

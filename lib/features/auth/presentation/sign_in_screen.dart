@@ -180,10 +180,10 @@ class _SignInScreenState extends State<SignInScreen> {
 
   Future<void> _completeSignIn(AuthTokens tokens) async {
     await AuthSession.instance.saveLogin(tokens);
-    await _authService.fetchMe();
+    await AuthSession.instance.refreshCurrentUser();
     await ProfileSession.instance.ensureLoaded(force: true);
     if (!mounted) return;
-    context.go(homeRouteForRole(AuthSession.instance.currentUser?.role));
+    context.go(homeRouteForRole(currentUserRole));
   }
 
   Future<void> _showForgotPasswordDialog() async {

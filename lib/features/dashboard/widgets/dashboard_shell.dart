@@ -10,6 +10,8 @@ import '../../../core/search/app_search_result.dart';
 import '../../../core/search/app_search_service.dart';
 import '../../../core/constants/app_assets.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/drugs_header_card.dart';
+import '../../../core/widgets/drugs_sidebar_banner.dart';
 import '../../../core/utils/membership_number_format.dart';
 import '../../../core/widgets/profile_avatar.dart';
 import '../../../core/widgets/safe_asset_image.dart';
@@ -152,18 +154,24 @@ class DashboardSidebar extends StatelessWidget {
             const Divider(color: Color(0x33FFFFFF), height: 1),
             const SizedBox(height: 12),
             Expanded(
-              child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                children: [
-                  for (final item in dashboardNavItems)
-                    _SidebarNavTile(
-                      item: item,
-                      active: dashboardNavItemIsActive(item.path, currentPath),
-                      currentPath: currentPath,
-                    ),
-                ],
+              child: ScrollConfiguration(
+                behavior: ScrollConfiguration.of(context).copyWith(
+                  scrollbars: false,
+                ),
+                child: ListView(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  children: [
+                    for (final item in dashboardNavItems)
+                      _SidebarNavTile(
+                        item: item,
+                        active: dashboardNavItemIsActive(item.path, currentPath),
+                        currentPath: currentPath,
+                      ),
+                  ],
+                ),
               ),
             ),
+            const DrugsSidebarBanner(),
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
               child: OutlinedButton.icon(
@@ -602,6 +610,8 @@ class _DashboardTopBarState extends State<DashboardTopBar> {
                   )
                 else
                   const SizedBox(width: 12),
+                const DrugsHeaderCard(),
+                SizedBox(width: isCompact ? 8 : 10),
                 IconButton(
                   onPressed: () => context.go('/announcements'),
                   icon: const Icon(Icons.notifications_none_rounded),
