@@ -8,12 +8,22 @@ class ApiClient {
       : _dio = dio ??
             Dio(
               BaseOptions(
+                // Prefer current env; interceptor keeps this fresh after restarts.
                 baseUrl: AppConfig.apiBaseUrl,
                 connectTimeout: const Duration(seconds: 10),
                 receiveTimeout: const Duration(seconds: 10),
                 headers: {'Content-Type': 'application/json'},
               ),
             ) {
+    // Always use the latest API_BASE_URL from .env (avoids stale 8004/8000).
+    _dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          options.baseUrl = AppConfig.apiBaseUrl;
+          handler.next(options);
+        },
+      ),
+    );
     _dio.interceptors.add(AuthInterceptor(_dio));
   }
 

@@ -101,50 +101,53 @@ class _SignInScreenState extends State<SignInScreen> {
       return;
     }
 
-    switch (_signInMethod) {
-      case _SignInMethod.email:
-        final email = _emailController.text.trim();
-        if (email.isEmpty) {
-          setState(() => _errorMessage = 'Email and password are required.');
-          return;
-        }
-        await _attemptLogin(
-          () => _authService.login(email: email, password: password),
-        );
-      case _SignInMethod.membershipNumber:
-        final membershipNumber = _membershipNumberController.text.trim();
-        if (membershipNumber.isEmpty) {
-          setState(
-            () => _errorMessage = 'Membership number and password are required.',
-          );
-          return;
-        }
-        await _attemptLogin(
-          () => _authService.login(
-            membershipNumber: membershipNumber,
-            password: password,
-          ),
-        );
-      case _SignInMethod.phone:
-        final phone = normalizeMobileNumber(_phoneController.text);
-        final dialCode = normalizeDialCode(_dialCodeController.text) ?? '+91';
-        final phoneError = validateInternationalMobile(
-          dialCode: dialCode,
-          localNumber: phone,
-          required: true,
-        );
-        if (phoneError != null) {
-          setState(() => _errorMessage = phoneError);
-          return;
-        }
-        await _attemptLogin(
-          () => _authService.login(
-            phone: phone,
-            phoneCountryCode: dialCode,
-            password: password,
-          ),
-        );
+    if (_signInMethod == _SignInMethod.email) {
+      final email = _emailController.text.trim();
+      if (email.isEmpty) {
+        setState(() => _errorMessage = 'Email and password are required.');
+        return;
+      }
+      await _attemptLogin(
+        () => _authService.login(email: email, password: password),
+      );
+      return;
     }
+
+    if (_signInMethod == _SignInMethod.membershipNumber) {
+      final membershipNumber = _membershipNumberController.text.trim();
+      if (membershipNumber.isEmpty) {
+        setState(
+          () => _errorMessage = 'Membership number and password are required.',
+        );
+        return;
+      }
+      await _attemptLogin(
+        () => _authService.login(
+          membershipNumber: membershipNumber,
+          password: password,
+        ),
+      );
+      return;
+    }
+
+    final phone = normalizeMobileNumber(_phoneController.text);
+    final dialCode = normalizeDialCode(_dialCodeController.text) ?? '+91';
+    final phoneError = validateInternationalMobile(
+      dialCode: dialCode,
+      localNumber: phone,
+      required: true,
+    );
+    if (phoneError != null) {
+      setState(() => _errorMessage = phoneError);
+      return;
+    }
+    await _attemptLogin(
+      () => _authService.login(
+        phone: phone,
+        phoneCountryCode: dialCode,
+        password: password,
+      ),
+    );
   }
 
   Future<void> _attemptLogin(Future<AuthTokens> Function() login) async {
@@ -470,8 +473,18 @@ class _ForgotPasswordDialogState extends State<_ForgotPasswordDialog> {
   final _confirmPasswordController = TextEditingController();
   String? _statusMessage;
   bool _busy = false;
+  bool _codeSentOnce = false;
+  int _resendCooldownSeconds = 0;
   bool _obscureNewPassword = true;
   bool _obscureConfirmPassword = true;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _requestReset(isResend: false);
+    });
+  }
 
   @override
   void dispose() {
@@ -481,20 +494,46 @@ class _ForgotPasswordDialogState extends State<_ForgotPasswordDialog> {
     super.dispose();
   }
 
-  Future<void> _requestReset() async {
+  void _startCooldown(int seconds) {
+    if (seconds <= 0) {
+      setState(() => _resendCooldownSeconds = 0);
+      return;
+    }
+    _resendCooldownSeconds = seconds;
+    Future.doWhile(() async {
+      await Future<void>.delayed(const Duration(seconds: 1));
+      if (!mounted || _resendCooldownSeconds <= 0) return false;
+      setState(() => _resendCooldownSeconds -= 1);
+      return _resendCooldownSeconds > 0;
+    });
+  }
+
+  Future<void> _requestReset({required bool isResend}) async {
+    if (_busy || (isResend && _resendCooldownSeconds > 0)) return;
     setState(() {
       _busy = true;
-      _statusMessage = 'Sending 6-digit code...';
+      _statusMessage = isResend
+          ? 'Resending a new 6-digit code...'
+          : 'Sending 6-digit code...';
     });
     try {
-      final result = await widget.authService.forgotPassword(email: widget.email);
+      final result =
+          await widget.authService.forgotPassword(email: widget.email);
       if (!mounted) return;
       setState(() {
-        _statusMessage = result.message;
+        _codeSentOnce = true;
+        _statusMessage = isResend
+            ? '${result.message} (${DateTime.now().hour.toString().padLeft(2, '0')}:${DateTime.now().minute.toString().padLeft(2, '0')})'
+            : result.message;
+        _resendCooldownSeconds = 0;
       });
     } on AuthException catch (e) {
       if (!mounted) return;
       setState(() => _statusMessage = e.message);
+      final wait = e.retryAfterSeconds;
+      if (wait != null && wait > 0) {
+        _startCooldown(wait);
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -567,7 +606,9 @@ class _ForgotPasswordDialogState extends State<_ForgotPasswordDialog> {
             ),
             const SizedBox(height: 12),
             FilledButton(
-              onPressed: _busy ? null : _requestReset,
+              onPressed: (_busy || _resendCooldownSeconds > 0)
+                  ? null
+                  : () => _requestReset(isResend: _codeSentOnce),
               style: FilledButton.styleFrom(
                 backgroundColor: AppColors.secondary,
                 foregroundColor: Colors.white,
@@ -579,7 +620,9 @@ class _ForgotPasswordDialogState extends State<_ForgotPasswordDialog> {
                 padding: const EdgeInsets.symmetric(vertical: 16),
               ),
               child: Text(
-                'Send 6-digit code',
+                _resendCooldownSeconds > 0
+                    ? 'Resend available in ${_resendCooldownSeconds}s'
+                    : (_codeSentOnce ? 'Resend code' : 'Send 6-digit code'),
                 style: GoogleFonts.inter(
                   fontWeight: FontWeight.w700,
                   fontSize: 15,

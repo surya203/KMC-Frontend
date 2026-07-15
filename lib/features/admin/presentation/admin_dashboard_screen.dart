@@ -137,50 +137,50 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               if (overview != null)
                 LayoutBuilder(
                   builder: (context, constraints) {
-                    // Narrower cells need a lower ratio (taller cards) so
-                    // icon + value + label fit without bottom overflow.
-                    final aspectRatio = width < 375
-                        ? 1.55
-                        : (width < 600 ? 1.85 : 2.2);
-                    return GridView.count(
-                      crossAxisCount: columns,
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      mainAxisSpacing: 12,
-                      crossAxisSpacing: 12,
-                      childAspectRatio: aspectRatio,
+                    const spacing = 12.0;
+                    final cardWidth =
+                        (constraints.maxWidth - spacing * (columns - 1)) /
+                        columns;
+                    final cards = [
+                      _StatCard(
+                        label: 'Total members',
+                        value: '${overview.totalMembers}',
+                        icon: Icons.people_outline,
+                      ),
+                      _StatCard(
+                        label: 'Active memberships',
+                        value: '${overview.activeMemberships}',
+                        icon: Icons.workspace_premium_outlined,
+                      ),
+                      _StatCard(
+                        label: 'Pending verifications',
+                        value: '${overview.pendingVerifications}',
+                        icon: Icons.verified_user_outlined,
+                        onTap: () => context.go('/admin/verifications'),
+                      ),
+                      _StatCard(
+                        label: 'Published events',
+                        value: '${overview.publishedEvents}',
+                        icon: Icons.event_outlined,
+                      ),
+                      _StatCard(
+                        label: 'Upcoming events',
+                        value: '${overview.upcomingEvents}',
+                        icon: Icons.upcoming_outlined,
+                      ),
+                      _StatCard(
+                        label: 'Captured revenue',
+                        value: overview.displayRevenue,
+                        icon: Icons.payments_outlined,
+                      ),
+                    ];
+
+                    return Wrap(
+                      spacing: spacing,
+                      runSpacing: spacing,
                       children: [
-                        _StatCard(
-                          label: 'Total members',
-                          value: '${overview.totalMembers}',
-                          icon: Icons.people_outline,
-                        ),
-                        _StatCard(
-                          label: 'Active memberships',
-                          value: '${overview.activeMemberships}',
-                          icon: Icons.workspace_premium_outlined,
-                        ),
-                        _StatCard(
-                          label: 'Pending verifications',
-                          value: '${overview.pendingVerifications}',
-                          icon: Icons.verified_user_outlined,
-                          onTap: () => context.go('/admin/verifications'),
-                        ),
-                        _StatCard(
-                          label: 'Published events',
-                          value: '${overview.publishedEvents}',
-                          icon: Icons.event_outlined,
-                        ),
-                        _StatCard(
-                          label: 'Upcoming events',
-                          value: '${overview.upcomingEvents}',
-                          icon: Icons.upcoming_outlined,
-                        ),
-                        _StatCard(
-                          label: 'Captured revenue',
-                          value: overview.displayRevenue,
-                          icon: Icons.payments_outlined,
-                        ),
+                        for (final card in cards)
+                          SizedBox(width: cardWidth, child: card),
                       ],
                     );
                   },
@@ -286,46 +286,35 @@ class _StatCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: AppColors.border),
             ),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                return FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(maxWidth: constraints.maxWidth),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(icon, color: AppColors.primary, size: 22),
-                        const SizedBox(height: 12),
-                        Text(
-                          value,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.fraunces(
-                            fontSize: 26,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.heading,
-                            height: 1.1,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          label,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.inter(
-                            fontSize: 12,
-                            height: 1.2,
-                            color: AppColors.bodyText,
-                          ),
-                        ),
-                      ],
-                    ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, color: AppColors.primary, size: 22),
+                const SizedBox(height: 12),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.fraunces(
+                    fontSize: 26,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.heading,
+                    height: 1.1,
                   ),
-                );
-              },
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  label,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    height: 1.2,
+                    color: AppColors.bodyText,
+                  ),
+                ),
+              ],
             ),
           ),
         ),

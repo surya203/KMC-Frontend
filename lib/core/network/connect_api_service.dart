@@ -6,6 +6,18 @@ import 'announcements_api_service.dart';
 import 'api_client.dart';
 import 'auth_service.dart';
 
+/// Parse API timestamps as UTC when no timezone is provided.
+DateTime parseConnectDateTime(Object? raw) {
+  final text = '${raw ?? ''}'.trim();
+  if (text.isEmpty) {
+    return DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
+  }
+  final hasZone = text.endsWith('Z') ||
+      RegExp(r'[+-]\d{2}:?\d{2}$').hasMatch(text);
+  final normalized = hasZone ? text : '${text}Z';
+  return DateTime.parse(normalized).toUtc();
+}
+
 class ConnectOfficer {
   const ConnectOfficer({
     required this.userId,
@@ -55,6 +67,10 @@ class CommunityMessageItem {
     this.targetPhone,
     this.audienceLabel,
     this.isTargeted = false,
+    this.attachmentUrl,
+    this.attachmentName,
+    this.attachmentMime,
+    this.attachmentSize,
   });
 
   final String id;
@@ -73,6 +89,14 @@ class CommunityMessageItem {
   final String? targetPhone;
   final String? audienceLabel;
   final bool isTargeted;
+  final String? attachmentUrl;
+  final String? attachmentName;
+  final String? attachmentMime;
+  final int? attachmentSize;
+
+  bool get hasAttachment =>
+      (attachmentUrl != null && attachmentUrl!.trim().isNotEmpty) ||
+      (attachmentName != null && attachmentName!.trim().isNotEmpty);
 
   factory CommunityMessageItem.fromJson(Map<String, dynamic> json) {
     final audience = json['audience_label'] as String?;
@@ -88,13 +112,19 @@ class CommunityMessageItem {
       authorRoleLabel: json['author_role_label'] as String?,
       targetName: json['target_name'] as String?,
       targetMembershipNumber: json['target_membership_number'] as String?,
-      targetBatchYear: json['target_batch_year'] as int?,
+      targetBatchYear: json['target_batch_year'] is int
+          ? json['target_batch_year'] as int
+          : int.tryParse('${json['target_batch_year'] ?? ''}'),
       targetLocation: json['target_location'] as String?,
       targetSpecialization: json['target_specialization'] as String?,
       targetPhone: json['target_phone'] as String?,
       audienceLabel: audience,
       isTargeted: isTargeted,
-      createdAt: DateTime.parse('${json['created_at']}'),
+      attachmentUrl: json['attachment_url'] as String?,
+      attachmentName: json['attachment_name'] as String?,
+      attachmentMime: json['attachment_mime'] as String?,
+      attachmentSize: json['attachment_size'] as int?,
+      createdAt: parseConnectDateTime(json['created_at']),
     );
   }
 }
@@ -240,7 +270,7 @@ class DmMessageItem {
       senderInitials: '${json['sender_initials']}',
       isMine: json['is_mine'] as bool? ?? false,
       status: '${json['status'] ?? 'sent'}',
-      createdAt: DateTime.parse('${json['created_at']}'),
+      createdAt: parseConnectDateTime(json['created_at']),
     );
   }
 }
@@ -313,24 +343,94 @@ class ConnectApiService {
   Future<void> postCommunityMessage(
     String body, [
     AlumniChatTargets? targets,
+    List<int>? fileBytes,
+    String? fileName,
   ]) async {
     await AuthSession.instance.ensureReady();
     final options = _authOptions;
     if (options == null) throw Exception('Sign in to post to Alumni Chat.');
     final trimmed = body.trim();
-    if (trimmed.isEmpty) return;
-
-    final data = <String, dynamic>{
-      'body': trimmed,
-      ...?targets?.toJson(),
-    };
+    final hasFile = fileBytes != null &&
+        fileBytes.isNotEmpty &&
+        fileName != null &&
+        fileName.trim().isNotEmpty;
+    if (trimmed.isEmpty && !hasFile) return;
 
     try {
-      await _apiClient.post<Map<String, dynamic>>(
-        '${AppConfig.apiPrefix}/connect/community/messages',
-        data: data,
-        options: options,
+      if (hasFile) {
+        final bytes = List<int>.from(fileBytes);
+        final formData = FormData.fromMap({
+          // Caption is optional — empty string is fine when a file is present.
+          'body': trimmed,
+          for (final entry in (targets?.toJson() ?? {}).entries)
+            entry.key: '${entry.value}',
+          'file': MultipartFile.fromBytes(
+            bytes,
+            filename: fileName.trim(),
+          ),
+        });
+
+        // Absolute URL from AppConfig (API_BASE_URL in .env / window.__ENV__).
+        final uploadUrl =
+            '${AppConfig.apiBaseUrl}${AppConfig.apiPrefix}/connect/community/messages/with-file';
+        final response = await _apiClient.dio.post<Map<String, dynamic>>(
+          uploadUrl,
+          data: formData,
+          options: Options(
+            sendTimeout: const Duration(minutes: 2),
+            receiveTimeout: const Duration(minutes: 2),
+          ),
+        );
+
+        final savedName = response.data?['attachment_name'] as String?;
+        if (savedName == null || savedName.trim().isEmpty) {
+          throw Exception(
+            'Document was not saved. Check API_BASE_URL (${AppConfig.apiBaseUrl}), '
+            'migration-022, and storage bucket, then retry.',
+          );
+        }
+      } else {
+        final data = <String, dynamic>{
+          'body': trimmed,
+          ...?targets?.toJson(),
+        };
+        await _apiClient.post<Map<String, dynamic>>(
+          '${AppConfig.apiPrefix}/connect/community/messages',
+          data: data,
+          options: options,
+        );
+      }
+    } on DioException catch (e) {
+      throw Exception(_readDetail(e));
+    }
+  }
+
+  Future<({List<int> bytes, String fileName, String mimeType})>
+      downloadCommunityAttachment(String messageId) async {
+    await AuthSession.instance.ensureReady();
+    final options = _authOptions;
+    if (options == null) throw Exception('Sign in to download this document.');
+    try {
+      final response = await _apiClient.get<List<int>>(
+        '${AppConfig.apiPrefix}/connect/community/messages/$messageId/attachment',
+        options: options.copyWith(
+          responseType: ResponseType.bytes,
+          receiveTimeout: const Duration(minutes: 2),
+        ),
       );
+      final bytes = response.data;
+      if (bytes == null || bytes.isEmpty) {
+        throw Exception('Download failed. Empty file.');
+      }
+      final disposition = response.headers.value('content-disposition') ?? '';
+      var fileName = 'document';
+      final match = RegExp(r'filename="([^"]+)"').firstMatch(disposition);
+      if (match != null) {
+        fileName = match.group(1) ?? fileName;
+      }
+      final mime =
+          response.headers.value('content-type') ?? 'application/octet-stream';
+      return (bytes: bytes, fileName: fileName, mimeType: mime);
     } on DioException catch (e) {
       throw Exception(_readDetail(e));
     }
@@ -543,7 +643,13 @@ class ConnectApiService {
   }
 
   String _readDetail(DioException e) {
+    final status = e.response?.statusCode;
     final detail = e.response?.data;
+    if (status == 404) {
+      return 'Document upload API not found at ${AppConfig.apiBaseUrl}. '
+          'Set API_BASE_URL to the backend that has /with-file, '
+          'restart Flutter, then retry.';
+    }
     if (detail is Map && detail['detail'] != null) {
       final raw = detail['detail'];
       if (raw is List && raw.isNotEmpty) {
@@ -555,7 +661,6 @@ class ConnectApiService {
       return '$raw';
     }
     if (detail is String && detail.isNotEmpty) return detail;
-    final status = e.response?.statusCode;
     if (status == 403) {
       final detailText = detail is Map && detail['detail'] != null
           ? '${detail['detail']}'.toLowerCase()
@@ -571,11 +676,17 @@ class ConnectApiService {
           : 'Connect feature needs a database update.';
     }
     if (status == 500) {
-      return 'Server error. Restart the backend and try again.';
+      return detail is Map && detail['detail'] != null
+          ? '${detail['detail']}'
+          : 'Server error while sending. Please try again.';
     }
-    if (status == 404) {
-      return 'Connect API not found. Restart the backend on port 8000 with the latest code.';
+    if (e.type == DioExceptionType.connectionError ||
+        e.type == DioExceptionType.connectionTimeout ||
+        e.type == DioExceptionType.receiveTimeout) {
+      return 'Cannot reach the backend at ${AppConfig.apiBaseUrl}. '
+          'Restart Flutter after backend port changes.';
     }
-    return e.response?.statusMessage ?? 'Connect request failed.';
+    return e.response?.statusMessage ??
+        'Connect request failed (check API at ${AppConfig.apiBaseUrl}).';
   }
 }
