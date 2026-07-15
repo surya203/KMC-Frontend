@@ -24,8 +24,8 @@ class DrugHeaderStore extends ChangeNotifier {
     await refresh();
   }
 
-  Future<void> refresh() async {
-    if (_loading) return;
+  Future<void> refresh({bool force = false}) async {
+    if (_loading && !force) return;
     _loading = true;
     notifyListeners();
     try {

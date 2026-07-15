@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../constants/app_colors.dart';
 import '../network/drugs_api_service.dart';
@@ -10,6 +11,7 @@ Future<void> showDrugImagePreview(
   BuildContext context, {
   String? imageUrl,
   String? drugId,
+  String? linkUrl,
 }) async {
   await showDialog<void>(
     context: context,
@@ -18,6 +20,7 @@ Future<void> showDrugImagePreview(
       return _DrugImagePreviewDialog(
         initialUrl: imageUrl,
         drugId: drugId,
+        initialLinkUrl: linkUrl,
       );
     },
   );
@@ -27,10 +30,12 @@ class _DrugImagePreviewDialog extends StatefulWidget {
   const _DrugImagePreviewDialog({
     this.initialUrl,
     this.drugId,
+    this.initialLinkUrl,
   });
 
   final String? initialUrl;
   final String? drugId;
+  final String? initialLinkUrl;
 
   @override
   State<_DrugImagePreviewDialog> createState() =>
@@ -40,6 +45,7 @@ class _DrugImagePreviewDialog extends StatefulWidget {
 class _DrugImagePreviewDialogState extends State<_DrugImagePreviewDialog> {
   final _api = DrugsApiService();
   String? _url;
+  String? _linkUrl;
   bool _loading = false;
   String? _error;
 
@@ -47,7 +53,9 @@ class _DrugImagePreviewDialogState extends State<_DrugImagePreviewDialog> {
   void initState() {
     super.initState();
     _url = widget.initialUrl;
+    _linkUrl = widget.initialLinkUrl;
     if ((_url == null || _url!.isEmpty) &&
+        (_linkUrl == null || _linkUrl!.isEmpty) &&
         widget.drugId != null &&
         widget.drugId!.isNotEmpty) {
       _load();
@@ -64,8 +72,10 @@ class _DrugImagePreviewDialogState extends State<_DrugImagePreviewDialog> {
       if (!mounted) return;
       setState(() {
         _url = drug.detailImageUrl ?? drug.headerImageUrl;
+        _linkUrl = drug.detailLinkUrl;
         _loading = false;
-        if (_url == null || _url!.isEmpty) {
+        if ((_url == null || _url!.isEmpty) &&
+            (_linkUrl == null || _linkUrl!.isEmpty)) {
           _error = 'No detail image available.';
         }
       });
@@ -73,8 +83,21 @@ class _DrugImagePreviewDialogState extends State<_DrugImagePreviewDialog> {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = 'Unable to load drug image.';
+        _error = 'Unable to load image';
       });
+    }
+  }
+
+  Future<void> _openLink() async {
+    final raw = _linkUrl?.trim();
+    if (raw == null || raw.isEmpty) return;
+    final uri = Uri.tryParse(raw);
+    if (uri == null) return;
+    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open link.')),
+      );
     }
   }
 
@@ -82,6 +105,7 @@ class _DrugImagePreviewDialogState extends State<_DrugImagePreviewDialog> {
   Widget build(BuildContext context) {
     final maxW = MediaQuery.sizeOf(context).width;
     final maxH = MediaQuery.sizeOf(context).height;
+    final hasLink = _linkUrl != null && _linkUrl!.trim().isNotEmpty;
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -109,7 +133,7 @@ class _DrugImagePreviewDialogState extends State<_DrugImagePreviewDialog> {
               Flexible(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
-                  child: _buildBody(),
+                  child: _buildBody(hasLink),
                 ),
               ),
             ],
@@ -119,7 +143,7 @@ class _DrugImagePreviewDialogState extends State<_DrugImagePreviewDialog> {
     );
   }
 
-  Widget _buildBody() {
+  Widget _buildBody(bool hasLink) {
     if (_loading) {
       return const SizedBox(
         height: 220,
@@ -139,6 +163,18 @@ class _DrugImagePreviewDialogState extends State<_DrugImagePreviewDialog> {
     }
     final url = _url;
     if (url == null || url.isEmpty) {
+      if (hasLink) {
+        return SizedBox(
+          height: 160,
+          child: Center(
+            child: FilledButton.icon(
+              onPressed: _openLink,
+              icon: const Icon(Icons.open_in_new),
+              label: const Text('Open link'),
+            ),
+          ),
+        );
+      }
       return SizedBox(
         height: 160,
         child: Center(
@@ -151,21 +187,40 @@ class _DrugImagePreviewDialogState extends State<_DrugImagePreviewDialog> {
     }
     return InteractiveViewer(
       minScale: 0.8,
-      maxScale: 3,
-      child: CachedNetworkImage(
-        imageUrl: url,
-        fit: BoxFit.contain,
-        width: double.infinity,
-        placeholder: (_, _) => const SizedBox(
-          height: 220,
-          child: Center(child: CircularProgressIndicator()),
-        ),
-        errorWidget: (_, _, _) => SizedBox(
-          height: 160,
-          child: Center(
-            child: Text(
-              'Unable to load image',
-              style: GoogleFonts.inter(color: AppColors.mutedText),
+      maxScale: 4,
+      child: MouseRegion(
+        cursor: hasLink ? SystemMouseCursors.click : SystemMouseCursors.basic,
+        child: GestureDetector(
+          onTap: hasLink ? _openLink : null,
+          child: CachedNetworkImage(
+            imageUrl: url,
+            fit: BoxFit.contain,
+            width: double.infinity,
+            placeholder: (_, _) => const SizedBox(
+              height: 220,
+              child: Center(child: CircularProgressIndicator()),
+            ),
+            errorWidget: (_, _, _) => SizedBox(
+              height: 160,
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Unable to load image',
+                      style: GoogleFonts.inter(color: AppColors.mutedText),
+                    ),
+                    if (hasLink) ...[
+                      const SizedBox(height: 12),
+                      FilledButton.icon(
+                        onPressed: _openLink,
+                        icon: const Icon(Icons.open_in_new),
+                        label: const Text('Open link'),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
             ),
           ),
         ),
