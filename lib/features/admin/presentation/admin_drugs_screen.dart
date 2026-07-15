@@ -563,7 +563,7 @@ class _ImageSlotPreview extends StatelessWidget {
 
     final link = linkUrl?.trim();
     final hasLink = link != null && link.isNotEmpty;
-    final isWebsiteLink = hasLink && !_looksLikeImageUrl(link!);
+    final isWebsiteLink = hasLink && !_looksLikeImageUrl(link);
     // Website link: show a clickable URL card, not a leftover uploaded image.
     final showLinkOnly =
         hasLink && (isWebsiteLink || url == null || url!.isEmpty);
