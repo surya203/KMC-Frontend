@@ -229,7 +229,7 @@ class RegistrationService {
       if (nested is String) {
         return RegistrationException(
           sanitizeUserFacingMessage(nested),
-          retryAfterSeconds: e.response?.statusCode == 429 ? 60 : null,
+          retryAfterSeconds: null,
         );
       }
       final message = detail['message'] as String?;

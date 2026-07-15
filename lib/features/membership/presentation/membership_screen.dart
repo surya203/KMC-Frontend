@@ -1,4 +1,3 @@
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -422,18 +421,18 @@ class _MembershipScreenState extends State<MembershipScreen> {
         return;
       }
       if (e.isOtpCooldown) {
+        // First code may already exist — open Verify and let Resend send a new one.
         final refreshed = await _registration.getDraft(activeDraft.id);
-        if (_hasPendingOtp(refreshed)) {
-          setState(() {
-            _draft = refreshed;
-            _step = 2;
-            _otpSent = true;
-            _otpStatusMessage = _otpCooldownInfoMessage(e);
-            _info = _otpCooldownInfoMessage(e);
-            _error = null;
-          });
-          return;
-        }
+        setState(() {
+          _draft = refreshed;
+          _step = 2;
+          _otpSent = true;
+          _otpStatusMessage =
+              'Use Resend code if you need a fresh verification email.';
+          _info = null;
+          _error = null;
+        });
+        return;
       }
       rethrow;
     }
@@ -442,27 +441,32 @@ class _MembershipScreenState extends State<MembershipScreen> {
   Future<void> _sendOtp() async {
     final draft = _draft;
     if (draft == null) return;
-    try {
-      final otpResult = await _registration.sendOtp(draft.id);
-      setState(() {
-        _applyOtpResult(otpResult);
-        _info = null;
-      });
-    } on RegistrationException catch (e) {
-      if (e.isAlreadyVerified) {
-        await _continueToPaymentIfVerified();
-        return;
+
+    final otpResult = await _registration.sendOtp(draft.id);
+    if (!mounted) return;
+
+    final email = _emailController.text.trim();
+    final stamp = TimeOfDay.now();
+    final hh = stamp.hour.toString().padLeft(2, '0');
+    final mm = stamp.minute.toString().padLeft(2, '0');
+    final debugOtp = otpResult.debugOtp?.trim();
+
+    setState(() {
+      _otpSent = true;
+      _info = null;
+      _error = null;
+      if (AppConfig.isDevelopment &&
+          debugOtp != null &&
+          debugOtp.isNotEmpty) {
+        _devOtpHint = debugOtp;
+        _otpStatusMessage =
+            'New code ready at $hh:$mm. Enter the code shown below.';
+      } else {
+        _devOtpHint = null;
+        _otpStatusMessage =
+            'New verification code sent to $email at $hh:$mm. Check inbox/spam.';
       }
-      if (e.isOtpCooldown) {
-        setState(() {
-          _otpSent = true;
-          _info = _otpCooldownInfoMessage(e);
-          _error = null;
-        });
-        return;
-      }
-      rethrow;
-    }
+    });
   }
 
   Future<void> _verifyOtp() async {
@@ -475,30 +479,6 @@ class _MembershipScreenState extends State<MembershipScreen> {
     await _registration.verifyOtp(
       draftId: draft.id,
       otp: otp,
-    );
-    final refreshed = await _registration.getDraft(draft.id);
-    setState(() {
-      _draft = refreshed;
-      _step = 3;
-    });
-  }
-
-  Future<void> _uploadDocument() async {
-    final draft = _draft;
-    if (draft == null) return;
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
-      withData: true,
-    );
-    final file = result?.files.first;
-    if (file == null || file.bytes == null) {
-      throw Exception('No document selected.');
-    }
-    await _registration.uploadVerificationDocument(
-      draftId: draft.id,
-      fileName: file.name,
-      bytes: file.bytes!,
     );
     final refreshed = await _registration.getDraft(draft.id);
     setState(() {
@@ -765,7 +745,6 @@ class _MembershipScreenState extends State<MembershipScreen> {
           devOtpHint: _devOtpHint,
           onSendOtp: () => _runStep(_sendOtp),
           onVerifyOtp: () => _runStep(_verifyOtp),
-          onUploadDocument: () => _runStep(_uploadDocument),
           onBack: () => setState(() => _step = 1),
         ),
       3 => _PaymentStep(
@@ -1479,7 +1458,6 @@ class _VerifyStep extends StatelessWidget {
     required this.devOtpHint,
     required this.onSendOtp,
     required this.onVerifyOtp,
-    required this.onUploadDocument,
     required this.onBack,
   });
 
@@ -1490,7 +1468,6 @@ class _VerifyStep extends StatelessWidget {
   final String? devOtpHint;
   final VoidCallback onSendOtp;
   final VoidCallback onVerifyOtp;
-  final VoidCallback onUploadDocument;
   final VoidCallback onBack;
 
   Future<void> _copyDevOtp(BuildContext context) async {
@@ -1623,10 +1600,6 @@ class _VerifyStep extends StatelessWidget {
             ),
           ],
           const SizedBox(height: 12),
-          OutlinedButton(
-            onPressed: onUploadDocument,
-            child: const Text('Upload document instead (PDF/JPG/PNG)'),
-          ),
           TextButton(onPressed: onBack, child: const Text('Back')),
         ],
       ),
@@ -2685,14 +2658,6 @@ bool _hasPendingOtp(RegistrationDraft draft) {
   } catch (_) {
     return payload['otp_sent_at'] != null;
   }
-}
-
-String _otpCooldownInfoMessage(RegistrationException e) {
-  final wait = e.retryAfterSeconds;
-  if (wait != null && wait > 0) {
-    return 'A verification code was already sent. You can request a new one in ${wait}s.';
-  }
-  return 'A verification code was already sent. Check your email inbox.';
 }
 
 class _Field extends StatelessWidget {
