@@ -18,6 +18,7 @@ class DrugItem {
     this.description,
     this.headerImageUrl,
     this.detailImageUrl,
+    this.detailLinkUrl,
     this.isPublished = false,
     this.sortOrder = 0,
   });
@@ -33,11 +34,14 @@ class DrugItem {
   final String? description;
   final String? headerImageUrl;
   final String? detailImageUrl;
+  /// When set, tapping the details image opens this website or image URL.
+  final String? detailLinkUrl;
   final bool isPublished;
   final int sortOrder;
 
   factory DrugItem.fromJson(Map<String, dynamic> json) {
     final strengths = json['dosage_strengths'];
+    final link = (json['detail_link_url'] as String?)?.trim();
     return DrugItem(
       id: json['id'] as String,
       name: (json['name'] as String?)?.trim().isNotEmpty == true
@@ -56,10 +60,9 @@ class DrugItem {
         json['header_image_url'] as String? ?? json['image_url'] as String?,
       ),
       detailImageUrl: resolveMediaUrl(
-        json['detail_image_url'] as String? ??
-            json['header_image_url'] as String? ??
-            json['image_url'] as String?,
+        json['detail_image_url'] as String?,
       ),
+      detailLinkUrl: (link != null && link.isNotEmpty) ? link : null,
       isPublished: json['is_published'] as bool? ?? false,
       sortOrder: json['sort_order'] as int? ?? 0,
     );
@@ -71,19 +74,31 @@ class DrugHeaderCard {
     required this.id,
     required this.name,
     this.headerImageUrl,
+    this.detailImageUrl,
+    this.detailLinkUrl,
     this.isPublished = false,
   });
 
   final String id;
   final String name;
   final String? headerImageUrl;
+  final String? detailImageUrl;
+  final String? detailLinkUrl;
   final bool isPublished;
 
+  bool get hasDetailImage {
+    final url = detailImageUrl?.trim();
+    return url != null && url.isNotEmpty;
+  }
+
   factory DrugHeaderCard.fromJson(Map<String, dynamic> json) {
+    final link = (json['detail_link_url'] as String?)?.trim();
     return DrugHeaderCard(
       id: json['id'] as String,
       name: json['name'] as String? ?? 'Drug',
       headerImageUrl: resolveMediaUrl(json['header_image_url'] as String?),
+      detailImageUrl: resolveMediaUrl(json['detail_image_url'] as String?),
+      detailLinkUrl: (link != null && link.isNotEmpty) ? link : null,
       isPublished: json['is_published'] as bool? ?? false,
     );
   }
@@ -140,6 +155,8 @@ class DrugsApiService {
     String? form,
     List<String> dosageStrengths = const [],
     String? tagline,
+    String? detailLinkUrl,
+    String? detailImageUrl,
     bool isPublished = true,
   }) async {
     final response = await _client.post<Map<String, dynamic>>(
@@ -153,6 +170,8 @@ class DrugsApiService {
         'form': form,
         'dosage_strengths': dosageStrengths,
         'tagline': tagline,
+        'detail_link_url': detailLinkUrl,
+        'detail_image_url': detailImageUrl,
         'is_published': isPublished,
       },
     );
@@ -168,6 +187,10 @@ class DrugsApiService {
     String? form,
     List<String>? dosageStrengths,
     String? tagline,
+    String? detailLinkUrl,
+    bool clearDetailLink = false,
+    String? detailImageUrl,
+    bool clearDetailImageUrl = false,
     bool? isPublished,
   }) async {
     final payload = <String, dynamic>{};
@@ -181,6 +204,16 @@ class DrugsApiService {
     if (form != null) payload['form'] = form;
     if (dosageStrengths != null) payload['dosage_strengths'] = dosageStrengths;
     if (tagline != null) payload['tagline'] = tagline;
+    if (clearDetailLink) {
+      payload['detail_link_url'] = null;
+    } else if (detailLinkUrl != null) {
+      payload['detail_link_url'] = detailLinkUrl;
+    }
+    if (clearDetailImageUrl) {
+      payload['detail_image_url'] = null;
+    } else if (detailImageUrl != null) {
+      payload['detail_image_url'] = detailImageUrl;
+    }
     if (isPublished != null) payload['is_published'] = isPublished;
 
     final response = await _client.patch<Map<String, dynamic>>(

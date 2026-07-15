@@ -137,13 +137,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               if (overview != null)
                 LayoutBuilder(
                   builder: (context, constraints) {
+                    // Narrower cells need a lower ratio (taller cards) so
+                    // icon + value + label fit without bottom overflow.
+                    final aspectRatio = width < 375
+                        ? 1.55
+                        : (width < 600 ? 1.85 : 2.2);
                     return GridView.count(
                       crossAxisCount: columns,
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
                       mainAxisSpacing: 12,
                       crossAxisSpacing: 12,
-                      childAspectRatio: width < 375 ? 1.8 : 2.2,
+                      childAspectRatio: aspectRatio,
                       children: [
                         _StatCard(
                           label: 'Total members',
@@ -275,34 +280,52 @@ class _StatCard extends StatelessWidget {
           onTap: onTap,
           borderRadius: BorderRadius.circular(14),
           child: Container(
-            padding: const EdgeInsets.all(18),
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: AppColors.border),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, color: AppColors.primary, size: 22),
-                const Spacer(),
-                Text(
-                  value,
-                  style: GoogleFonts.fraunces(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.heading,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: constraints.maxWidth),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(icon, color: AppColors.primary, size: 22),
+                        const SizedBox(height: 12),
+                        Text(
+                          value,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.fraunces(
+                            fontSize: 26,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.heading,
+                            height: 1.1,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          label,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            height: 1.2,
+                            color: AppColors.bodyText,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  label,
-                  style: GoogleFonts.inter(
-                    fontSize: 13,
-                    color: AppColors.bodyText,
-                  ),
-                ),
-              ],
+                );
+              },
             ),
           ),
         ),

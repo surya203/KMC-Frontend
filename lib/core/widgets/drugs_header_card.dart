@@ -2,13 +2,15 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../auth/role_utils.dart';
 import '../constants/app_colors.dart';
 import 'drug_header_store.dart';
 
 /// Header drug card sized to match the profile avatar row (~36px tall).
-/// Admin → staff console drugs page; other users → dedicated detail image page.
+/// Admin → staff console drugs page.
+/// Members → open link URL if set, otherwise drug details image page.
 class DrugsHeaderCard extends StatefulWidget {
   const DrugsHeaderCard({super.key});
 
@@ -39,16 +41,46 @@ class _DrugsHeaderCardState extends State<DrugsHeaderCard> {
     if (mounted) setState(() {});
   }
 
-  void _onTap() {
+  Future<void> _onTap() async {
     if (canManageDrugs(currentUserRole)) {
       context.go('/admin/drugs');
       return;
     }
+
+    // Always re-fetch so we use the latest admin link / image settings.
+    await _store.refresh(force: true);
+    if (!mounted) return;
+
     final card = _store.card;
     if (card == null) return;
-    // Push so Close (X) can pop back to the page the user was on
-    // (e.g. Payments / Membership), instead of replacing history with go().
-    context.push('/dashboard/drugs/${card.id}');
+
+    final link = card.detailLinkUrl?.trim();
+    // Admin pasted a URL → open that site in the browser immediately.
+    if (link != null && link.isNotEmpty) {
+      final uri = Uri.tryParse(link);
+      if (uri == null) return;
+      final ok = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+        webOnlyWindowName: '_blank',
+      );
+      if (!ok && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open link.')),
+        );
+      }
+      return;
+    }
+
+    // Admin uploaded a details image → open the image viewer page only.
+    if (!card.hasDetailImage) return;
+
+    final target = '/dashboard/drugs/${card.id}';
+    final location = GoRouterState.of(context).uri.path;
+    if (location == target || location.startsWith('/dashboard/drugs/')) {
+      return;
+    }
+    context.push(target);
   }
 
   @override
