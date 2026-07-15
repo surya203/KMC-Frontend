@@ -370,7 +370,7 @@ class ConnectApiService {
           ),
         });
 
-        // Absolute URL forces the correct backend (avoids stale window.__ENV__ :8004).
+        // Absolute URL from AppConfig (API_BASE_URL in .env / window.__ENV__).
         final uploadUrl =
             '${AppConfig.apiBaseUrl}${AppConfig.apiPrefix}/connect/community/messages/with-file';
         final response = await _apiClient.dio.post<Map<String, dynamic>>(
@@ -385,8 +385,8 @@ class ConnectApiService {
         final savedName = response.data?['attachment_name'] as String?;
         if (savedName == null || savedName.trim().isEmpty) {
           throw Exception(
-            'Document was not saved on ${AppConfig.apiBaseUrl}. '
-            'Confirm migration-022 and gallery bucket, then retry.',
+            'Document was not saved. Check API_BASE_URL (${AppConfig.apiBaseUrl}), '
+            'migration-022, and storage bucket, then retry.',
           );
         }
       } else {
@@ -646,9 +646,9 @@ class ConnectApiService {
     final status = e.response?.statusCode;
     final detail = e.response?.data;
     if (status == 404) {
-      return 'Document upload API not found. Stop Flutter, confirm '
-          'API_BASE_URL points at the updated backend (e.g. http://localhost:8005), '
-          'then run flutter again.';
+      return 'Document upload API not found at ${AppConfig.apiBaseUrl}. '
+          'Set API_BASE_URL to the backend that has /with-file, '
+          'restart Flutter, then retry.';
     }
     if (detail is Map && detail['detail'] != null) {
       final raw = detail['detail'];
