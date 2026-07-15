@@ -5,14 +5,22 @@ import 'runtime_env.dart';
 class AppConfig {
   AppConfig._();
 
-  static String _env(String key, String fallback) =>
-      runtimeEnv(key) ?? dotenv.env[key] ?? fallback;
+  static String _env(String key, String fallback) {
+    // Prefer `.env` for local Flutter so stale web/env-config.js (e.g. :8004)
+    // cannot override. Docker/prod usually has empty dotenv and uses window.__ENV__.
+    final fromFile = dotenv.env[key];
+    if (fromFile != null && fromFile.trim().isNotEmpty) {
+      return fromFile.trim();
+    }
+    return runtimeEnv(key) ?? fallback;
+  }
 
   static String get env => _env('ENV', 'development');
 
   static bool get isDevelopment => env == 'development';
 
-  static String get apiBaseUrl => _env('API_BASE_URL', 'http://localhost:8000');
+  static String get apiBaseUrl =>
+      _env('API_BASE_URL', 'http://localhost:8005');
 
   static String get apiPrefix => _env('API_PREFIX', '/api/v1');
 
