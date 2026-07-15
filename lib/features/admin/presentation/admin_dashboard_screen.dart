@@ -137,45 +137,50 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               if (overview != null)
                 LayoutBuilder(
                   builder: (context, constraints) {
-                    return GridView.count(
-                      crossAxisCount: columns,
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      mainAxisSpacing: 12,
-                      crossAxisSpacing: 12,
-                      childAspectRatio: width < 375 ? 1.8 : 2.2,
+                    const spacing = 12.0;
+                    final cardWidth =
+                        (constraints.maxWidth - spacing * (columns - 1)) /
+                        columns;
+                    final cards = [
+                      _StatCard(
+                        label: 'Total members',
+                        value: '${overview.totalMembers}',
+                        icon: Icons.people_outline,
+                      ),
+                      _StatCard(
+                        label: 'Active memberships',
+                        value: '${overview.activeMemberships}',
+                        icon: Icons.workspace_premium_outlined,
+                      ),
+                      _StatCard(
+                        label: 'Pending verifications',
+                        value: '${overview.pendingVerifications}',
+                        icon: Icons.verified_user_outlined,
+                        onTap: () => context.go('/admin/verifications'),
+                      ),
+                      _StatCard(
+                        label: 'Published events',
+                        value: '${overview.publishedEvents}',
+                        icon: Icons.event_outlined,
+                      ),
+                      _StatCard(
+                        label: 'Upcoming events',
+                        value: '${overview.upcomingEvents}',
+                        icon: Icons.upcoming_outlined,
+                      ),
+                      _StatCard(
+                        label: 'Captured revenue',
+                        value: overview.displayRevenue,
+                        icon: Icons.payments_outlined,
+                      ),
+                    ];
+
+                    return Wrap(
+                      spacing: spacing,
+                      runSpacing: spacing,
                       children: [
-                        _StatCard(
-                          label: 'Total members',
-                          value: '${overview.totalMembers}',
-                          icon: Icons.people_outline,
-                        ),
-                        _StatCard(
-                          label: 'Active memberships',
-                          value: '${overview.activeMemberships}',
-                          icon: Icons.workspace_premium_outlined,
-                        ),
-                        _StatCard(
-                          label: 'Pending verifications',
-                          value: '${overview.pendingVerifications}',
-                          icon: Icons.verified_user_outlined,
-                          onTap: () => context.go('/admin/verifications'),
-                        ),
-                        _StatCard(
-                          label: 'Published events',
-                          value: '${overview.publishedEvents}',
-                          icon: Icons.event_outlined,
-                        ),
-                        _StatCard(
-                          label: 'Upcoming events',
-                          value: '${overview.upcomingEvents}',
-                          icon: Icons.upcoming_outlined,
-                        ),
-                        _StatCard(
-                          label: 'Captured revenue',
-                          value: overview.displayRevenue,
-                          icon: Icons.payments_outlined,
-                        ),
+                        for (final card in cards)
+                          SizedBox(width: cardWidth, child: card),
                       ],
                     );
                   },
@@ -275,21 +280,23 @@ class _StatCard extends StatelessWidget {
           onTap: onTap,
           borderRadius: BorderRadius.circular(14),
           child: Container(
-            padding: const EdgeInsets.all(18),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: AppColors.border),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(icon, color: AppColors.primary, size: 22),
-                const Spacer(),
+                const SizedBox(height: 12),
                 Text(
                   value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.fraunces(
-                    fontSize: 28,
+                    fontSize: 26,
                     fontWeight: FontWeight.w600,
                     color: AppColors.heading,
                   ),

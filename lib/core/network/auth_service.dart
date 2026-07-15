@@ -61,9 +61,10 @@ class AuthUser {
 }
 
 class AuthException implements Exception {
-  AuthException(this.message);
+  AuthException(this.message, {this.retryAfterSeconds});
 
   final String message;
+  final int? retryAfterSeconds;
 
   @override
   String toString() => message;
@@ -206,14 +207,26 @@ class AuthService {
       if (data == null) {
         throw AuthException('Could not send reset instructions.');
       }
-            return ForgotPasswordResult(
+      return ForgotPasswordResult(
         message: data['message'] as String? ??
             'Check your email for the 6-digit reset code.',
       );
     } on DioException catch (e) {
       final detail = e.response?.data;
-      if (detail is Map && detail['detail'] != null) {
-        throw AuthException('${detail['detail']}');
+      if (detail is Map) {
+        final nested = detail['detail'];
+        if (nested is Map) {
+          final message = nested['message'] as String? ??
+              'Unable to send reset code.';
+          final retry = nested['retry_after_seconds'];
+          throw AuthException(
+            message,
+            retryAfterSeconds: retry is int ? retry : int.tryParse('$retry'),
+          );
+        }
+        if (nested != null) {
+          throw AuthException('$nested');
+        }
       }
       throw AuthException(
         e.response?.statusMessage ?? 'Unable to reach the backend.',
