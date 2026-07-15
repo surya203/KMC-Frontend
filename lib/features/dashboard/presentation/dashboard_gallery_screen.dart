@@ -318,7 +318,7 @@ class _GalleryAlbumCard extends StatelessWidget {
                 if (album.coverImageUrl != null)
                   CachedNetworkImage(
                     imageUrl: album.coverImageUrl!,
-                    fit: BoxFit.cover,
+                    fit: BoxFit.contain,
                     errorWidget: (_, _, _) => Container(color: AppColors.muted),
                   )
                 else
