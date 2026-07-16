@@ -5,6 +5,8 @@ import '../../../core/auth/auth_session.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/admin_api_service.dart';
 
+enum _VerificationTab { all, approved, rejected }
+
 class AdminVerificationsScreen extends StatefulWidget {
   const AdminVerificationsScreen({super.key});
 
@@ -20,6 +22,18 @@ class _AdminVerificationsScreenState extends State<AdminVerificationsScreen> {
   String? _error;
   bool _loading = true;
   String? _actingOnId;
+  _VerificationTab _tab = _VerificationTab.all;
+
+  String get _statusQuery {
+    switch (_tab) {
+      case _VerificationTab.all:
+        return 'all';
+      case _VerificationTab.approved:
+        return 'approved';
+      case _VerificationTab.rejected:
+        return 'rejected';
+    }
+  }
 
   @override
   void initState() {
@@ -37,7 +51,10 @@ class _AdminVerificationsScreenState extends State<AdminVerificationsScreen> {
     });
 
     try {
-      final items = await _api.fetchPendingVerifications();
+      final items = await _api.fetchVerifications(
+        status: _statusQuery,
+        pageSize: 100,
+      );
       if (!mounted) return;
       setState(() {
         _items = items;
@@ -68,18 +85,29 @@ class _AdminVerificationsScreenState extends State<AdminVerificationsScreen> {
         message.contains('timeout');
   }
 
+  Future<void> _selectTab(_VerificationTab tab) async {
+    if (_tab == tab) return;
+    setState(() => _tab = tab);
+    await _load();
+  }
+
   Future<void> _review(VerificationQueueItem item, String action) async {
     String? notes;
     if (action == 'reject') {
       notes = await _promptNotes();
       if (notes == null) return;
     } else {
+      final isReapprove = item.verificationStatus == 'rejected';
       final confirmed = await showDialog<bool>(
         context: context,
         barrierDismissible: false,
         builder: (context) => AlertDialog(
-          title: const Text('Approve profile?'),
-          content: Text('Approve ${item.fullName} (Batch ${item.batchYear})?'),
+          title: Text(isReapprove ? 'Approve again?' : 'Approve profile?'),
+          content: Text(
+            isReapprove
+                ? 'Re-approve ${item.fullName} (Batch ${item.batchYear})?'
+                : 'Approve ${item.fullName} (Batch ${item.batchYear})?',
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
@@ -87,7 +115,7 @@ class _AdminVerificationsScreenState extends State<AdminVerificationsScreen> {
             ),
             FilledButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('Approve'),
+              child: Text(isReapprove ? 'Approve again' : 'Approve'),
             ),
           ],
         ),
@@ -103,9 +131,6 @@ class _AdminVerificationsScreenState extends State<AdminVerificationsScreen> {
         notes: notes,
       );
       if (!mounted) return;
-      setState(() {
-        _items = _items.where((entry) => entry.id != item.id).toList();
-      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(message),
@@ -167,6 +192,17 @@ class _AdminVerificationsScreenState extends State<AdminVerificationsScreen> {
     return result;
   }
 
+  String get _emptyMessage {
+    switch (_tab) {
+      case _VerificationTab.all:
+        return 'No verification profiles found.';
+      case _VerificationTab.approved:
+        return 'No approved users.';
+      case _VerificationTab.rejected:
+        return 'No rejected users.';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
@@ -198,8 +234,13 @@ class _AdminVerificationsScreenState extends State<AdminVerificationsScreen> {
               ),
               const SizedBox(height: 6),
               Text(
-                'Review alumni profiles awaiting approval.',
+                'Review alumni profiles. Rejected users can be approved again.',
                 style: GoogleFonts.inter(color: AppColors.bodyText),
+              ),
+              const SizedBox(height: 16),
+              _TabRow(
+                selected: _tab,
+                onSelect: _selectTab,
               ),
               const SizedBox(height: 20),
               if (_error != null) ...[
@@ -219,7 +260,7 @@ class _AdminVerificationsScreenState extends State<AdminVerificationsScreen> {
                     border: Border.all(color: AppColors.border),
                   ),
                   child: Text(
-                    'No pending verifications.',
+                    _emptyMessage,
                     style: GoogleFonts.inter(color: AppColors.bodyText),
                   ),
                 )
@@ -232,6 +273,84 @@ class _AdminVerificationsScreenState extends State<AdminVerificationsScreen> {
                     onReject: () => _review(item, 'reject'),
                   ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TabRow extends StatelessWidget {
+  const _TabRow({required this.selected, required this.onSelect});
+
+  final _VerificationTab selected;
+  final ValueChanged<_VerificationTab> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        _TabChip(
+          label: 'All users',
+          selected: selected == _VerificationTab.all,
+          onTap: () => onSelect(_VerificationTab.all),
+        ),
+        _TabChip(
+          label: 'Approved users',
+          selected: selected == _VerificationTab.approved,
+          onTap: () => onSelect(_VerificationTab.approved),
+        ),
+        _TabChip(
+          label: 'Rejected users',
+          selected: selected == _VerificationTab.rejected,
+          onTap: () => onSelect(_VerificationTab.rejected),
+        ),
+      ],
+    );
+  }
+}
+
+class _TabChip extends StatelessWidget {
+  const _TabChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      child: Material(
+        color: selected ? AppColors.primary : Colors.white,
+        borderRadius: BorderRadius.circular(999),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(999),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(
+                color: selected ? AppColors.primary : AppColors.border,
+              ),
+            ),
+            child: Text(
+              label,
+              style: GoogleFonts.inter(
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+                color: selected ? Colors.white : AppColors.heading,
+              ),
+            ),
           ),
         ),
       ),
@@ -256,6 +375,11 @@ class _VerificationCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
     final stackActions = width < 600;
+    final status = item.verificationStatus.toLowerCase();
+    final canReject = status == 'pending';
+    final canApprove = status == 'pending' || status == 'rejected';
+    final approveLabel =
+        status == 'rejected' ? 'Approve again' : 'Approve';
 
     return Container(
       width: double.infinity,
@@ -269,13 +393,22 @@ class _VerificationCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            item.fullName,
-            style: GoogleFonts.inter(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: AppColors.heading,
-            ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  item.fullName,
+                  style: GoogleFonts.inter(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.heading,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              _StatusBadge(status: status),
+            ],
           ),
           const SizedBox(height: 6),
           Text(
@@ -291,59 +424,109 @@ class _VerificationCard extends StatelessWidget {
               style: GoogleFonts.inter(color: AppColors.mutedText, fontSize: 13),
             ),
           ],
-          const SizedBox(height: 16),
-          if (stackActions)
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Semantics(
-                  button: true,
-                  label: 'Approve ${item.fullName}',
-                  child: FilledButton(
-                    onPressed: busy ? null : onApprove,
-                    child: busy
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('Approve'),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Semantics(
-                  button: true,
-                  label: 'Reject ${item.fullName}',
-                  child: OutlinedButton(
-                    onPressed: busy ? null : onReject,
-                    child: const Text('Reject'),
-                  ),
-                ),
-              ],
-            )
-          else
-            Row(
-              children: [
-                Semantics(
-                  button: true,
-                  label: 'Approve ${item.fullName}',
-                  child: FilledButton(
-                    onPressed: busy ? null : onApprove,
-                    child: const Text('Approve'),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Semantics(
-                  button: true,
-                  label: 'Reject ${item.fullName}',
-                  child: OutlinedButton(
-                    onPressed: busy ? null : onReject,
-                    child: const Text('Reject'),
-                  ),
-                ),
-              ],
-            ),
+          if (canApprove || canReject) ...[
+            const SizedBox(height: 16),
+            if (stackActions)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (canApprove)
+                    Semantics(
+                      button: true,
+                      label: '$approveLabel ${item.fullName}',
+                      child: FilledButton(
+                        onPressed: busy ? null : onApprove,
+                        child: busy
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : Text(approveLabel),
+                      ),
+                    ),
+                  if (canApprove && canReject) const SizedBox(height: 8),
+                  if (canReject)
+                    Semantics(
+                      button: true,
+                      label: 'Reject ${item.fullName}',
+                      child: OutlinedButton(
+                        onPressed: busy ? null : onReject,
+                        child: const Text('Reject'),
+                      ),
+                    ),
+                ],
+              )
+            else
+              Row(
+                children: [
+                  if (canApprove)
+                    Semantics(
+                      button: true,
+                      label: '$approveLabel ${item.fullName}',
+                      child: FilledButton(
+                        onPressed: busy ? null : onApprove,
+                        child: Text(approveLabel),
+                      ),
+                    ),
+                  if (canApprove && canReject) const SizedBox(width: 10),
+                  if (canReject)
+                    Semantics(
+                      button: true,
+                      label: 'Reject ${item.fullName}',
+                      child: OutlinedButton(
+                        onPressed: busy ? null : onReject,
+                        child: const Text('Reject'),
+                      ),
+                    ),
+                ],
+              ),
+          ],
         ],
+      ),
+    );
+  }
+}
+
+class _StatusBadge extends StatelessWidget {
+  const _StatusBadge({required this.status});
+
+  final String status;
+
+  @override
+  Widget build(BuildContext context) {
+    late final Color bg;
+    late final Color fg;
+    late final String label;
+    switch (status) {
+      case 'approved':
+        bg = const Color(0xFFE8F5EC);
+        fg = const Color(0xFF1F6B3A);
+        label = 'Approved';
+      case 'rejected':
+        bg = const Color(0xFFFDECEC);
+        fg = const Color(0xFFB42318);
+        label = 'Rejected';
+      default:
+        bg = const Color(0xFFFFF4E5);
+        fg = const Color(0xFFB54708);
+        label = 'Pending';
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: GoogleFonts.inter(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: fg,
+        ),
       ),
     );
   }
