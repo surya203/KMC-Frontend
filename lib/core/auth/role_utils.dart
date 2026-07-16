@@ -11,6 +11,13 @@ const officerRoles = {
   'treasurer',
 };
 
+/// Officers + EC members (`executive`) + admin — can open EC group chat.
+const executiveCommitteeRoles = {
+  ...officerRoles,
+  'executive',
+  'admin',
+};
+
 const announcementPublisherRoles = {
   'admin',
   'executive',
@@ -61,6 +68,36 @@ bool canStartExecutiveDm(String? role) {
   final resolved = resolveUserRole(role);
   return resolved != null &&
       (officerRoles.contains(resolved) || resolved == 'admin');
+}
+
+/// EC group chat: officers, role=executive (committee members), and admin.
+bool canViewExecutiveCommittee(String? role) {
+  final resolved = resolveUserRole(role);
+  return resolved != null && executiveCommitteeRoles.contains(resolved);
+}
+
+bool canPostToExecutiveCommittee(String? role) =>
+    canViewExecutiveCommittee(role);
+
+String executiveCommitteeRoleLabel(String? role) {
+  final resolved = resolveUserRole(role);
+  if (resolved == null) return 'Member';
+  switch (resolved) {
+    case 'president':
+      return 'President';
+    case 'vice_president':
+      return 'Vice President';
+    case 'secretary':
+      return 'Secretary';
+    case 'treasurer':
+      return 'Treasurer';
+    case 'executive':
+      return 'Executive Committee';
+    case 'admin':
+      return 'Admin';
+    default:
+      return 'Member';
+  }
 }
 
 /// President, Vice President, Secretary, and Treasurer can post to General Group.

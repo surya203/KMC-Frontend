@@ -8,9 +8,12 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/network/connect_api_service.dart';
 import '../../../core/utils/download_file.dart';
 import '../../../core/utils/file_download.dart';
+import '../../../core/widgets/profile_avatar.dart';
 import '../widgets/dashboard_layout.dart';
 
 enum _ConnectTab { alumniChat, financeCouncil, executiveCommittee }
+
+enum _ChatRoom { alumni, finance, executive }
 
 class _ChatMessage {
   const _ChatMessage({
@@ -28,6 +31,7 @@ class _ChatMessage {
     this.attachmentName,
     this.attachmentMime,
     this.attachmentSize,
+    this.room = _ChatRoom.alumni,
   });
 
   final String id;
@@ -44,6 +48,7 @@ class _ChatMessage {
   final String? attachmentName;
   final String? attachmentMime;
   final int? attachmentSize;
+  final _ChatRoom room;
 
   bool get hasAttachment =>
       id.isNotEmpty &&
@@ -56,7 +61,10 @@ class _ChatMessage {
     return authorId == me;
   }
 
-  factory _ChatMessage.fromCommunityMessage(CommunityMessageItem item) {
+  factory _ChatMessage.fromCommunityMessage(
+    CommunityMessageItem item, {
+    _ChatRoom room = _ChatRoom.alumni,
+  }) {
     return _ChatMessage(
       id: item.id,
       authorId: item.authorId,
@@ -73,8 +81,15 @@ class _ChatMessage {
       attachmentName: item.attachmentName,
       attachmentMime: item.attachmentMime,
       attachmentSize: item.attachmentSize,
+      room: room,
     );
   }
+}
+
+/// Alumni Chat keeps only the last 3 months from "now".
+bool _isWithinAlumniRetention(DateTime createdAt) {
+  final cutoff = DateTime.now().toUtc().subtract(const Duration(days: 90));
+  return createdAt.toUtc().isAfter(cutoff);
 }
 
 /// Indian Standard Time (UTC+05:30), independent of device timezone.
@@ -197,10 +212,15 @@ class _DashboardConnectScreenState extends State<DashboardConnectScreen> {
   bool _posting = false;
   String? _error;
   String? _financeCouncilError;
-  _ConnectTab _activeTab = _ConnectTab.alumniChat;
+  String? _executiveCommitteeError;
+  _ConnectTab _activeTab = _ConnectTab.executiveCommittee;
   List<_ChatMessage> _alumniChatMessages = [];
   List<_ChatMessage> _financeCouncilMessages = [];
+  List<_ChatMessage> _executiveCommitteeMessages = [];
   List<ConnectOfficer> _officers = [];
+  String? _officersError;
+  /// Keep EC group chat open across silent refreshes (after send), like WhatsApp.
+  bool _ecGroupChatOpen = false;
 
   @override
   void initState() {
@@ -223,7 +243,7 @@ class _DashboardConnectScreenState extends State<DashboardConnectScreen> {
     }
   }
 
-  Future<void> _load({int attempt = 0}) async {
+  Future<void> _load({int attempt = 0, bool silent = false}) async {
     await AuthSession.instance.ensureReady();
     try {
       await AuthSession.instance.authService.fetchMe(allowRefresh: true);
@@ -231,22 +251,30 @@ class _DashboardConnectScreenState extends State<DashboardConnectScreen> {
 
     if (!mounted) return;
     setState(() {
-      _loading = attempt == 0;
-      if (attempt == 0) {
+      // Silent refresh keeps the current EC hub view (group chat / DM) mounted.
+      if (!silent) {
+        _loading = attempt == 0;
+      }
+      if (attempt == 0 && !silent) {
         _error = null;
         _financeCouncilError = null;
+        _executiveCommitteeError = null;
+        _officersError = null;
       }
     });
 
     try {
       List<CommunityMessageItem> communityMessages = [];
       List<CommunityMessageItem> financeCouncilMessages = [];
+      List<CommunityMessageItem> executiveCommitteeMessages = [];
       List<ConnectOfficer> officers = [];
       Object? communityError;
       Object? financeCouncilError;
+      Object? executiveCommitteeError;
       Object? officersError;
       final userRole = AuthSession.instance.currentUser?.role;
       final showFinanceCouncilTab = canViewFinanceCouncil(userRole);
+      final showExecutiveCommitteeChat = canViewExecutiveCommittee(userRole);
 
       try {
         communityMessages = await _api.fetchCommunityMessages();
@@ -262,40 +290,76 @@ class _DashboardConnectScreenState extends State<DashboardConnectScreen> {
         }
       }
 
+      if (showExecutiveCommitteeChat) {
+        try {
+          executiveCommitteeMessages =
+              await _api.fetchExecutiveCommitteeMessages();
+        } catch (e) {
+          executiveCommitteeError = e;
+        }
+      }
+
       try {
         officers = await _api.fetchOfficers();
       } catch (e) {
         officersError = e;
       }
 
-      if (communityError != null && officersError != null) {
+      if (communityError != null &&
+          !showFinanceCouncilTab &&
+          !showExecutiveCommitteeChat &&
+          officersError != null) {
         throw communityError;
       }
 
       if (!mounted) return;
       setState(() {
-        _alumniChatMessages =
-            communityMessages.map(_ChatMessage.fromCommunityMessage).toList();
+        _alumniChatMessages = communityMessages
+            .where((m) => _isWithinAlumniRetention(m.createdAt))
+            .map(
+              (m) => _ChatMessage.fromCommunityMessage(
+                m,
+                room: _ChatRoom.alumni,
+              ),
+            )
+            .toList();
         _financeCouncilMessages = financeCouncilMessages
-            .map(_ChatMessage.fromCommunityMessage)
+            .map(
+              (m) => _ChatMessage.fromCommunityMessage(
+                m,
+                room: _ChatRoom.finance,
+              ),
+            )
+            .toList();
+        _executiveCommitteeMessages = executiveCommitteeMessages
+            .map(
+              (m) => _ChatMessage.fromCommunityMessage(
+                m,
+                room: _ChatRoom.executive,
+              ),
+            )
             .toList();
         _officers = officers;
         _loading = false;
         _financeCouncilError = financeCouncilError != null && showFinanceCouncilTab
             ? _formatError(financeCouncilError)
             : null;
+        _executiveCommitteeError =
+            executiveCommitteeError != null && showExecutiveCommitteeChat
+                ? _formatError(executiveCommitteeError)
+                : null;
+        _officersError =
+            officersError != null ? _formatError(officersError) : null;
         _error = communityError != null
             ? 'Alumni Chat unavailable. ${_formatError(communityError)}'
-            : officersError != null
-                ? 'Officer list unavailable. ${_formatError(officersError)}'
-                : null;
+            : null;
       });
     } catch (e) {
       if (attempt < 2) {
         await Future<void>.delayed(
           Duration(milliseconds: 450 * (attempt + 1)),
         );
-        if (mounted) await _load(attempt: attempt + 1);
+        if (mounted) await _load(attempt: attempt + 1, silent: silent);
         return;
       }
       if (!mounted) return;
@@ -352,20 +416,66 @@ class _DashboardConnectScreenState extends State<DashboardConnectScreen> {
     }
   }
 
-  Future<void> _sendFinanceCouncilMessage() async {
+  Future<void> _sendFinanceCouncilMessage([
+    List<int>? fileBytes,
+    String? fileName,
+  ]) async {
     final text = _messageController.text.trim();
-    if (text.isEmpty || _posting) return;
+    final hasFile = fileBytes != null && fileBytes.isNotEmpty && fileName != null;
+    if ((text.isEmpty && !hasFile) || _posting) return;
 
     setState(() => _posting = true);
     try {
-      await _api.postFinanceCouncilMessage(text);
+      await _api.postFinanceCouncilMessage(text, fileBytes, fileName);
       _messageController.clear();
       await _load();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Message sent to Finance Council'),
-          backgroundColor: Color(0xFF1F6B3A),
+        SnackBar(
+          content: Text(
+            hasFile
+                ? 'Document sent to Financial Decisions'
+                : 'Message sent to Financial Decisions',
+          ),
+          backgroundColor: const Color(0xFF1F6B3A),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_formatError(e)),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _posting = false);
+    }
+  }
+
+  Future<void> _sendExecutiveCommitteeMessage([
+    List<int>? fileBytes,
+    String? fileName,
+  ]) async {
+    final text = _messageController.text.trim();
+    final hasFile = fileBytes != null && fileBytes.isNotEmpty && fileName != null;
+    if ((text.isEmpty && !hasFile) || _posting) return;
+
+    setState(() => _posting = true);
+    try {
+      await _api.postExecutiveCommitteeMessage(text, fileBytes, fileName);
+      _messageController.clear();
+      // Stay in EC group chat — never full-page reload after send.
+      await _load(silent: true);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            hasFile
+                ? 'Document sent to Executive Committee Chat'
+                : 'Message sent to Executive Committee Chat',
+          ),
+          backgroundColor: const Color(0xFF1F6B3A),
         ),
       );
     } catch (e) {
@@ -402,6 +512,14 @@ class _DashboardConnectScreenState extends State<DashboardConnectScreen> {
     final lower = message.toLowerCase();
     return lower.contains('finance_council_messages') ||
         lower.contains('migration-019') ||
+        lower.contains('migration-025') ||
+        lower.contains('database setup');
+  }
+
+  bool _isExecutiveCommitteeSetupError(String message) {
+    final lower = message.toLowerCase();
+    return lower.contains('executive_committee_messages') ||
+        lower.contains('migration-025') ||
         lower.contains('database setup');
   }
 
@@ -412,6 +530,7 @@ class _DashboardConnectScreenState extends State<DashboardConnectScreen> {
     final userRole = AuthSession.instance.currentUser?.role;
     final canPostFinance = canPostToFinanceCouncil(userRole);
     final showFinanceCouncilTab = canViewFinanceCouncil(userRole);
+    final canAccessExecutiveCommittee = canViewExecutiveCommittee(userRole);
 
     if (_loading) {
       return const Center(child: CircularProgressIndicator());
@@ -432,7 +551,7 @@ class _DashboardConnectScreenState extends State<DashboardConnectScreen> {
             children: [
               if (!isMobile) ...[
                 Text(
-                  'Connect to Executive Committee',
+                  'Connect',
                   style: GoogleFonts.fraunces(
                     fontSize: 34,
                     fontWeight: FontWeight.w600,
@@ -442,7 +561,13 @@ class _DashboardConnectScreenState extends State<DashboardConnectScreen> {
                 const SizedBox(height: 6),
               ],
               Text(
-                'Alumni Chat is open to all members - use Set audience for group alerts. Finance Council is private (President, VP, Treasurer - Admin view-only). Executive Committee: officers start a private DM; members reply after.',
+                _activeTab == _ConnectTab.alumniChat
+                    ? 'Open chat for all members. Messages older than 3 months are removed automatically.'
+                    : _activeTab == _ConnectTab.financeCouncil
+                        ? 'Private room for President, VP, and Treasurer. Admin can view only. Documents supported.'
+                        : canAccessExecutiveCommittee
+                            ? 'View EC members and open EC Group Chat. Messages and documents are kept permanently.'
+                            : 'View who is on the Executive Committee. Only EC members can open EC Group Chat.',
                 style: GoogleFonts.inter(
                   fontSize: isMobile ? 14 : 15,
                   color: AppColors.bodyText,
@@ -453,10 +578,24 @@ class _DashboardConnectScreenState extends State<DashboardConnectScreen> {
                 const SizedBox(height: 10),
                 _ErrorBanner(message: _error!, onRetry: _load),
               ],
+              if (_officersError != null &&
+                  _activeTab == _ConnectTab.executiveCommittee) ...[
+                const SizedBox(height: 10),
+                _ErrorBanner(message: _officersError!, onRetry: _load),
+              ],
               if (_financeCouncilError != null &&
                   _activeTab == _ConnectTab.financeCouncil) ...[
                 const SizedBox(height: 10),
                 _ErrorBanner(message: _financeCouncilError!, onRetry: _load),
+              ],
+              if (_executiveCommitteeError != null &&
+                  _activeTab == _ConnectTab.executiveCommittee &&
+                  canAccessExecutiveCommittee) ...[
+                const SizedBox(height: 10),
+                _ErrorBanner(
+                  message: _executiveCommitteeError!,
+                  onRetry: _load,
+                ),
               ],
               if (!canPostFinance &&
                   _activeTab == _ConnectTab.financeCouncil &&
@@ -509,16 +648,17 @@ class _DashboardConnectScreenState extends State<DashboardConnectScreen> {
                 LayoutBuilder(
                   builder: (context, constraints) {
                     final chatHeight = isMobile
-                        ? (MediaQuery.sizeOf(context).height * 0.48)
-                            .clamp(280.0, 480.0)
-                        : 520.0;
+                        ? (MediaQuery.sizeOf(context).height * 0.58)
+                            .clamp(340.0, 620.0)
+                        : 620.0;
 
                     return SizedBox(
                       height: chatHeight,
                       child: _FinanceCouncilPanel(
                         messages: _financeCouncilMessages,
                         messageController: _messageController,
-                        onSend: _sendFinanceCouncilMessage,
+                        onSend: ({fileBytes, fileName}) =>
+                            _sendFinanceCouncilMessage(fileBytes, fileName),
                         canPost: canPostFinance,
                         posting: _posting,
                         setupError: _financeCouncilError != null &&
@@ -528,11 +668,26 @@ class _DashboardConnectScreenState extends State<DashboardConnectScreen> {
                     );
                   },
                 )
-                else
-                  _CommitteePanel(
-                    officers: _officers,
-                    compact: isMobile,
-                  ),
+              else
+                _ExecutiveCommitteeHub(
+                  officers: _officers,
+                  isEcMember: canAccessExecutiveCommittee,
+                  groupChatOpen: _ecGroupChatOpen,
+                  onGroupChatOpenChanged: (open) {
+                    setState(() => _ecGroupChatOpen = open);
+                  },
+                  groupMessages: _executiveCommitteeMessages,
+                  groupMessageController: _messageController,
+                  onSendGroup: ({fileBytes, fileName}) =>
+                      _sendExecutiveCommitteeMessage(fileBytes, fileName),
+                  groupPosting: _posting,
+                  groupSetupError: _executiveCommitteeError != null &&
+                      _isExecutiveCommitteeSetupError(
+                        _executiveCommitteeError!,
+                      ),
+                  onRefreshGroup: () => _load(silent: true),
+                  compact: isMobile,
+                ),
             ],
           ),
         ),
@@ -594,7 +749,7 @@ class _ModeToggle extends StatelessWidget {
       if (onFinanceCouncil != null)
         (
           _ConnectTab.financeCouncil,
-          'Finance Council',
+          'Financial Decisions',
           Icons.account_balance_outlined,
           onFinanceCouncil!,
         ),
@@ -665,7 +820,7 @@ class _FinanceCouncilReadOnlyNotice extends StatelessWidget {
           Expanded(
             child: Text(
               'You are signed in as ${financeCouncilRoleLabel(role)} with view-only access. '
-              'Only President, Vice President, and Treasurer can post in Finance Council.',
+              'Only President, Vice President, and Treasurer can post in Financial Decisions.',
               style: GoogleFonts.inter(
                 fontSize: 13,
                 color: AppColors.bodyText,
@@ -951,8 +1106,8 @@ class _AlumniChatPanelState extends State<_AlumniChatPanel> {
                 const SizedBox(height: 4),
                 Text(
                   widget.isAdminViewer
-                      ? 'Members chat here. Targeted alerts go only to matching alumni - Admin sees all alerts.'
-                      : 'Open chat for everyone, or Target an alert so only matching alumni see it.',
+                      ? 'Members chat here. Messages older than 3 months are removed. Targeted alerts go only to matching alumni — Admin sees all alerts.'
+                      : 'Open chat for everyone (last 3 months kept), or Target an alert so only matching alumni see it.',
                   style: GoogleFonts.inter(
                     fontSize: 12,
                     color: AppColors.mutedText,
@@ -1431,7 +1586,7 @@ class _ChatTargetChipField extends StatelessWidget {
   }
 }
 
-class _FinanceCouncilPanel extends StatelessWidget {
+class _FinanceCouncilPanel extends StatefulWidget {
   const _FinanceCouncilPanel({
     required this.messages,
     required this.messageController,
@@ -1444,14 +1599,83 @@ class _FinanceCouncilPanel extends StatelessWidget {
 
   final List<_ChatMessage> messages;
   final TextEditingController messageController;
-  final VoidCallback onSend;
+  final Future<void> Function({List<int>? fileBytes, String? fileName}) onSend;
   final bool canPost;
   final bool posting;
   final bool setupError;
   final bool compact;
 
   @override
+  State<_FinanceCouncilPanel> createState() => _FinanceCouncilPanelState();
+}
+
+class _FinanceCouncilPanelState extends State<_FinanceCouncilPanel> {
+  List<int>? _pendingFileBytes;
+  String? _pendingFileName;
+
+  Future<void> _pickDocument() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: const [
+        'pdf',
+        'doc',
+        'docx',
+        'xls',
+        'xlsx',
+        'txt',
+        'jpg',
+        'jpeg',
+        'png',
+        'webp',
+      ],
+      withData: true,
+    );
+    if (result == null || result.files.isEmpty) return;
+    final file = result.files.first;
+    final bytes = file.bytes;
+    if (bytes == null || bytes.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not read that file. Try again.')),
+      );
+      return;
+    }
+    if (bytes.length > 10 * 1024 * 1024) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('File must be 10 MB or smaller.')),
+      );
+      return;
+    }
+    setState(() {
+      _pendingFileBytes = bytes;
+      _pendingFileName = file.name;
+    });
+  }
+
+  void _clearPendingFile() {
+    setState(() {
+      _pendingFileBytes = null;
+      _pendingFileName = null;
+    });
+  }
+
+  Future<void> _handleSend() async {
+    final bytes = _pendingFileBytes;
+    final name = _pendingFileName;
+    await widget.onSend(fileBytes: bytes, fileName: name);
+    if (!mounted) return;
+    _clearPendingFile();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final compact = widget.compact;
+    final messages = widget.messages;
+    final posting = widget.posting;
+    final canPost = widget.canPost;
+    final setupError = widget.setupError;
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -1481,7 +1705,7 @@ class _FinanceCouncilPanel extends StatelessWidget {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Finance Council',
+                        'Financial Decisions',
                         style: GoogleFonts.inter(
                           fontWeight: FontWeight.w700,
                           fontSize: compact ? 15 : 16,
@@ -1500,7 +1724,7 @@ class _FinanceCouncilPanel extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Budgets, building repairs & financial approvals - President, VP & Treasurer',
+                  'Budgets, building repairs & financial approvals — share documents here',
                   style: GoogleFonts.inter(
                     fontSize: 12,
                     color: AppColors.mutedText,
@@ -1525,7 +1749,7 @@ class _FinanceCouncilPanel extends StatelessWidget {
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            'Finance Council needs a one-time database setup.',
+                            'Financial Decisions needs a one-time database setup.',
                             textAlign: TextAlign.center,
                             style: GoogleFonts.inter(
                               fontWeight: FontWeight.w700,
@@ -1534,7 +1758,7 @@ class _FinanceCouncilPanel extends StatelessWidget {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Run migration-019-finance-council-chat.sql in Supabase SQL Editor, then tap Retry above.',
+                            'Run migration-019 and migration-025 in Supabase SQL Editor, then tap Retry above.',
                             textAlign: TextAlign.center,
                             style: GoogleFonts.inter(
                               fontSize: 13,
@@ -1547,106 +1771,370 @@ class _FinanceCouncilPanel extends StatelessWidget {
                     ),
                   )
                 : messages.isEmpty
-                ? Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Text(
-                        'No messages yet. Discuss building repairs, budgets, and financial approvals here.',
-                        style: GoogleFonts.inter(color: AppColors.mutedText),
-                        textAlign: TextAlign.center,
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Text(
+                            'No messages yet. Discuss building repairs, budgets, and financial approvals here.',
+                            style: GoogleFonts.inter(color: AppColors.mutedText),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      )
+                    : ScrollConfiguration(
+                        behavior: ScrollConfiguration.of(context).copyWith(
+                          scrollbars: false,
+                        ),
+                        child: ListView(
+                          reverse: true,
+                          padding: EdgeInsets.all(compact ? 14 : 20),
+                          children: _buildWhatsAppChatChildren(messages),
+                        ),
                       ),
-                    ),
-                  )
-                : ScrollConfiguration(
-                    behavior: ScrollConfiguration.of(context).copyWith(
-                      scrollbars: false,
-                    ),
-                    child: ListView(
-                      // WhatsApp-style: oldest at top, newest at bottom
-                      reverse: true,
-                      padding: EdgeInsets.all(compact ? 14 : 20),
-                      children: _buildWhatsAppChatChildren(messages),
-                    ),
-                  ),
           ),
           if (canPost) ...[
             const Divider(height: 1),
             Padding(
               padding: EdgeInsets.fromLTRB(
-                compact ? 14 : 20,
                 compact ? 12 : 16,
-                compact ? 14 : 20,
+                compact ? 8 : 10,
+                compact ? 12 : 16,
                 compact ? 10 : 12,
               ),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Expanded(
-                    child: TextField(
-                      controller: messageController,
-                      enabled: !posting,
-                      onSubmitted: (_) => onSend(),
-                      decoration: InputDecoration(
-                        hintText: 'Type a financial update or approval request',
-                        filled: true,
-                        fillColor: AppColors.background,
-                        contentPadding: EdgeInsets.symmetric(
-                          horizontal: compact ? 14 : 16,
-                          vertical: compact ? 12 : 14,
+                  if (_pendingFileName != null) ...[
+                    Container(
+                      width: double.infinity,
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF3F0E8),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.insert_drive_file_outlined,
+                            size: 18,
+                            color: Color(0xFF8B6914),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _pendingFileName!,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.inter(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.heading,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: posting ? null : _clearPendingFile,
+                            icon: const Icon(Icons.close, size: 18),
+                            visualDensity: VisualDensity.compact,
+                            tooltip: 'Remove file',
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    padding: const EdgeInsets.fromLTRB(6, 6, 6, 6),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        IconButton(
+                          onPressed: posting ? null : _pickDocument,
+                          tooltip: 'Attach document',
+                          icon: const Icon(
+                            Icons.attach_file_rounded,
+                            color: Color(0xFF8B6914),
+                          ),
                         ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: AppColors.border),
+                        Expanded(
+                          child: TextField(
+                            controller: widget.messageController,
+                            enabled: !posting,
+                            minLines: 1,
+                            maxLines: 4,
+                            onSubmitted: (_) => _handleSend(),
+                            decoration: InputDecoration(
+                              hintText:
+                                  'Message optional — attach a file to send',
+                              filled: true,
+                              fillColor: AppColors.background,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 12,
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: BorderSide.none,
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: BorderSide.none,
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: BorderSide.none,
+                              ),
+                            ),
+                          ),
                         ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: AppColors.border),
+                        const SizedBox(width: 6),
+                        Material(
+                          color: const Color(0xFF8B6914),
+                          borderRadius: BorderRadius.circular(10),
+                          child: InkWell(
+                            onTap: posting ? null : _handleSend,
+                            borderRadius: BorderRadius.circular(10),
+                            child: SizedBox(
+                              width: compact ? 44 : 88,
+                              height: 44,
+                              child: posting
+                                  ? const Center(
+                                      child: SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    )
+                                  : Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        const Icon(
+                                          Icons.send_rounded,
+                                          size: 18,
+                                          color: Colors.white,
+                                        ),
+                                        if (!compact) ...[
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            'Send',
+                                            style: GoogleFonts.inter(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.w600,
+                                              fontSize: 13,
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ExecutiveCommitteeHub extends StatefulWidget {
+  const _ExecutiveCommitteeHub({
+    required this.officers,
+    required this.isEcMember,
+    required this.groupChatOpen,
+    required this.onGroupChatOpenChanged,
+    required this.groupMessages,
+    required this.groupMessageController,
+    required this.onSendGroup,
+    required this.groupPosting,
+    required this.groupSetupError,
+    required this.onRefreshGroup,
+    this.compact = false,
+  });
+
+  final List<ConnectOfficer> officers;
+  final bool isEcMember;
+  final bool groupChatOpen;
+  final ValueChanged<bool> onGroupChatOpenChanged;
+  final List<_ChatMessage> groupMessages;
+  final TextEditingController groupMessageController;
+  final Future<void> Function({List<int>? fileBytes, String? fileName})
+      onSendGroup;
+  final bool groupPosting;
+  final bool groupSetupError;
+  final Future<void> Function() onRefreshGroup;
+  final bool compact;
+
+  @override
+  State<_ExecutiveCommitteeHub> createState() => _ExecutiveCommitteeHubState();
+}
+
+class _ExecutiveCommitteeHubState extends State<_ExecutiveCommitteeHub> {
+  Future<void> _openGroupChat() async {
+    widget.onGroupChatOpenChanged(true);
+    try {
+      await widget.onRefreshGroup();
+    } catch (_) {
+      // Stay in group chat even if refresh fails.
+    }
+  }
+
+  void _backToDirectory() {
+    widget.onGroupChatOpenChanged(false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final compact = widget.compact;
+    final chatHeight = compact
+        ? (MediaQuery.sizeOf(context).height * 0.58).clamp(340.0, 620.0)
+        : 620.0;
+
+    if (widget.groupChatOpen && widget.isEcMember) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: _backToDirectory,
+              icon: const Icon(Icons.arrow_back, size: 18),
+              label: const Text('Back to members'),
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: chatHeight,
+            child: _ExecutiveCommitteeChatPanel(
+              messages: widget.groupMessages,
+              messageController: widget.groupMessageController,
+              onSend: widget.onSendGroup,
+              posting: widget.groupPosting,
+              setupError: widget.groupSetupError,
+              compact: compact,
+            ),
+          ),
+        ],
+      );
+    }
+
+    return _EcMemberDirectory(
+      officers: widget.officers,
+      isEcMember: widget.isEcMember,
+      compact: compact,
+      onOpenGroupChat: widget.isEcMember ? _openGroupChat : null,
+    );
+  }
+}
+
+class _EcMemberDirectory extends StatelessWidget {
+  const _EcMemberDirectory({
+    required this.officers,
+    required this.isEcMember,
+    required this.compact,
+    this.onOpenGroupChat,
+  });
+
+  final List<ConnectOfficer> officers;
+  final bool isEcMember;
+  final bool compact;
+  final VoidCallback? onOpenGroupChat;
+
+  @override
+  Widget build(BuildContext context) {
+    final me = AuthSession.instance.currentUser?.id;
+    // Non-EC must never see Committee Chat — re-check role here.
+    final canOpenCommitteeChat =
+        isEcMember &&
+        onOpenGroupChat != null &&
+        canViewExecutiveCommittee(AuthSession.instance.currentUser?.role);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: EdgeInsets.fromLTRB(
+              compact ? 14 : 20,
+              compact ? 12 : 16,
+              compact ? 14 : 20,
+              compact ? 10 : 12,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.groups_outlined,
+                      size: 18,
+                      color: AppColors.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Executive Committee Members',
+                        style: GoogleFonts.inter(
+                          fontWeight: FontWeight.w700,
+                          fontSize: compact ? 15 : 16,
+                          color: AppColors.heading,
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  if (compact)
-                    Material(
-                      color: const Color(0xFF8B6914),
-                      borderRadius: BorderRadius.circular(12),
-                      child: InkWell(
-                        onTap: posting ? null : onSend,
-                        borderRadius: BorderRadius.circular(12),
-                        child: SizedBox(
-                          width: 44,
-                          height: 44,
-                          child: posting
-                              ? const Padding(
-                                  padding: EdgeInsets.all(12),
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : const Icon(
-                                  Icons.send_rounded,
-                                  size: 20,
-                                  color: Colors.white,
-                                ),
-                        ),
+                    Text(
+                      '${officers.length} member${officers.length == 1 ? '' : 's'}',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: AppColors.mutedText,
                       ),
-                    )
-                  else
-                    ElevatedButton.icon(
-                      onPressed: posting ? null : onSend,
-                      icon: posting
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Icon(Icons.send_rounded, size: 18),
-                      label: Text(posting ? 'Sending...' : 'Send'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF8B6914),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  canOpenCommitteeChat
+                      ? 'Browse members below, then open EC Group Chat.'
+                      : 'Browse the Executive Committee member list below.',
+                  style: GoogleFonts.inter(
+                    fontSize: 12.5,
+                    color: AppColors.mutedText,
+                    height: 1.35,
+                  ),
+                ),
+                if (canOpenCommitteeChat) ...[
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: compact ? double.infinity : null,
+                    child: FilledButton.icon(
+                      onPressed: onOpenGroupChat,
+                      icon: const Icon(Icons.forum_outlined, size: 18),
+                      label: const Text('EC Group Chat'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(
                           horizontal: 18,
@@ -1654,10 +2142,472 @@ class _FinanceCouncilPanel extends StatelessWidget {
                         ),
                       ),
                     ),
+                  ),
                 ],
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          if (officers.isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(28),
+              child: Text(
+                'No Executive Committee members are listed yet. Ask Admin to assign EC roles.',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(color: AppColors.mutedText),
+              ),
+            )
+          else
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: compact ? 420.0 : 520.0,
+              ),
+              child: ListView.separated(
+                shrinkWrap: true,
+                padding: EdgeInsets.symmetric(
+                  horizontal: compact ? 10 : 14,
+                  vertical: 8,
+                ),
+                itemCount: officers.length,
+                separatorBuilder: (_, _) => const Divider(height: 1),
+                itemBuilder: (context, index) {
+                  final officer = officers[index];
+                  final isMe = me != null && officer.userId == me;
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    child: Row(
+                      children: [
+                        ProfileAvatar(
+                          networkUrl: officer.photoUrl,
+                          name: officer.displayName,
+                          size: 44,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                officer.displayName,
+                                style: GoogleFonts.inter(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                  color: AppColors.heading,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF3F6FB),
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                                child: Text(
+                                  officer.roleLabel,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (isMe)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEAF0FA),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              'You',
+                              style: GoogleFonts.inter(
+                                fontSize: 11,
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  );
+                },
               ),
             ),
-          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ExecutiveCommitteeChatPanel extends StatefulWidget {
+  const _ExecutiveCommitteeChatPanel({
+    required this.messages,
+    required this.messageController,
+    required this.onSend,
+    required this.posting,
+    this.setupError = false,
+    this.compact = false,
+  });
+
+  final List<_ChatMessage> messages;
+  final TextEditingController messageController;
+  final Future<void> Function({List<int>? fileBytes, String? fileName}) onSend;
+  final bool posting;
+  final bool setupError;
+  final bool compact;
+
+  @override
+  State<_ExecutiveCommitteeChatPanel> createState() =>
+      _ExecutiveCommitteeChatPanelState();
+}
+
+class _ExecutiveCommitteeChatPanelState
+    extends State<_ExecutiveCommitteeChatPanel> {
+  List<int>? _pendingFileBytes;
+  String? _pendingFileName;
+
+  Future<void> _pickDocument() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: const [
+        'pdf',
+        'doc',
+        'docx',
+        'xls',
+        'xlsx',
+        'txt',
+        'jpg',
+        'jpeg',
+        'png',
+        'webp',
+      ],
+      withData: true,
+    );
+    if (result == null || result.files.isEmpty) return;
+    final file = result.files.first;
+    final bytes = file.bytes;
+    if (bytes == null || bytes.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not read that file. Try again.')),
+      );
+      return;
+    }
+    if (bytes.length > 10 * 1024 * 1024) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('File must be 10 MB or smaller.')),
+      );
+      return;
+    }
+    setState(() {
+      _pendingFileBytes = bytes;
+      _pendingFileName = file.name;
+    });
+  }
+
+  void _clearPendingFile() {
+    setState(() {
+      _pendingFileBytes = null;
+      _pendingFileName = null;
+    });
+  }
+
+  Future<void> _handleSend() async {
+    final bytes = _pendingFileBytes;
+    final name = _pendingFileName;
+    await widget.onSend(fileBytes: bytes, fileName: name);
+    if (!mounted) return;
+    _clearPendingFile();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final compact = widget.compact;
+    final messages = widget.messages;
+    final posting = widget.posting;
+    final setupError = widget.setupError;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: EdgeInsets.fromLTRB(
+              compact ? 14 : 20,
+              compact ? 12 : 16,
+              compact ? 14 : 20,
+              compact ? 10 : 12,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.shield_outlined,
+                      size: 18,
+                      color: AppColors.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'EC Group Chat',
+                        style: GoogleFonts.inter(
+                          fontWeight: FontWeight.w700,
+                          fontSize: compact ? 15 : 16,
+                          color: AppColors.heading,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '${messages.length} messages',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: AppColors.mutedText,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Private chat for EC members — documents kept permanently.',
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    color: AppColors.mutedText,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          Expanded(
+            child: setupError
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.storage_outlined,
+                            size: 40,
+                            color: AppColors.mutedText,
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Executive Committee Chat needs a one-time database setup.',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.inter(
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.heading,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Run migration-025-ec-chat-finance-docs.sql in Supabase SQL Editor, then tap Retry.',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              color: AppColors.bodyText,
+                              height: 1.45,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                : messages.isEmpty
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Text(
+                            'No messages yet. Open this chat to message all EC members and share documents.',
+                            style: GoogleFonts.inter(color: AppColors.mutedText),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      )
+                    : ScrollConfiguration(
+                        behavior: ScrollConfiguration.of(context).copyWith(
+                          scrollbars: false,
+                        ),
+                        child: ListView(
+                          reverse: true,
+                          padding: EdgeInsets.all(compact ? 14 : 20),
+                          children: _buildWhatsAppChatChildren(messages),
+                        ),
+                      ),
+          ),
+          const Divider(height: 1),
+          Padding(
+            padding: EdgeInsets.fromLTRB(
+              compact ? 12 : 16,
+              compact ? 8 : 10,
+              compact ? 12 : 16,
+              compact ? 10 : 12,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (_pendingFileName != null) ...[
+                  Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF3F0E8),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.insert_drive_file_outlined,
+                          size: 18,
+                          color: AppColors.primary,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _pendingFileName!,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.heading,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: posting ? null : _clearPendingFile,
+                          icon: const Icon(Icons.close, size: 18),
+                          visualDensity: VisualDensity.compact,
+                          tooltip: 'Remove file',
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  padding: const EdgeInsets.fromLTRB(6, 6, 6, 6),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      IconButton(
+                        onPressed: posting ? null : _pickDocument,
+                        tooltip: 'Attach document',
+                        icon: const Icon(
+                          Icons.attach_file_rounded,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                      Expanded(
+                        child: TextField(
+                          controller: widget.messageController,
+                          enabled: !posting,
+                          minLines: 1,
+                          maxLines: 4,
+                          onSubmitted: (_) => _handleSend(),
+                          decoration: InputDecoration(
+                            hintText:
+                                'Message optional — attach a file to send',
+                            filled: true,
+                            fillColor: const Color(0xFFF9F8F5),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 12,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide.none,
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide.none,
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Material(
+                        color: AppColors.primary,
+                        borderRadius: BorderRadius.circular(10),
+                        child: InkWell(
+                          onTap: posting ? null : _handleSend,
+                          borderRadius: BorderRadius.circular(10),
+                          child: SizedBox(
+                            width: compact ? 44 : 88,
+                            height: 44,
+                            child: posting
+                                ? const Center(
+                                    child: SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  )
+                                : Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const Icon(
+                                        Icons.send_rounded,
+                                        size: 18,
+                                        color: Colors.white,
+                                      ),
+                                      if (!compact) ...[
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          'Send',
+                                          style: GoogleFonts.inter(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -1756,6 +2706,7 @@ class _MessageBubble extends StatelessWidget {
               if (message.hasAttachment) ...[
                 _ChatAttachmentCard(
                   messageId: message.id,
+                  room: message.room,
                   url: message.attachmentUrl,
                   name: message.attachmentName ?? 'Document',
                   mime: message.attachmentMime,
@@ -1791,6 +2742,7 @@ class _ChatAttachmentCard extends StatefulWidget {
   const _ChatAttachmentCard({
     required this.messageId,
     required this.name,
+    required this.room,
     this.url,
     this.mime,
     this.size,
@@ -1798,6 +2750,7 @@ class _ChatAttachmentCard extends StatefulWidget {
 
   final String messageId;
   final String name;
+  final _ChatRoom room;
   final String? url;
   final String? mime;
   final int? size;
@@ -1825,7 +2778,14 @@ class _ChatAttachmentCardState extends State<_ChatAttachmentCard> {
     setState(() => _downloading = true);
     var ok = false;
     try {
-      final result = await _api.downloadCommunityAttachment(widget.messageId);
+      final result = switch (widget.room) {
+        _ChatRoom.alumni =>
+          await _api.downloadCommunityAttachment(widget.messageId),
+        _ChatRoom.finance =>
+          await _api.downloadFinanceCouncilAttachment(widget.messageId),
+        _ChatRoom.executive =>
+          await _api.downloadExecutiveCommitteeAttachment(widget.messageId),
+      };
       await downloadBytes(
         result.bytes,
         result.fileName,
@@ -1915,946 +2875,6 @@ class _ChatAttachmentCardState extends State<_ChatAttachmentCard> {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _CommitteePanel extends StatefulWidget {
-  const _CommitteePanel({
-    required this.officers,
-    this.compact = false,
-  });
-
-  final List<ConnectOfficer> officers;
-  final bool compact;
-
-  @override
-  State<_CommitteePanel> createState() => _CommitteePanelState();
-}
-
-class _CommitteePanelState extends State<_CommitteePanel> {
-  final _api = ConnectApiService();
-  final _messageController = TextEditingController();
-  final _searchController = TextEditingController();
-
-  bool _loadingThreads = true;
-  bool _loadingChat = false;
-  bool _loadingMembers = false;
-  bool _sending = false;
-  String? _error;
-  List<DmThreadItem> _threads = [];
-  List<DmMemberCandidate> _memberResults = [];
-  ConnectOfficer? _selectedPeer;
-  String? _threadId;
-  DmThreadItem? _activeThread;
-  List<DmMessageItem> _messages = [];
-
-  bool get _canStart => canStartExecutiveDmUser;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadThreads();
-    if (_canStart) {
-      _searchMembers('');
-    }
-  }
-
-  @override
-  void dispose() {
-    _messageController.dispose();
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _loadThreads() async {
-    setState(() {
-      _loadingThreads = true;
-      _error = null;
-    });
-    try {
-      final threads = await _api.fetchDmThreads();
-      if (!mounted) return;
-      setState(() {
-        _threads = threads;
-        _loadingThreads = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _error = e.toString().replaceFirst('Exception: ', '');
-        _loadingThreads = false;
-      });
-    }
-  }
-
-  Future<void> _searchMembers(String query) async {
-    if (!_canStart) return;
-    setState(() => _loadingMembers = true);
-    try {
-      final members = await _api.searchDmMembers(query: query);
-      if (!mounted) return;
-      setState(() {
-        _memberResults = members;
-        _loadingMembers = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _loadingMembers = false;
-        _error = e.toString().replaceFirst('Exception: ', '');
-      });
-    }
-  }
-
-  Future<void> _openMember(DmMemberCandidate member) async {
-    if (!_canStart) return;
-    final existing = _threads.where((t) => t.peerUserId == member.userId);
-    if (existing.isNotEmpty) {
-      await _openThread(existing.first);
-      return;
-    }
-    setState(() {
-      _selectedPeer = ConnectOfficer(
-        userId: member.userId,
-        email: '',
-        role: 'member',
-        roleLabel: member.batchYear != null
-            ? 'Member Â· Batch ${member.batchYear}'
-            : 'Member',
-        initials: member.initials,
-        fullName: member.fullName,
-      );
-      _loadingChat = false;
-      _messages = [];
-      _threadId = null;
-      _activeThread = null;
-      _error = null;
-    });
-  }
-
-  Future<void> _openThread(DmThreadItem thread) async {
-    ConnectOfficer? peer;
-    for (final o in widget.officers) {
-      if (o.userId == thread.peerUserId) {
-        peer = o;
-        break;
-      }
-    }
-    peer ??= ConnectOfficer(
-      userId: thread.peerUserId,
-      email: '',
-      role: 'member',
-      roleLabel: thread.peerRoleLabel ?? 'Member',
-      initials: thread.peerInitials,
-      fullName: thread.peerName,
-    );
-
-    setState(() {
-      _selectedPeer = peer;
-      _loadingChat = true;
-      _messages = [];
-      _threadId = thread.id;
-      _activeThread = thread;
-      _error = null;
-    });
-
-    try {
-      final conversation = await _api.fetchDmMessages(thread.id);
-      if (!mounted) return;
-      setState(() {
-        _threadId = conversation.thread.id;
-        _activeThread = conversation.thread;
-        _messages = conversation.messages;
-        _loadingChat = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _error = e.toString().replaceFirst('Exception: ', '');
-        _loadingChat = false;
-      });
-    }
-  }
-
-  Future<void> _send() async {
-    final text = _messageController.text.trim();
-    final peer = _selectedPeer;
-    if (text.isEmpty || peer == null || _sending) return;
-    if (_activeThread != null && !_activeThread!.canMessage) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Messaging is blocked for this conversation'),
-          backgroundColor: Color(0xFFB45309),
-        ),
-      );
-      return;
-    }
-
-    // Members cannot create a new thread - only reply on an existing one.
-    if (_threadId == null && !_canStart) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'An officer must message you first before you can reply.',
-          ),
-          backgroundColor: Color(0xFFB45309),
-        ),
-      );
-      return;
-    }
-
-    setState(() => _sending = true);
-    try {
-      if (_threadId == null) {
-        final conversation = await _api.startDm(
-          memberUserId: peer.userId,
-          body: text,
-        );
-        _messageController.clear();
-        await _loadThreads();
-        if (!mounted) return;
-        setState(() {
-          _threadId = conversation.thread.id;
-          _activeThread = conversation.thread;
-          _messages = conversation.messages;
-        });
-      } else {
-        await _api.sendDmReply(threadId: _threadId!, body: text);
-        _messageController.clear();
-        final conversation = await _api.fetchDmMessages(_threadId!);
-        await _loadThreads();
-        if (!mounted) return;
-        setState(() {
-          _activeThread = conversation.thread;
-          _messages = conversation.messages;
-        });
-      }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.toString().replaceFirst('Exception: ', '')),
-          backgroundColor: Colors.red.shade700,
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _sending = false);
-    }
-  }
-
-  Future<void> _toggleBlock() async {
-    final peer = _selectedPeer;
-    final thread = _activeThread;
-    if (peer == null) return;
-    try {
-      if (thread?.iBlockedPeer == true) {
-        await _api.unblockDmUser(peer.userId);
-      } else {
-        await _api.blockDmUser(peer.userId);
-      }
-      if (_threadId != null) {
-        final conversation = await _api.fetchDmMessages(_threadId!);
-        await _loadThreads();
-        if (!mounted) return;
-        setState(() {
-          _activeThread = conversation.thread;
-          _messages = conversation.messages;
-        });
-      } else {
-        await _loadThreads();
-        if (!mounted) return;
-        setState(() {
-          _activeThread = (_activeThread == null)
-              ? null
-              : DmThreadItem(
-                  id: _activeThread!.id,
-                  peerUserId: _activeThread!.peerUserId,
-                  peerName: _activeThread!.peerName,
-                  peerInitials: _activeThread!.peerInitials,
-                  peerRoleLabel: _activeThread!.peerRoleLabel,
-                  lastMessage: _activeThread!.lastMessage,
-                  updatedAt: _activeThread!.updatedAt,
-                  iBlockedPeer: !(thread?.iBlockedPeer ?? false),
-                  peerBlockedMe: thread?.peerBlockedMe ?? false,
-                  canMessage: thread?.iBlockedPeer == true,
-                );
-        });
-      }
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            (thread?.iBlockedPeer == true) ? 'User unblocked' : 'User blocked',
-          ),
-          backgroundColor: const Color(0xFF1F6B3A),
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.toString().replaceFirst('Exception: ', '')),
-          backgroundColor: Colors.red.shade700,
-        ),
-      );
-    }
-  }
-
-  void _backToList() {
-    setState(() {
-      _selectedPeer = null;
-      _threadId = null;
-      _activeThread = null;
-      _messages = [];
-      _messageController.clear();
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final compact = widget.compact;
-    if (_selectedPeer != null) {
-      return SizedBox(
-        height: compact ? 420 : 480,
-        child: _buildChat(compact),
-      );
-    }
-    return _buildInbox(compact);
-  }
-
-  Widget _buildInbox(bool compact) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: EdgeInsets.fromLTRB(
-              compact ? 14 : 18,
-              compact ? 12 : 14,
-              compact ? 14 : 18,
-              8,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Executive Committee DMs',
-                  style: GoogleFonts.inter(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 15,
-                    color: AppColors.heading,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  _canStart
-                      ? 'Search a member and send the first message. Members reply after you start.'
-                      : 'An officer will message you first. Conversations you can reply to show below.',
-                  style: GoogleFonts.inter(
-                    fontSize: 12.5,
-                    color: AppColors.mutedText,
-                    height: 1.35,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const Divider(height: 1),
-          if (_loadingThreads)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 28),
-              child: Center(
-                child: SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              ),
-            )
-          else if (_error != null && _threads.isEmpty && !_canStart)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
-              child: Text(
-                _error!,
-                textAlign: TextAlign.center,
-                style: GoogleFonts.inter(color: AppColors.bodyText),
-              ),
-            )
-          else ...[
-            if (_canStart) ...[
-              Padding(
-                padding: EdgeInsets.fromLTRB(
-                  compact ? 14 : 18,
-                  10,
-                  compact ? 14 : 18,
-                  6,
-                ),
-                child: Text(
-                  'Start a DM with a member',
-                  style: GoogleFonts.inter(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.mutedText,
-                    letterSpacing: 0.3,
-                  ),
-                ),
-              ),
-              Padding(
-                padding: EdgeInsets.fromLTRB(
-                  compact ? 14 : 18,
-                  0,
-                  compact ? 14 : 18,
-                  8,
-                ),
-                child: TextField(
-                  controller: _searchController,
-                  onChanged: (value) => _searchMembers(value),
-                  decoration: InputDecoration(
-                    hintText: 'Search member by name...',
-                    prefixIcon: const Icon(Icons.search, size: 20),
-                    filled: true,
-                    fillColor: const Color(0xFFF9F8F5),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                    isDense: true,
-                  ),
-                ),
-              ),
-              if (_loadingMembers)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 16),
-                  child: Center(
-                    child: SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  ),
-                )
-              else
-                ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxHeight: compact ? 160 : 200,
-                  ),
-                  child: _memberResults.isEmpty
-                      ? Padding(
-                          padding: EdgeInsets.fromLTRB(
-                            compact ? 14 : 18,
-                            4,
-                            compact ? 14 : 18,
-                            12,
-                          ),
-                          child: Text(
-                            'No members found.',
-                            style: GoogleFonts.inter(
-                              color: AppColors.mutedText,
-                            ),
-                          ),
-                        )
-                      : ListView.builder(
-                          shrinkWrap: true,
-                          itemCount: _memberResults.length,
-                          itemBuilder: (context, index) {
-                            final member = _memberResults[index];
-                            return _DmMemberTile(
-                              member: member,
-                              onTap: () => _openMember(member),
-                            );
-                          },
-                        ),
-                ),
-              const Divider(height: 1),
-            ],
-            Padding(
-              padding: EdgeInsets.fromLTRB(
-                compact ? 14 : 18,
-                10,
-                compact ? 14 : 18,
-                4,
-              ),
-              child: Text(
-                _canStart ? 'Your conversations' : 'Your messages',
-                style: GoogleFonts.inter(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.mutedText,
-                  letterSpacing: 0.3,
-                ),
-              ),
-            ),
-            if (_threads.isEmpty)
-              Padding(
-                padding: EdgeInsets.fromLTRB(
-                  compact ? 14 : 18,
-                  6,
-                  compact ? 14 : 18,
-                  16,
-                ),
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 14,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF9F8F5),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(
-                        Icons.mark_email_unread_outlined,
-                        size: 20,
-                        color: AppColors.mutedText.withValues(alpha: 0.85),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          _canStart
-                              ? 'No conversations yet. Search a member above to start.'
-                              : 'No messages yet. An officer must contact you first - then you can reply here.',
-                          style: GoogleFonts.inter(
-                            fontSize: 13,
-                            color: AppColors.mutedText,
-                            height: 1.4,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              )
-            else
-              ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxHeight: compact ? 220 : 280,
-                ),
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: _threads.length,
-                  itemBuilder: (context, index) {
-                    final thread = _threads[index];
-                    return _DmThreadTile(
-                      thread: thread,
-                      onTap: () => _openThread(thread),
-                    );
-                  },
-                ),
-              ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildChat(bool compact) {
-    final peer = _selectedPeer!;
-    final canCompose = _threadId != null || _canStart;
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        children: [
-          Padding(
-            padding: EdgeInsets.fromLTRB(
-              compact ? 8 : 12,
-              compact ? 10 : 12,
-              compact ? 12 : 16,
-              compact ? 10 : 12,
-            ),
-            child: Row(
-              children: [
-                IconButton(
-                  onPressed: _backToList,
-                  icon: const Icon(Icons.arrow_back),
-                  tooltip: 'Back',
-                ),
-                CircleAvatar(
-                  radius: 18,
-                  backgroundColor: AppColors.primary,
-                  child: Text(
-                    peer.initials,
-                    style: GoogleFonts.inter(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        peer.displayName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.inter(
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.heading,
-                        ),
-                      ),
-                      Text(
-                        _activeThread?.iBlockedPeer == true
-                            ? 'Blocked Â· unblock to message again'
-                            : _activeThread?.peerBlockedMe == true
-                                ? 'You are blocked by this user'
-                                : 'DM Â· ${peer.roleLabel}',
-                        style: GoogleFonts.inter(
-                          fontSize: 12,
-                          color: AppColors.mutedText,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                PopupMenuButton<String>(
-                  onSelected: (value) {
-                    if (value == 'block') _toggleBlock();
-                  },
-                  itemBuilder: (context) => [
-                    PopupMenuItem(
-                      value: 'block',
-                      child: Text(
-                        _activeThread?.iBlockedPeer == true
-                            ? 'Unblock'
-                            : 'Block',
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const Divider(height: 1),
-          Expanded(
-            child: _loadingChat
-                ? const Center(child: CircularProgressIndicator())
-                : _messages.isEmpty
-                    ? Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Text(
-                            canCompose
-                                ? 'Send the first message to start this private DM.'
-                                : 'Waiting for an officer to start this conversation.',
-                            textAlign: TextAlign.center,
-                            style: GoogleFonts.inter(
-                              color: AppColors.mutedText,
-                              height: 1.4,
-                            ),
-                          ),
-                        ),
-                      )
-                    : ListView.builder(
-                        // WhatsApp-style: oldest at top, newest at bottom
-                        reverse: true,
-                        padding: EdgeInsets.all(compact ? 14 : 18),
-                        itemCount: _messages.length,
-                        itemBuilder: (context, index) {
-                          // API/newest-first list: index 0 (newest) sits at bottom
-                          final message = _messages[index];
-                          return _DmBubble(message: message);
-                        },
-                      ),
-          ),
-          const Divider(height: 1),
-          if (_activeThread != null && !_activeThread!.canMessage)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-              child: Text(
-                _activeThread!.iBlockedPeer
-                    ? 'You blocked this user. Use Unblock to continue chatting.'
-                    : 'You cannot send messages because this user blocked you.',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.inter(
-                  fontSize: 13,
-                  color: AppColors.mutedText,
-                  height: 1.4,
-                ),
-              ),
-            )
-          else if (!canCompose)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-              child: Text(
-                'An officer must start this DM before you can reply.',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.inter(
-                  fontSize: 13,
-                  color: AppColors.mutedText,
-                  height: 1.4,
-                ),
-              ),
-            )
-          else
-            Padding(
-              padding: EdgeInsets.fromLTRB(
-                compact ? 12 : 16,
-                10,
-                compact ? 12 : 16,
-                12,
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _messageController,
-                      enabled: !_sending,
-                      minLines: 1,
-                      maxLines: 4,
-                      onSubmitted: (_) => _send(),
-                      decoration: InputDecoration(
-                        hintText: _threadId == null
-                            ? 'Write your first DM...'
-                            : 'Reply...',
-                        filled: true,
-                        fillColor: const Color(0xFFF9F8F5),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Material(
-                    color: AppColors.primary,
-                    borderRadius: BorderRadius.circular(12),
-                    child: InkWell(
-                      onTap: _sending ? null : _send,
-                      borderRadius: BorderRadius.circular(12),
-                      child: SizedBox(
-                        width: 48,
-                        height: 48,
-                        child: _sending
-                            ? const Padding(
-                                padding: EdgeInsets.all(14),
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Icon(
-                                Icons.send_rounded,
-                                color: Colors.white,
-                                size: 20,
-                              ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DmMemberTile extends StatelessWidget {
-  const _DmMemberTile({required this.member, required this.onTap});
-
-  final DmMemberCandidate member;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      onTap: onTap,
-      leading: CircleAvatar(
-        backgroundColor: AppColors.primary,
-        child: Text(
-          member.initials,
-          style: GoogleFonts.inter(
-            color: Colors.white,
-            fontWeight: FontWeight.w700,
-            fontSize: 12,
-          ),
-        ),
-      ),
-      title: Text(
-        member.fullName,
-        style: GoogleFonts.inter(
-          fontWeight: FontWeight.w700,
-          color: AppColors.heading,
-        ),
-      ),
-      subtitle: Text(
-        member.batchYear != null ? 'Batch ${member.batchYear}' : 'Member',
-        style: GoogleFonts.inter(fontSize: 12.5, color: AppColors.mutedText),
-      ),
-      trailing: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF3F6FB),
-          borderRadius: BorderRadius.circular(999),
-        ),
-        child: Text(
-          'Message',
-          style: GoogleFonts.inter(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            color: AppColors.primary,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _DmThreadTile extends StatelessWidget {
-  const _DmThreadTile({required this.thread, required this.onTap});
-
-  final DmThreadItem thread;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      onTap: onTap,
-      leading: CircleAvatar(
-        backgroundColor: AppColors.primary,
-        child: Text(
-          thread.peerInitials,
-          style: GoogleFonts.inter(
-            color: Colors.white,
-            fontWeight: FontWeight.w700,
-            fontSize: 12,
-          ),
-        ),
-      ),
-      title: Text(
-        thread.peerName,
-        style: GoogleFonts.inter(
-          fontWeight: FontWeight.w700,
-          color: AppColors.heading,
-        ),
-      ),
-      subtitle: Text(
-        thread.lastMessage ?? (thread.peerRoleLabel ?? 'Direct message'),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: GoogleFonts.inter(fontSize: 12.5, color: AppColors.mutedText),
-      ),
-      trailing: const Icon(Icons.chevron_right, color: AppColors.mutedText),
-    );
-  }
-}
-
-class _DmBubble extends StatelessWidget {
-  const _DmBubble({required this.message});
-
-  final DmMessageItem message;
-
-  @override
-  Widget build(BuildContext context) {
-    final mine = message.isMine;
-    return Align(
-      alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.sizeOf(context).width * 0.72,
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: mine ? AppColors.primary : const Color(0xFFF3F6FB),
-          borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(14),
-            topRight: const Radius.circular(14),
-            bottomLeft: Radius.circular(mine ? 14 : 4),
-            bottomRight: Radius.circular(mine ? 4 : 14),
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment:
-              mine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-          children: [
-            if (!mine)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Text(
-                  message.senderName,
-                  style: GoogleFonts.inter(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.heading,
-                  ),
-                ),
-              ),
-            Text(
-              message.body,
-              style: GoogleFonts.inter(
-                color: mine ? Colors.white : AppColors.bodyText,
-                height: 1.4,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  _formatClockTime(message.createdAt),
-                  style: GoogleFonts.inter(
-                    fontSize: 10,
-                    color: mine ? Colors.white70 : AppColors.mutedText,
-                  ),
-                ),
-                if (mine) ...[
-                  const SizedBox(width: 4),
-                  _WhatsAppTicks(status: message.status, onDark: true),
-                ],
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _WhatsAppTicks extends StatelessWidget {
-  const _WhatsAppTicks({required this.status, this.onDark = false});
-
-  final String status;
-  final bool onDark;
-
-  @override
-  Widget build(BuildContext context) {
-    // Yellow = sent/delivered, green = read (WhatsApp-style).
-    final isRead = status == 'read';
-    final isDelivered = status == 'delivered' || isRead;
-    final color = isRead
-        ? const Color(0xFF4ADE80)
-        : (onDark ? const Color(0xFFFDE68A) : const Color(0xFFD97706));
-
-    return Icon(
-      isDelivered ? Icons.done_all : Icons.done,
-      size: 14,
-      color: color,
     );
   }
 }
