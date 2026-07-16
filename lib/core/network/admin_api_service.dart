@@ -356,14 +356,19 @@ class AdminApiService {
     }
   }
 
-  Future<List<VerificationQueueItem>> fetchPendingVerifications({
+  Future<List<VerificationQueueItem>> fetchVerifications({
     int page = 1,
-    int pageSize = 20,
+    int pageSize = 50,
+    String status = 'all',
   }) async {
     try {
       final response = await _authenticatedGet(
         '${AppConfig.apiPrefix}/admin/verifications',
-        queryParameters: {'page': page, 'page_size': pageSize},
+        queryParameters: {
+          'page': page,
+          'page_size': pageSize,
+          'status': status,
+        },
       );
       final profiles = response.data?['profiles'] as List<dynamic>? ?? [];
       return profiles
@@ -372,6 +377,14 @@ class AdminApiService {
     } on DioException catch (e) {
       throw Exception(_readDetail(e));
     }
+  }
+
+  @Deprecated('Use fetchVerifications(status: ...)')
+  Future<List<VerificationQueueItem>> fetchPendingVerifications({
+    int page = 1,
+    int pageSize = 20,
+  }) {
+    return fetchVerifications(page: page, pageSize: pageSize, status: 'pending');
   }
 
   Future<String> reviewVerification(
