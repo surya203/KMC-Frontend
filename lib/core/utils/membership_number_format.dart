@@ -4,6 +4,18 @@ class MembershipNumberFormat {
   MembershipNumberFormat._();
 
   static const _sequenceDigits = 3;
+  static const _nameTitles = {
+    'dr',
+    'mr',
+    'mrs',
+    'ms',
+    'miss',
+    'prof',
+    'professor',
+    'shri',
+    'smt',
+    'sri',
+  };
 
   static String? display({
     required String? storedMembershipNumber,
@@ -35,9 +47,18 @@ class MembershipNumberFormat {
         fallback;
   }
 
+  static String _normalizeNameToken(String token) {
+    return token.toLowerCase().trim().replaceAll(RegExp(r'\.+$'), '');
+  }
+
   static String _firstName(String? fullName) {
     if (fullName == null || fullName.trim().isEmpty) return '';
-    return fullName.trim().split(RegExp(r'\s+')).first.toLowerCase();
+    for (final part in fullName.trim().split(RegExp(r'\s+'))) {
+      final normalized = _normalizeNameToken(part);
+      if (_nameTitles.contains(normalized)) continue;
+      return normalized;
+    }
+    return '';
   }
 
   static int? _sequence(String? membershipNumber) {
