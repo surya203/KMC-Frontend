@@ -255,12 +255,14 @@ class _DashboardEventDetailScreenState extends State<DashboardEventDetailScreen>
         const SizedBox(height: 8),
         EventCard(
           title: event.title,
-          dateLabel: event.displayDate,
+          dateLabel: event.displayDateRange,
           venueLabel: event.displayVenue,
           registeredCount: event.registeredCount,
           coverImageUrl: event.coverImageUrl,
           registrationOpen: event.registrationOpen,
           isRegistered: event.isRegistered ?? false,
+          showDateAndVenue: false,
+          detailMeta: event.homeDetailMeta,
           onViewRegistrants: isAdmin
               ? () => showEventRegistrationsDialog(
                     context,
