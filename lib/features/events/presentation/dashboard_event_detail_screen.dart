@@ -290,11 +290,9 @@ class _SectionCard extends StatelessWidget {
   const _SectionCard({
     required this.title,
     required this.child,
-    this.subtitle,
   });
 
   final String title;
-  final String? subtitle;
   final Widget child;
 
   @override
@@ -317,13 +315,6 @@ class _SectionCard extends StatelessWidget {
               color: AppColors.heading,
             ),
           ),
-          if (subtitle != null && subtitle!.trim().isNotEmpty) ...[
-            const SizedBox(height: 4),
-            Text(
-              subtitle!,
-              style: GoogleFonts.inter(color: AppColors.bodyText),
-            ),
-          ],
           const SizedBox(height: 20),
           child,
         ],
