@@ -175,13 +175,15 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       children: [
         EventCard(
           title: event.title,
-          dateLabel: event.displayDate,
+          dateLabel: event.displayDateRange,
           venueLabel: event.displayVenue,
           registeredCount: event.registeredCount,
           coverImageUrl: event.coverImageUrl,
           registrationOpen: event.registrationOpen,
           isRegistered: (event.isRegistered ?? false) ||
               (event.isWaitlisted ?? false),
+          showDateAndVenue: false,
+          detailMeta: event.homeDetailMeta,
           onRegister: _registering ||
                   (event.isRegistered ?? false) ||
                   (event.isWaitlisted ?? false)

@@ -251,13 +251,15 @@ class _UpcomingEventGrid extends StatelessWidget {
                 width: cardWidth,
                 child: EventCard(
                   title: event.title,
-                  dateLabel: event.displayDate,
+                  dateLabel: event.displayDateRange,
                   venueLabel: event.displayVenue,
                   registeredCount: event.registeredCount,
                   coverImageUrl: event.coverImageUrl,
                   coverAssetPath: AppAssets.eventBanner,
                   registrationOpen: event.registrationOpen,
                   isRegistered: event.isRegistered ?? false,
+                  showDateAndVenue: false,
+                  detailMeta: event.homeDetailMeta,
                   showRegistrationUi: true,
                   onTap: () => onOpenDetail(event),
                   onViewRegistrants: isAdmin && onViewRegistrants != null
@@ -303,13 +305,15 @@ class _PastEventGrid extends StatelessWidget {
                 width: cardWidth,
                 child: EventCard(
                   title: event.title,
-                  dateLabel: event.displayDate,
+                  dateLabel: event.displayDateRange,
                   venueLabel: event.displayVenue,
                   registeredCount: event.registeredCount,
                   coverImageUrl: event.coverImageUrl,
                   coverAssetPath: AppAssets.eventBanner,
                   registrationOpen: event.registrationOpen,
                   isRegistered: event.isRegistered ?? false,
+                  showDateAndVenue: false,
+                  detailMeta: event.homeDetailMeta,
                   showRegistrationUi: true,
                   onTap: () => onOpen(event),
                   onViewRegistrants: isAdmin && onViewRegistrants != null
