@@ -73,9 +73,14 @@ class EventItem {
     return parts.isEmpty ? 'To Be Announced' : parts.join(', ');
   }
 
-  /// Schedule lines + venue for the public home event card.
+  /// Overview date, schedule lines, and venue for shared event cards.
   List<EventDetailMeta> get homeDetailMeta {
-    final metas = <EventDetailMeta>[];
+    final metas = <EventDetailMeta>[
+      EventDetailMeta(
+        icon: Icons.calendar_today_outlined,
+        label: displayDateRange,
+      ),
+    ];
     for (final program in programs) {
       final label = program.trim();
       if (label.isEmpty) continue;
@@ -83,14 +88,6 @@ class EventItem {
         EventDetailMeta(
           icon: Icons.calendar_today_outlined,
           label: label,
-        ),
-      );
-    }
-    if (metas.isEmpty) {
-      metas.add(
-        EventDetailMeta(
-          icon: Icons.calendar_today_outlined,
-          label: displayDateRange,
         ),
       );
     }
