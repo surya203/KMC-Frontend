@@ -176,7 +176,7 @@ class HeroSection extends StatelessWidget {
                 ),
                 SizedBox(height: isDesktop ? 10 : isCompact ? 12 : 18),
                 Text(
-                  'The official alumni engagement platform for Kakatiya Medical College, Warangal — uniting alumni batches, doctors, researchers, practicing doctors, clinical researchers, policy makers and pharmaceutical industry advisors across the world.',
+                  'The official alumni engagement platform for Kakatiya Medical College, Warangal — uniting alumni batches, doctors, researchers, practicing doctors, clinical researchers, policymakers and pharmaceutical industry advisors across the world.',
                   style: GoogleFonts.inter(
                     color: Colors.white.withValues(alpha: 0.82),
                     fontSize: width < 600 ? 14 : isDesktop ? 16 : 17,
@@ -332,7 +332,7 @@ class _HeroStatsPanel extends StatelessWidget {
       _HeroStat(value: data.batches, label: 'GRADUATING BATCHES', compact: compact),
       _HeroStat(
         value: data.upcomingEvents == '1' ? 'ONE' : data.upcomingEvents,
-        label: 'EVENT HOSTED',
+        label: 'EVENTS HOSTED',
         compact: compact,
       ),
       _HeroStat(

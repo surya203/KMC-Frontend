@@ -54,10 +54,27 @@ class _LatestEventsState extends State<LatestEvents> {
               SectionHeader(
                 eyebrow: 'Upcoming Events',
                 center: false,
-                regularTitle: 'Where the KMC family ',
-                italicTitle: 'gathers.',
+                regularTitle: 'Second KMC Alumni Meeting 2027',
                 actionLabel: 'View all',
                 onAction: () => context.go('/events'),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Icon(
+                    Icons.calendar_today_outlined,
+                    size: 16,
+                    color: AppColors.bodyText,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '5th June 2027',
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      color: AppColors.bodyText,
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 40),
               if (_loading)
@@ -71,13 +88,28 @@ class _LatestEventsState extends State<LatestEvents> {
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 520),
                     child: EventCard(
-                      title: _event!.title,
+                      title: '',
                       dateLabel: _event!.displayDate,
                       venueLabel: _event!.displayVenue,
                       registeredCount: _event!.registeredCount,
                       coverImageUrl: _event!.coverImageUrl,
                       registrationOpen: _event!.registrationOpen,
                       isRegistered: _event!.isRegistered ?? false,
+                      showDateAndVenue: false,
+                      detailMeta: const [
+                        EventDetailMeta(
+                          icon: Icons.calendar_today_outlined,
+                          label: 'Scientific Session · 5th June',
+                        ),
+                        EventDetailMeta(
+                          icon: Icons.calendar_today_outlined,
+                          label: 'Alumni · 6th June',
+                        ),
+                        EventDetailMeta(
+                          icon: Icons.location_on_outlined,
+                          label: 'Venue: To Be Announced',
+                        ),
+                      ],
                       // Public home: card is not clickable (no public event detail nav).
                       onTap: null,
                       onRegister: null,

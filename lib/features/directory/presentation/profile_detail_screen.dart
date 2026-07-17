@@ -76,7 +76,7 @@ class _ProfileDetailScreenState extends State<ProfileDetailScreen> {
                   }
                 },
                 icon: const Icon(Icons.arrow_back, size: 18),
-                label: const Text('Back to Alumni Roll'),
+                label: const Text('Back to Alumni Member'),
               ),
             ),
           ),
