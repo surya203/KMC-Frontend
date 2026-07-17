@@ -571,9 +571,7 @@ class _DashboardTopBarState extends State<DashboardTopBar> {
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
     final isCompact = width < 700;
-    final initial = (widget.profileName?.isNotEmpty == true)
-        ? widget.profileName!.trim()[0].toUpperCase()
-        : 'A';
+    final initial = MembershipNumberFormat.avatarInitial(widget.profileName);
 
     return Material(
       color: Colors.white,
