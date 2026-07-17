@@ -58,15 +58,10 @@ class FooterSection extends StatelessWidget {
           Container(height: 1, color: Colors.white12),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1200),
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    return _FooterBottomBar(width: constraints.maxWidth);
-                  },
-                ),
-              ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return _FooterBottomBar(width: constraints.maxWidth);
+              },
             ),
           ),
         ],
@@ -119,7 +114,7 @@ class FooterSection extends StatelessWidget {
         const Text(
           'The official alumni engagement platform for Kakatiya Medical College — '
           'uniting alumni batches, doctors, researchers, practicing doctors, '
-          'clinical researchers, policy makers and pharmaceutical industry advisors across the world.',
+          'clinical researchers, policymakers and pharmaceutical industry advisors across the world.',
           style: TextStyle(
             color: Color(0xFFD8DEE8),
             fontSize: 13,
@@ -159,7 +154,7 @@ class FooterSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: const [
         Text(
-          'OFFICE',
+          'ALUMNI OFFICE',
           style: TextStyle(
             color: Colors.white,
             fontSize: 16,
@@ -172,7 +167,9 @@ class FooterSection extends StatelessWidget {
         SizedBox(height: 6),
         FooterInfo('Rangampet, Warangal — 506007'),
         SizedBox(height: 6),
-        FooterInfo('alumni@kmc.edu.in'),
+        FooterInfo('Admin WhatsApp'),
+        SizedBox(height: 6),
+        FooterInfo('+91 9908375545'),
       ],
     );
   }
@@ -192,13 +189,12 @@ class _FooterBottomBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final year = DateTime.now().year;
-    final isWide = width > 900;
     final isCompact = width < 520;
 
     final copyright = Text(
       isCompact
-          ? '© $year KMC Alumni welfare Association'
-          : '© $year KMC Alumni welfare Association. All rights reserved.',
+          ? '© $year KMC Alumni Welfare Association'
+          : '© $year KMC Alumni Welfare Association. All rights reserved.',
       style: _mutedStyle,
       textAlign: isCompact ? TextAlign.center : TextAlign.start,
     );
@@ -208,7 +204,10 @@ class _FooterBottomBar extends StatelessWidget {
       textAlign: TextAlign.center,
     );
     final credit = Text(
-      'Designed & developed by quantum strategies edgies in Association with Logiq Gen Private Limited.',
+      'Designed and Developed by:\n'
+      'Quantum Strategies Australia\n'
+      'In association with:\n'
+      'Logiq Gen Private Ltd',
       style: _mutedStyle,
       textAlign: isCompact ? TextAlign.center : TextAlign.start,
     );
@@ -218,26 +217,6 @@ class _FooterBottomBar extends StatelessWidget {
       textAlign: isCompact ? TextAlign.center : TextAlign.start,
     );
 
-    if (isWide) {
-      return Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                copyright,
-                const SizedBox(height: 4),
-                credit,
-              ],
-            ),
-          ),
-          const SizedBox(width: 24),
-          tagline,
-        ],
-      );
-    }
-
     if (isCompact) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -246,9 +225,9 @@ class _FooterBottomBar extends StatelessWidget {
           const SizedBox(height: 4),
           rights,
           const SizedBox(height: 4),
-          credit,
-          const SizedBox(height: 10),
           tagline,
+          const SizedBox(height: 8),
+          credit,
         ],
       );
     }
@@ -256,11 +235,17 @@ class _FooterBottomBar extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        copyright,
-        const SizedBox(height: 4),
+        Wrap(
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 12,
+          runSpacing: 4,
+          children: [
+            copyright,
+            tagline,
+          ],
+        ),
+        const SizedBox(height: 6),
         credit,
-        const SizedBox(height: 8),
-        tagline,
       ],
     );
   }

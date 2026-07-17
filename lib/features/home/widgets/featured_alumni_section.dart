@@ -26,6 +26,7 @@ class _FeaturedAlumniSectionState extends State<FeaturedAlumniSection> {
   bool _loading = true;
   String? _error;
   int _currentPage = 0;
+  bool _autoScrollPaused = false;
 
   @override
   void initState() {
@@ -62,8 +63,9 @@ class _FeaturedAlumniSectionState extends State<FeaturedAlumniSection> {
 
   void _startAutoScroll() {
     _autoScrollTimer?.cancel();
+    if (_autoScrollPaused || _profiles.length < 2) return;
     _autoScrollTimer = Timer.periodic(const Duration(seconds: 6), (_) {
-      if (!mounted || _profiles.length < 2) return;
+      if (!mounted || _autoScrollPaused || _profiles.length < 2) return;
       final next = (_currentPage + 1) % _profiles.length;
       _pageController.animateToPage(
         next,
@@ -71,6 +73,19 @@ class _FeaturedAlumniSectionState extends State<FeaturedAlumniSection> {
         curve: Curves.easeInOut,
       );
     });
+  }
+
+  void _pauseAutoScroll() {
+    if (_autoScrollPaused) return;
+    _autoScrollPaused = true;
+    _autoScrollTimer?.cancel();
+    _autoScrollTimer = null;
+  }
+
+  void _resumeAutoScroll() {
+    if (!_autoScrollPaused) return;
+    _autoScrollPaused = false;
+    _startAutoScroll();
   }
 
   _AlumniCardData _mapProfile(FeaturedProfile profile) {
@@ -81,7 +96,6 @@ class _FeaturedAlumniSectionState extends State<FeaturedAlumniSection> {
     if (profile.organization != null && profile.organization!.isNotEmpty) {
       parts.add(profile.organization!);
     }
-    parts.add('Batch ${profile.batchYear}');
 
     final quote = profile.bio != null && profile.bio!.isNotEmpty
         ? profile.bio!
@@ -140,22 +154,43 @@ class _FeaturedAlumniSectionState extends State<FeaturedAlumniSection> {
               ),
               if (_profiles.length > 1) ...[
                 const SizedBox(height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    for (var i = 0; i < _profiles.length; i++)
-                      Container(
-                        width: 8,
-                        height: 8,
-                        margin: const EdgeInsets.symmetric(horizontal: 4),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: i == _currentPage
-                              ? AppColors.primary
-                              : AppColors.border,
-                        ),
-                      ),
-                  ],
+                MouseRegion(
+                  onEnter: (_) => _pauseAutoScroll(),
+                  onExit: (_) => _resumeAutoScroll(),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        for (var i = 0; i < _profiles.length; i++)
+                          GestureDetector(
+                            onTap: () {
+                              _pageController.animateToPage(
+                                i,
+                                duration: const Duration(milliseconds: 350),
+                                curve: Curves.easeInOut,
+                              );
+                            },
+                            child: Container(
+                              width: 8,
+                              height: 8,
+                              margin:
+                                  const EdgeInsets.symmetric(horizontal: 4),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: i == _currentPage
+                                    ? AppColors.primary
+                                    : AppColors.border,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
                 ),
               ],
               const SizedBox(height: 28),
@@ -169,8 +204,8 @@ class _FeaturedAlumniSectionState extends State<FeaturedAlumniSection> {
                 },
                 child: Text(
                   AuthSession.instance.isAuthenticated
-                      ? 'Browse Alumni Roll'
-                      : 'Sign in to browse Alumni Roll',
+                      ? 'Browse Alumni'
+                      : 'Sign in to browse Alumni',
                 ),
               ),
             ],

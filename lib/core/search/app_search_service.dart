@@ -22,7 +22,15 @@ const _pageKeywords = <String, List<String>>{
     'finance council',
     'financial decisions',
   ],
-  '/member/alumni-roll': ['alumni roll', 'alumni', 'directory', 'membership', 'batchmates', 'registry'],
+  '/member/alumni-roll': [
+    'alumni member',
+    'alumni roll',
+    'alumni',
+    'directory',
+    'membership',
+    'batchmates',
+    'registry',
+  ],
   '/my-payments': ['payments', 'payment', 'receipt', 'invoice'],
   '/settings': ['settings', 'setting', 'preferences', 'account'],
 };

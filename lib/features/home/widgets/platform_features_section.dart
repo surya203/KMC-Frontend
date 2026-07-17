@@ -12,37 +12,37 @@ class PlatformFeaturesSection extends StatelessWidget {
     (
       Icons.person_add_alt_1_outlined,
       'Alumni Registration',
-      'Verified, batch-tagged profiles for every graduate.',
+      'Verified, specialty, location and batch-tagged profiles for every graduate.',
       '/membership',
     ),
     (
       Icons.verified_user_outlined,
       'Membership Plans',
-      'Lifetime and Patron tiers with rich benefits.',
+      'Lifetime membership and access to all alumni batches.',
       '/membership',
     ),
     (
       Icons.campaign_outlined,
       'Announcements',
-      'Direct messages from President, Treasurer & Office.',
+      'Direct messages from President, Secretary, Treasurer and Admin Office.',
       null,
     ),
     (
       Icons.event_outlined,
       'Reunion Events',
-      'Discover, register, and revisit alumni gatherings.',
+      'Register, Revisit, Rejuvenate and Discover alumni experience.',
       '/events',
     ),
     (
       Icons.photo_library_outlined,
       'Alumni Gallery',
-      'Decades of memories, curated and searchable.',
+      'Decades of memories available to refresh.',
       '/gallery',
     ),
     (
       Icons.notifications_active_outlined,
       'Smart Notifications',
-      'Stay informed across web, email, and mobile.',
+      'Stay informed through the bell icon of the app, email and mobile.',
       null,
     ),
     (
@@ -76,9 +76,9 @@ class PlatformFeaturesSection extends StatelessWidget {
               SectionHeader(
                 eyebrow: 'Platform',
                 regularTitle: 'Everything an alumni association needs,\n',
-                italicTitle: 'beautifully unified.',
+                italicTitle: 'exquisitely unified with rare elegance.',
                 subtitle:
-                    'From member onboarding to reunion logistics, KMC Alumni Connect is built as a single, modern SaaS experience.',
+                    'Member onboarding to alumni, KMC Alumni Connect is built as a single, modern Software as a Service experience.',
               ),
               const SizedBox(height: 40),
               Container(
