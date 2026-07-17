@@ -106,7 +106,6 @@ class _EventsScreenState extends State<EventsScreen> {
                         else
                           _EventGrid(
                             events: _upcoming,
-                            useAlumniMeetCopy: true,
                           ),
                         if (_past.isNotEmpty) ...[
                           const SizedBox(height: 48),
@@ -134,11 +133,9 @@ class _EventsScreenState extends State<EventsScreen> {
 class _EventGrid extends StatelessWidget {
   const _EventGrid({
     required this.events,
-    this.useAlumniMeetCopy = false,
   });
 
   final List<EventItem> events;
-  final bool useAlumniMeetCopy;
 
   @override
   Widget build(BuildContext context) {
@@ -150,13 +147,11 @@ class _EventGrid extends StatelessWidget {
           SizedBox(
             width: 520,
             child: EventCard(
-              title: useAlumniMeetCopy ? 'Alumni Meet 2027' : event.title,
-              subtitle: useAlumniMeetCopy
-                  ? 'details will be announced soon'
-                  : null,
+              title: event.title,
               dateLabel: event.displayDate,
               venueLabel: event.displayVenue,
               registeredCount: event.registeredCount,
+              coverImageUrl: event.coverImageUrl,
               coverAssetPath: AppAssets.eventBanner,
               showRegistrationUi: false,
               onTap: () => context.go('/events/${event.slug}'),

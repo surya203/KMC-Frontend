@@ -1105,7 +1105,7 @@ class _AlumniChatPanelState extends State<_AlumniChatPanel> {
                 Text(
                   widget.isAdminViewer
                       ? 'Members chat here. Messages older than 3 months are removed. Targeted alerts go only to matching alumni — Admin sees all alerts.'
-                      : 'Open chat for everyone (last 3 months kept), or Target an alert so only matching alumni see it.',
+                      : 'Please chat medical & clinical communications and any family achievements. This chat & documents deleted every 3 months. Admin can delete at any time.',
                   style: GoogleFonts.inter(
                     fontSize: 12,
                     color: AppColors.mutedText,
@@ -1722,7 +1722,7 @@ class _FinanceCouncilPanelState extends State<_FinanceCouncilPanel> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Budgets, building repairs & financial approvals — share documents here',
+                  'Budgets, Alumni building & financial approvals — share documents here',
                   style: GoogleFonts.inter(
                     fontSize: 12,
                     color: AppColors.mutedText,
@@ -1773,7 +1773,7 @@ class _FinanceCouncilPanelState extends State<_FinanceCouncilPanel> {
                         child: Padding(
                           padding: const EdgeInsets.all(24),
                           child: Text(
-                            'No messages yet. Discuss building repairs, budgets, and financial approvals here.',
+                            'No messages yet. Discuss Alumni building, budgets, and financial approvals here.',
                             style: GoogleFonts.inter(color: AppColors.mutedText),
                             textAlign: TextAlign.center,
                           ),

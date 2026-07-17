@@ -1,7 +1,9 @@
 import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/material.dart';
 
 import '../config/app_config.dart';
+import '../widgets/event_card.dart';
 import 'api_client.dart';
 import 'auth_service.dart';
 
@@ -52,10 +54,53 @@ class EventItem {
 
   String get displayDate => formatEventDate(startsAt);
 
+  /// Home / marketing date line (e.g. "5th and 6th June").
+  String get displayDateRange {
+    final start = startsAt.toLocal();
+    final end = endsAt?.toLocal();
+    if (end != null && !_isSameCalendarDay(start, end)) {
+      if (start.year == end.year && start.month == end.month) {
+        return '${_ordinalDay(start.day)} and ${_ordinalDay(end.day)} ${_fullMonthName(start.month)}';
+      }
+      return '${_ordinalDay(start.day)} ${_fullMonthName(start.month)} – ${_ordinalDay(end.day)} ${_fullMonthName(end.month)}';
+    }
+    return '${_ordinalDay(start.day)} ${_fullMonthName(start.month)}';
+  }
+
   String get displayVenue {
     if (isOnline) return 'Online';
     final parts = [venueName, city].where((e) => e != null && e.isNotEmpty);
-    return parts.isEmpty ? 'Venue TBA' : parts.join(', ');
+    return parts.isEmpty ? 'To Be Announced' : parts.join(', ');
+  }
+
+  /// Schedule lines + venue for the public home event card.
+  List<EventDetailMeta> get homeDetailMeta {
+    final metas = <EventDetailMeta>[];
+    for (final program in programs) {
+      final label = program.trim();
+      if (label.isEmpty) continue;
+      metas.add(
+        EventDetailMeta(
+          icon: Icons.calendar_today_outlined,
+          label: label,
+        ),
+      );
+    }
+    if (metas.isEmpty) {
+      metas.add(
+        EventDetailMeta(
+          icon: Icons.calendar_today_outlined,
+          label: displayDateRange,
+        ),
+      );
+    }
+    metas.add(
+      EventDetailMeta(
+        icon: Icons.location_on_outlined,
+        label: 'Venue: $displayVenue',
+      ),
+    );
+    return metas;
   }
 
   EventItem copyWith({
@@ -120,11 +165,37 @@ class EventItem {
   }
 
   static String formatEventDate(DateTime dt) {
+    final local = dt.toLocal();
+    return '${local.day} ${_monthName(local.month)} ${local.year}';
+  }
+
+  static bool _isSameCalendarDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
+
+  static String _monthName(int month) {
     const months = [
       'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
     ];
-    return '${dt.day} ${months[dt.month - 1]} ${dt.year}';
+    return months[month - 1];
+  }
+
+  static String _fullMonthName(int month) {
+    const months = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December',
+    ];
+    return months[month - 1];
+  }
+
+  static String _ordinalDay(int day) {
+    if (day >= 11 && day <= 13) return '${day}th';
+    return switch (day % 10) {
+      1 => '${day}st',
+      2 => '${day}nd',
+      3 => '${day}rd',
+      _ => '${day}th',
+    };
   }
 }
 

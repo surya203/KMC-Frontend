@@ -17,7 +17,7 @@ class PlatformFeaturesSection extends StatelessWidget {
     ),
     (
       Icons.verified_user_outlined,
-      'Membership Plans',
+      'Life Membership',
       'Lifetime membership and access to all alumni batches.',
       '/membership',
     ),
