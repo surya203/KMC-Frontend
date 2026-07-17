@@ -27,12 +27,30 @@ class _AdminMembersScreenState extends State<AdminMembersScreen> {
     'admin',
   ];
 
+  /// Legacy DB values → current assignable roles (dropdown value must match an item).
+  static const _roleAliases = {
+    'ec_member': 'executive',
+  };
+
   List<AdminMemberItem> _members = [];
   int _page = 1;
   bool _hasMore = false;
   bool _loading = true;
   String? _error;
   String? _savingUserId;
+
+  String _normalizeRole(String? role) {
+    final raw = role?.trim() ?? '';
+    if (raw.isEmpty) return 'member';
+    return _roleAliases[raw] ?? raw;
+  }
+
+  /// Dropdown value + items always agree (avoids Flutter assertion on unknown roles).
+  (String value, List<String> items) _roleDropdown(String? role) {
+    final value = _normalizeRole(role);
+    if (_roles.contains(value)) return (value, _roles);
+    return (value, [..._roles, value]);
+  }
 
   @override
   void initState() {
@@ -211,22 +229,29 @@ class _AdminMembersScreenState extends State<AdminMembersScreen> {
                           ),
                         ),
                         const SizedBox(width: 12),
-                        DropdownButton<String>(
-                          value: m.role,
-                          items: _roles
-                              .map(
-                                (r) => DropdownMenuItem(
-                                  value: r,
-                                  child: Text(r),
-                                ),
-                              )
-                              .toList(),
-                          onChanged: _savingUserId == m.userId
-                              ? null
-                              : (value) {
-                                  if (value == null || value == m.role) return;
-                                  _changeRole(m, value);
-                                },
+                        Builder(
+                          builder: (context) {
+                            final (roleValue, roleItems) = _roleDropdown(m.role);
+                            return DropdownButton<String>(
+                              value: roleValue,
+                              items: roleItems
+                                  .map(
+                                    (r) => DropdownMenuItem(
+                                      value: r,
+                                      child: Text(r),
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: _savingUserId == m.userId
+                                  ? null
+                                  : (value) {
+                                      if (value == null || value == m.role) {
+                                        return;
+                                      }
+                                      _changeRole(m, value);
+                                    },
+                            );
+                          },
                         ),
                       ],
                     ),

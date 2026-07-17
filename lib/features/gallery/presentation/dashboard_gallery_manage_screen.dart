@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/network/api_errors.dart';
 import '../../../core/network/gallery_api_service.dart';
 import '../widgets/gallery_album_dialogs.dart';
 
@@ -72,7 +73,7 @@ class _DashboardGalleryManageScreenState
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _error = friendlyApiError(e);
         _loading = false;
       });
     }

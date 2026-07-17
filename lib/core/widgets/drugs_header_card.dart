@@ -28,7 +28,8 @@ class _DrugsHeaderCardState extends State<DrugsHeaderCard> {
   void initState() {
     super.initState();
     _store.addListener(_onStoreChanged);
-    _store.ensureLoaded();
+    // Always re-fetch on mount so auth/public pages don't stick on a failed load.
+    _store.refresh(force: true);
   }
 
   @override
@@ -161,19 +162,21 @@ class _DrugsHeaderCardState extends State<DrugsHeaderCard> {
   }
 
   Widget _placeholder() {
+    final name = _store.card?.name?.trim();
+    final label = (name != null && name.isNotEmpty) ? name : 'Drug';
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 6),
       child: Row(
         children: [
           const Icon(
-            Icons.image_outlined,
+            Icons.medication_outlined,
             size: 16,
             color: AppColors.mutedText,
           ),
           const SizedBox(width: 6),
           Expanded(
             child: Text(
-              'Drug',
+              label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: GoogleFonts.inter(
