@@ -309,6 +309,7 @@ class _EventEditorDialogState extends State<_EventEditorDialog> {
   late final TextEditingController _meetingUrl;
   late final TextEditingController _coverImageUrl;
   late final TextEditingController _capacity;
+  late final TextEditingController _programs;
 
   late DateTime _startsAt;
   DateTime? _endsAt;
@@ -336,6 +337,9 @@ class _EventEditorDialogState extends State<_EventEditorDialog> {
     _capacity = TextEditingController(
       text: event?.capacity != null ? '${event!.capacity}' : '',
     );
+    _programs = TextEditingController(
+      text: (event?.programs ?? const <String>[]).join('\n'),
+    );
     _startsAt = event?.startsAt.toLocal() ??
         DateTime.now().add(const Duration(days: 30));
     _endsAt = event?.endsAt?.toLocal();
@@ -358,6 +362,7 @@ class _EventEditorDialogState extends State<_EventEditorDialog> {
     _meetingUrl.dispose();
     _coverImageUrl.dispose();
     _capacity.dispose();
+    _programs.dispose();
     super.dispose();
   }
 
@@ -520,6 +525,11 @@ class _EventEditorDialogState extends State<_EventEditorDialog> {
       'cover_image_url': _coverImageUrl.text.trim().isEmpty
           ? null
           : _coverImageUrl.text.trim(),
+      'programs': _programs.text
+          .split(RegExp(r'[\r\n]+'))
+          .map((line) => line.trim())
+          .where((line) => line.isNotEmpty)
+          .toList(),
       'publish': _publish,
     };
 
@@ -611,6 +621,20 @@ class _EventEditorDialogState extends State<_EventEditorDialog> {
                       decoration: const InputDecoration(
                         labelText: 'Description',
                         hintText: 'details will be announced soon',
+                        alignLabelWithHint: true,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _programs,
+                      minLines: 3,
+                      maxLines: 5,
+                      decoration: const InputDecoration(
+                        labelText: 'Schedule lines (one per line)',
+                        hintText:
+                            'Scientific Session - 5th June\nAlumni - 6th June',
+                        helperText:
+                            'Shown on Home and Announcements event details',
                         alignLabelWithHint: true,
                       ),
                     ),

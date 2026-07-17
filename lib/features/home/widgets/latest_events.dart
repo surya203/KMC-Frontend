@@ -41,6 +41,8 @@ class _LatestEventsState extends State<LatestEvents> {
 
   @override
   Widget build(BuildContext context) {
+    final event = _event;
+
     return Container(
       width: double.infinity,
       color: AppColors.muted,
@@ -54,66 +56,55 @@ class _LatestEventsState extends State<LatestEvents> {
               SectionHeader(
                 eyebrow: 'Upcoming Events',
                 center: false,
-                regularTitle: 'Second KMC Alumni Meeting 2027',
+                regularTitle: event?.title ?? 'Upcoming Events',
                 actionLabel: 'View all',
                 onAction: () => context.go('/events'),
               ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Icon(
-                    Icons.calendar_today_outlined,
-                    size: 16,
-                    color: AppColors.bodyText,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '5th June 2027',
-                    style: GoogleFonts.inter(
-                      fontSize: 14,
+              if (event != null) ...[
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.calendar_today_outlined,
+                      size: 16,
                       color: AppColors.bodyText,
                     ),
-                  ),
-                ],
-              ),
+                    const SizedBox(width: 8),
+                    Text(
+                      event.displayDateRange,
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        color: AppColors.bodyText,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
               const SizedBox(height: 40),
               if (_loading)
                 const SizedBox(
                   height: 200,
                   child: Center(child: CircularProgressIndicator()),
                 )
-              else if (_event != null)
+              else if (event != null)
                 Align(
                   alignment: Alignment.centerLeft,
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 520),
                     child: EventCard(
                       title: '',
-                      dateLabel: _event!.displayDate,
-                      venueLabel: _event!.displayVenue,
-                      registeredCount: _event!.registeredCount,
-                      coverImageUrl: _event!.coverImageUrl,
-                      registrationOpen: _event!.registrationOpen,
-                      isRegistered: _event!.isRegistered ?? false,
+                      dateLabel: event.displayDate,
+                      venueLabel: event.displayVenue,
+                      registeredCount: event.registeredCount,
+                      coverImageUrl: event.coverImageUrl,
+                      registrationOpen: event.registrationOpen,
+                      isRegistered: event.isRegistered ?? false,
                       showDateAndVenue: false,
-                      detailMeta: const [
-                        EventDetailMeta(
-                          icon: Icons.calendar_today_outlined,
-                          label: 'Scientific Session · 5th June',
-                        ),
-                        EventDetailMeta(
-                          icon: Icons.calendar_today_outlined,
-                          label: 'Alumni · 6th June',
-                        ),
-                        EventDetailMeta(
-                          icon: Icons.location_on_outlined,
-                          label: 'Venue: To Be Announced',
-                        ),
-                      ],
+                      detailMeta: event.homeDetailMeta,
                       // Public home: card is not clickable (no public event detail nav).
                       onTap: null,
                       onRegister: null,
-                      registerButtonTooltip: _event!.registrationOpen
+                      registerButtonTooltip: event.registrationOpen
                           ? 'Please login to register'
                           : null,
                     ),

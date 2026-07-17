@@ -215,6 +215,7 @@ class AdminEventItem {
     this.meetingUrl,
     this.capacity,
     this.coverImageUrl,
+    this.programs = const [],
     this.publishedAt,
   });
 
@@ -232,12 +233,14 @@ class AdminEventItem {
   final int? capacity;
   final bool registrationOpen;
   final String? coverImageUrl;
+  final List<String> programs;
   final DateTime? publishedAt;
   final int registeredCount;
 
   bool get isPublished => publishedAt != null;
 
   factory AdminEventItem.fromJson(Map<String, dynamic> json) {
+    final rawPrograms = json['programs'] as List<dynamic>? ?? [];
     return AdminEventItem(
       id: json['id'] as String,
       slug: json['slug'] as String,
@@ -255,6 +258,7 @@ class AdminEventItem {
       capacity: json['capacity'] as int?,
       registrationOpen: json['registration_open'] as bool? ?? true,
       coverImageUrl: json['cover_image_url'] as String?,
+      programs: rawPrograms.map((e) => '$e').toList(),
       publishedAt: json['published_at'] != null
           ? DateTime.parse(json['published_at'] as String)
           : null,
