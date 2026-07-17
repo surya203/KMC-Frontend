@@ -157,6 +157,23 @@ class AdminMemberItem {
   final String? planName;
   final String? verificationStatus;
 
+  AdminMemberItem copyWith({
+    String? role,
+    bool? isEcMember,
+  }) {
+    return AdminMemberItem(
+      userId: userId,
+      email: email,
+      role: role ?? this.role,
+      isEcMember: isEcMember ?? this.isEcMember,
+      fullName: fullName,
+      batchYear: batchYear,
+      membershipStatus: membershipStatus,
+      planName: planName,
+      verificationStatus: verificationStatus,
+    );
+  }
+
   factory AdminMemberItem.fromJson(Map<String, dynamic> json) {
     return AdminMemberItem(
       userId: json['user_id'] as String,
@@ -515,7 +532,8 @@ class AdminApiService {
 
   bool _shouldRetry(DioException e) {
     final status = e.response?.statusCode;
-    if (status == 401 || status == 403 || status == 500) return true;
+    // Only retry auth refresh + flaky network — not 500s (makes admin feel stuck).
+    if (status == 401 || status == 403) return true;
     return e.type == DioExceptionType.connectionError ||
         e.type == DioExceptionType.connectionTimeout ||
         e.type == DioExceptionType.receiveTimeout;
