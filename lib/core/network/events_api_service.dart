@@ -463,6 +463,21 @@ class EventsApiService {
     if (detail is Map && detail['detail'] != null) {
       return '${detail['detail']}';
     }
-    return e.response?.statusMessage ?? 'Events request failed.';
+    if (e.response?.statusMessage != null) {
+      return e.response!.statusMessage!;
+    }
+    // Connection / CORS / wrong API_BASE_URL usually have no HTTP status.
+    final type = e.type;
+    if (type == DioExceptionType.connectionTimeout ||
+        type == DioExceptionType.receiveTimeout ||
+        type == DioExceptionType.sendTimeout) {
+      return 'Events request timed out. Check API_BASE_URL (${AppConfig.apiBaseUrl}).';
+    }
+    if (type == DioExceptionType.connectionError) {
+      return 'Cannot reach API at ${AppConfig.apiBaseUrl}. Is the backend running?';
+    }
+    return e.message?.isNotEmpty == true
+        ? e.message!
+        : 'Events request failed.';
   }
 }

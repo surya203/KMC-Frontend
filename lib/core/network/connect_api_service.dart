@@ -26,6 +26,7 @@ class ConnectOfficer {
     required this.roleLabel,
     required this.initials,
     this.fullName,
+    this.photoUrl,
   });
 
   final String userId;
@@ -34,6 +35,7 @@ class ConnectOfficer {
   final String roleLabel;
   final String initials;
   final String? fullName;
+  final String? photoUrl;
 
   String get displayName => fullName ?? email.split('@').first;
 
@@ -45,6 +47,7 @@ class ConnectOfficer {
       roleLabel: '${json['role_label']}',
       initials: '${json['initials']}',
       fullName: json['full_name'] as String?,
+      photoUrl: json['photo_url'] as String?,
     );
   }
 }
@@ -439,7 +442,7 @@ class ConnectApiService {
   Future<List<CommunityMessageItem>> fetchFinanceCouncilMessages() async {
     await AuthSession.instance.ensureReady();
     final options = _authOptions;
-    if (options == null) throw Exception('Sign in to view Finance Council.');
+    if (options == null) throw Exception('Sign in to view Financial Decisions.');
     try {
       final response = await _apiClient.get<Map<String, dynamic>>(
         '${AppConfig.apiPrefix}/connect/finance-council/messages',
@@ -454,19 +457,191 @@ class ConnectApiService {
     }
   }
 
-  Future<void> postFinanceCouncilMessage(String body) async {
+  Future<void> postFinanceCouncilMessage(
+    String body, [
+    List<int>? fileBytes,
+    String? fileName,
+  ]) async {
     await AuthSession.instance.ensureReady();
     final options = _authOptions;
-    if (options == null) throw Exception('Sign in to post to Finance Council.');
+    if (options == null) throw Exception('Sign in to post to Financial Decisions.');
     final trimmed = body.trim();
-    if (trimmed.isEmpty) return;
+    final hasFile = fileBytes != null &&
+        fileBytes.isNotEmpty &&
+        fileName != null &&
+        fileName.trim().isNotEmpty;
+    if (trimmed.isEmpty && !hasFile) return;
 
     try {
-      await _apiClient.post<Map<String, dynamic>>(
-        '${AppConfig.apiPrefix}/connect/finance-council/messages',
-        data: {'body': trimmed},
+      if (hasFile) {
+        final bytes = List<int>.from(fileBytes);
+        final formData = FormData.fromMap({
+          'body': trimmed,
+          'file': MultipartFile.fromBytes(
+            bytes,
+            filename: fileName.trim(),
+          ),
+        });
+        final uploadUrl =
+            '${AppConfig.apiBaseUrl}${AppConfig.apiPrefix}/connect/finance-council/messages/with-file';
+        final response = await _apiClient.dio.post<Map<String, dynamic>>(
+          uploadUrl,
+          data: formData,
+          options: Options(
+            sendTimeout: const Duration(minutes: 2),
+            receiveTimeout: const Duration(minutes: 2),
+          ),
+        );
+        final savedName = response.data?['attachment_name'] as String?;
+        if (savedName == null || savedName.trim().isEmpty) {
+          throw Exception(
+            'Document was not saved. Run migration-025 and check storage, then retry.',
+          );
+        }
+      } else {
+        await _apiClient.post<Map<String, dynamic>>(
+          '${AppConfig.apiPrefix}/connect/finance-council/messages',
+          data: {'body': trimmed},
+          options: options,
+        );
+      }
+    } on DioException catch (e) {
+      throw Exception(_readDetail(e));
+    }
+  }
+
+  Future<({List<int> bytes, String fileName, String mimeType})>
+      downloadFinanceCouncilAttachment(String messageId) async {
+    await AuthSession.instance.ensureReady();
+    final options = _authOptions;
+    if (options == null) throw Exception('Sign in to download this document.');
+    try {
+      final response = await _apiClient.get<List<int>>(
+        '${AppConfig.apiPrefix}/connect/finance-council/messages/$messageId/attachment',
+        options: options.copyWith(
+          responseType: ResponseType.bytes,
+          receiveTimeout: const Duration(minutes: 2),
+        ),
+      );
+      final bytes = response.data;
+      if (bytes == null || bytes.isEmpty) {
+        throw Exception('Download failed. Empty file.');
+      }
+      final disposition = response.headers.value('content-disposition') ?? '';
+      var fileName = 'document';
+      final match = RegExp(r'filename="([^"]+)"').firstMatch(disposition);
+      if (match != null) {
+        fileName = match.group(1) ?? fileName;
+      }
+      final mime =
+          response.headers.value('content-type') ?? 'application/octet-stream';
+      return (bytes: bytes, fileName: fileName, mimeType: mime);
+    } on DioException catch (e) {
+      throw Exception(_readDetail(e));
+    }
+  }
+
+  Future<List<CommunityMessageItem>> fetchExecutiveCommitteeMessages() async {
+    await AuthSession.instance.ensureReady();
+    final options = _authOptions;
+    if (options == null) {
+      throw Exception('Sign in to view Executive Committee Chat.');
+    }
+    try {
+      final response = await _apiClient.get<Map<String, dynamic>>(
+        '${AppConfig.apiPrefix}/connect/executive-committee/messages',
         options: options,
       );
+      final items = response.data?['messages'] as List<dynamic>? ?? [];
+      return items
+          .map((e) => CommunityMessageItem.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } on DioException catch (e) {
+      throw Exception(_readDetail(e));
+    }
+  }
+
+  Future<void> postExecutiveCommitteeMessage(
+    String body, [
+    List<int>? fileBytes,
+    String? fileName,
+  ]) async {
+    await AuthSession.instance.ensureReady();
+    final options = _authOptions;
+    if (options == null) {
+      throw Exception('Sign in to post to Executive Committee Chat.');
+    }
+    final trimmed = body.trim();
+    final hasFile = fileBytes != null &&
+        fileBytes.isNotEmpty &&
+        fileName != null &&
+        fileName.trim().isNotEmpty;
+    if (trimmed.isEmpty && !hasFile) return;
+
+    try {
+      if (hasFile) {
+        final bytes = List<int>.from(fileBytes);
+        final formData = FormData.fromMap({
+          'body': trimmed,
+          'file': MultipartFile.fromBytes(
+            bytes,
+            filename: fileName.trim(),
+          ),
+        });
+        final uploadUrl =
+            '${AppConfig.apiBaseUrl}${AppConfig.apiPrefix}/connect/executive-committee/messages/with-file';
+        final response = await _apiClient.dio.post<Map<String, dynamic>>(
+          uploadUrl,
+          data: formData,
+          options: Options(
+            sendTimeout: const Duration(minutes: 2),
+            receiveTimeout: const Duration(minutes: 2),
+          ),
+        );
+        final savedName = response.data?['attachment_name'] as String?;
+        if (savedName == null || savedName.trim().isEmpty) {
+          throw Exception(
+            'Document was not saved. Run migration-025 and check storage, then retry.',
+          );
+        }
+      } else {
+        await _apiClient.post<Map<String, dynamic>>(
+          '${AppConfig.apiPrefix}/connect/executive-committee/messages',
+          data: {'body': trimmed},
+          options: options,
+        );
+      }
+    } on DioException catch (e) {
+      throw Exception(_readDetail(e));
+    }
+  }
+
+  Future<({List<int> bytes, String fileName, String mimeType})>
+      downloadExecutiveCommitteeAttachment(String messageId) async {
+    await AuthSession.instance.ensureReady();
+    final options = _authOptions;
+    if (options == null) throw Exception('Sign in to download this document.');
+    try {
+      final response = await _apiClient.get<List<int>>(
+        '${AppConfig.apiPrefix}/connect/executive-committee/messages/$messageId/attachment',
+        options: options.copyWith(
+          responseType: ResponseType.bytes,
+          receiveTimeout: const Duration(minutes: 2),
+        ),
+      );
+      final bytes = response.data;
+      if (bytes == null || bytes.isEmpty) {
+        throw Exception('Download failed. Empty file.');
+      }
+      final disposition = response.headers.value('content-disposition') ?? '';
+      var fileName = 'document';
+      final match = RegExp(r'filename="([^"]+)"').firstMatch(disposition);
+      if (match != null) {
+        fileName = match.group(1) ?? fileName;
+      }
+      final mime =
+          response.headers.value('content-type') ?? 'application/octet-stream';
+      return (bytes: bytes, fileName: fileName, mimeType: mime);
     } on DioException catch (e) {
       throw Exception(_readDetail(e));
     }
@@ -666,7 +841,10 @@ class ConnectApiService {
           ? '${detail['detail']}'.toLowerCase()
           : '';
       if (detailText.contains('finance council')) {
-        return 'Finance Council access required.';
+        return 'Financial Decisions access required.';
+      }
+      if (detailText.contains('executive committee')) {
+        return 'Executive Committee access required.';
       }
       return 'Active membership required.';
     }
