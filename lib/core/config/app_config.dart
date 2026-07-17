@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'runtime_env.dart';
@@ -6,13 +7,26 @@ class AppConfig {
   AppConfig._();
 
   static String _env(String key, String fallback) {
-    // Prefer `.env` for local Flutter so each developer’s API_BASE_URL wins
-    // over web/env-config.js defaults. Docker/prod uses window.__ENV__.
+    // Web: prefer window.__ENV__ (web/env-config.js) so API_BASE_URL updates
+    // without a full rebuild — .env is baked into assets and goes stale.
+    // Mobile/desktop: prefer .env; Docker/prod sets window.__ENV__ at runtime.
+    if (kIsWeb) {
+      final fromRuntime = runtimeEnv(key);
+      if (fromRuntime != null && fromRuntime.trim().isNotEmpty) {
+        return fromRuntime.trim();
+      }
+    }
     final fromFile = dotenv.env[key];
     if (fromFile != null && fromFile.trim().isNotEmpty) {
       return fromFile.trim();
     }
-    return runtimeEnv(key) ?? fallback;
+    if (!kIsWeb) {
+      final fromRuntime = runtimeEnv(key);
+      if (fromRuntime != null && fromRuntime.trim().isNotEmpty) {
+        return fromRuntime.trim();
+      }
+    }
+    return fallback;
   }
 
   static String get env => _env('ENV', 'development');
