@@ -362,6 +362,9 @@ bool _isAdminNavSelected(String currentPath, String itemPath) {
 }
 
 String adminTitleForPath(String path) {
+  if (path.startsWith('/admin/events/') && path != '/admin/events') {
+    return 'Registrations';
+  }
   for (final item in adminNavItems) {
     if (_isAdminNavSelected(path, item.path)) return item.label;
   }

@@ -14,13 +14,16 @@ class DrugHeaderStore extends ChangeNotifier {
   DrugHeaderCard? _card;
   bool _loading = false;
   bool _loadedOnce = false;
+  bool _lastLoadFailed = false;
 
   DrugHeaderCard? get card => _card;
   bool get loading => _loading;
   String? get headerImageUrl => _card?.headerImageUrl;
 
   Future<void> ensureLoaded() async {
-    if (_loadedOnce || _loading) return;
+    if (_loading) return;
+    // Retry only after a failed fetch; a successful empty response stays cached.
+    if (_loadedOnce && !_lastLoadFailed) return;
     await refresh();
   }
 
@@ -31,9 +34,11 @@ class DrugHeaderStore extends ChangeNotifier {
     try {
       _card = await _api.fetchHeaderCard();
       _loadedOnce = true;
+      _lastLoadFailed = false;
     } catch (_) {
-      // Keep last known card on transient failures.
       _loadedOnce = true;
+      _lastLoadFailed = true;
+      // Keep last known good card on transient failures.
     } finally {
       _loading = false;
       notifyListeners();

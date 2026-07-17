@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/auth/auth_session.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/network/api_errors.dart';
 import '../../../core/network/gallery_api_service.dart';
 import '../../gallery/widgets/gallery_album_dialogs.dart';
 
@@ -88,7 +89,7 @@ class _DashboardGalleryScreenState extends State<DashboardGalleryScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _error = friendlyApiError(e);
         _loading = false;
       });
     }

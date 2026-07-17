@@ -139,6 +139,7 @@ class AdminMemberItem {
     required this.userId,
     required this.email,
     required this.role,
+    this.isEcMember = false,
     this.fullName,
     this.batchYear,
     this.membershipStatus,
@@ -149,6 +150,7 @@ class AdminMemberItem {
   final String userId;
   final String email;
   final String role;
+  final bool isEcMember;
   final String? fullName;
   final int? batchYear;
   final String? membershipStatus;
@@ -160,6 +162,7 @@ class AdminMemberItem {
       userId: json['user_id'] as String,
       email: json['email'] as String,
       role: json['role'] as String,
+      isEcMember: json['is_ec_member'] as bool? ?? false,
       fullName: json['full_name'] as String?,
       batchYear: json['batch_year'] as int?,
       membershipStatus: json['membership_status'] as String?,
@@ -719,11 +722,11 @@ class AdminApiService {
         e.type == DioExceptionType.connectionTimeout ||
         e.type == DioExceptionType.receiveTimeout) {
       return 'Could not reach the server at ${AppConfig.apiBaseUrl}. '
-          'Check that the backend is running on port 8001.';
+          'Check that the backend is running.';
     }
     if (status == 500) {
       return 'Server error while processing admin request (HTTP 500). '
-          'Restart the backend on port 8001 and try again.';
+          'Restart the backend and try again.';
     }
     final fallback = e.message ?? e.response?.statusMessage;
     if (fallback != null && fallback.isNotEmpty) {

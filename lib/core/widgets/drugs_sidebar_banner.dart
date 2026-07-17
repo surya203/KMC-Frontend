@@ -22,7 +22,7 @@ class _DrugsSidebarBannerState extends State<DrugsSidebarBanner> {
   void initState() {
     super.initState();
     _store.addListener(_onStoreChanged);
-    _store.ensureLoaded();
+    _store.refresh(force: true);
   }
 
   @override
@@ -78,24 +78,40 @@ class _DrugsSidebarBannerState extends State<DrugsSidebarBanner> {
                             size: 18,
                           ),
                         ),
-                        errorWidget: (_, _, _) => _emptyState(),
+                        errorWidget: (_, _, _) => _placeholder(
+                          icon: Icons.broken_image_outlined,
+                          label: _store.card?.name ?? 'Drug',
+                        ),
                       )
-                    : _emptyState(),
+                    : _placeholder(
+                        icon: Icons.medication_outlined,
+                        label: 'No drug',
+                      ),
           ),
         ),
       ),
     );
   }
 
-  Widget _emptyState() {
+  Widget _placeholder({required IconData icon, required String label}) {
     return Center(
-      child: Text(
-        'No drug',
-        style: GoogleFonts.inter(
-          color: Colors.black45,
-          fontSize: 11,
-          fontWeight: FontWeight.w500,
-        ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: Colors.black45, size: 14),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              label,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.inter(
+                color: Colors.black45,
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

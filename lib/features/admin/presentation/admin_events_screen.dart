@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_colors.dart';
@@ -192,67 +193,91 @@ class _AdminEventsScreenState extends State<AdminEventsScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: SizedBox(
-              width: 96,
-              height: 72,
-              child: event.coverImageUrl != null &&
-                      event.coverImageUrl!.trim().isNotEmpty
-                  ? CachedNetworkImage(
-                      imageUrl: event.coverImageUrl!,
-                      fit: BoxFit.cover,
-                      errorWidget: (_, _, _) => _coverPlaceholder(),
-                    )
-                  : _coverPlaceholder(),
-            ),
-          ),
-          const SizedBox(width: 14),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  event.title,
-                  style: GoogleFonts.inter(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.heading,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: () => _openRegistrationsPage(event),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: SizedBox(
+                      width: 96,
+                      height: 72,
+                      child: event.coverImageUrl != null &&
+                              event.coverImageUrl!.trim().isNotEmpty
+                          ? CachedNetworkImage(
+                              imageUrl: event.coverImageUrl!,
+                              fit: BoxFit.cover,
+                              errorWidget: (_, _, _) => _coverPlaceholder(),
+                            )
+                          : _coverPlaceholder(),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  [
-                    _formatDate(event.startsAt),
-                    if (venue.isNotEmpty) venue,
-                    event.isPublished ? 'Published' : 'Draft',
-                    if (event.registrationOpen) 'Registration open',
-                    '${event.registeredCount} registered',
-                  ].join(' · '),
-                  style: GoogleFonts.inter(
-                    fontSize: 13,
-                    color: AppColors.bodyText,
-                  ),
-                ),
-                if (event.description != null &&
-                    event.description!.trim().isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    event.description!,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.inter(
-                      fontSize: 13,
-                      color: AppColors.mutedText,
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          event.title,
+                          style: GoogleFonts.inter(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.heading,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          [
+                            _formatDate(event.startsAt),
+                            if (venue.isNotEmpty) venue,
+                            event.isPublished ? 'Published' : 'Draft',
+                            if (event.registrationOpen) 'Registration open',
+                          ].join(' · '),
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            color: AppColors.bodyText,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextButton.icon(
+                          onPressed: () => _openRegistrationsPage(event),
+                          icon: const Icon(Icons.people_outline, size: 18),
+                          label: Text(
+                            '${event.registeredCount} registered — view details',
+                          ),
+                          style: TextButton.styleFrom(
+                            foregroundColor: AppColors.primary,
+                            padding: EdgeInsets.zero,
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                        ),
+                        if (event.description != null &&
+                            event.description!.trim().isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            event.description!,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              color: AppColors.mutedText,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 ],
-              ],
+              ),
             ),
           ),
           IconButton(
             tooltip: 'View registrations',
-            onPressed: () => _openRegistrations(event),
+            onPressed: () => _openRegistrationsPage(event),
             icon: const Icon(Icons.people_outline),
           ),
           IconButton(
@@ -270,11 +295,8 @@ class _AdminEventsScreenState extends State<AdminEventsScreen> {
     );
   }
 
-  Future<void> _openRegistrations(AdminEventItem event) async {
-    await showDialog<void>(
-      context: context,
-      builder: (context) => _EventRegistrationsDialog(event: event),
-    );
+  void _openRegistrationsPage(AdminEventItem event) {
+    context.go('/admin/events/${event.id}', extra: event.title);
   }
 
   Widget _coverPlaceholder() {
@@ -838,241 +860,6 @@ class _ErrorBanner extends StatelessWidget {
           TextButton(onPressed: onRetry, child: const Text('Retry')),
         ],
       ),
-    );
-  }
-}
-
-class _EventRegistrationsDialog extends StatefulWidget {
-  const _EventRegistrationsDialog({required this.event});
-
-  final AdminEventItem event;
-
-  @override
-  State<_EventRegistrationsDialog> createState() =>
-      _EventRegistrationsDialogState();
-}
-
-class _EventRegistrationsDialogState extends State<_EventRegistrationsDialog> {
-  final _api = AdminApiService();
-  AdminEventRegistrationsPage? _page;
-  String? _error;
-  bool _loading = true;
-  String? _busyId;
-  String _filter = 'all';
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    try {
-      final page = await _api.fetchEventRegistrations(widget.event.id);
-      if (!mounted) return;
-      setState(() {
-        _page = page;
-        _loading = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _error = e.toString();
-        _loading = false;
-      });
-    }
-  }
-
-  List<AdminEventRegistrant> get _filtered {
-    final items = (_page?.registrations ?? [])
-        .where((r) => r.kind != 'interest')
-        .toList();
-    if (_filter == 'all') return items;
-    return items.where((r) => r.kind == _filter).toList();
-  }
-
-  List<String> _statusOptionsFor(String kind) {
-    switch (kind) {
-      case 'registered':
-        return ['registered', 'waitlisted', 'cancelled'];
-      case 'attendance':
-        return ['submitted', 'confirmed', 'cancelled'];
-      case 'interest':
-        return ['submitted', 'reviewed', 'cancelled'];
-      default:
-        return [];
-    }
-  }
-
-  Future<void> _updateStatus(AdminEventRegistrant item, String status) async {
-    setState(() => _busyId = item.id);
-    try {
-      await _api.updateEventRegistrationStatus(
-        eventId: widget.event.id,
-        kind: item.kind,
-        registrationId: item.id,
-        status: status,
-      );
-      await _load();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
-      );
-    } finally {
-      if (mounted) setState(() => _busyId = null);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final page = _page;
-    return AlertDialog(
-      title: Text('Registrations — ${widget.event.title}'),
-      content: SizedBox(
-        width: 640,
-        height: 480,
-        child: _loading
-            ? const Center(child: CircularProgressIndicator())
-            : _error != null
-                ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(_error!),
-                      TextButton(onPressed: _load, child: const Text('Retry')),
-                    ],
-                  )
-                : Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (page != null)
-                        Text(
-                          'RSVP ${page.registeredCount}'
-                          ' · Waitlist ${page.waitlistedCount}'
-                          ' · Registrations ${page.attendanceCount}',
-                          style: GoogleFonts.inter(
-                            fontSize: 13,
-                            color: AppColors.bodyText,
-                          ),
-                        ),
-                      const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 8,
-                        children: [
-                          for (final entry in const [
-                            ('all', 'All'),
-                            ('registered', 'RSVP'),
-                            ('attendance', 'Registrations'),
-                          ])
-                            ChoiceChip(
-                              label: Text(entry.$2),
-                              selected: _filter == entry.$1,
-                              onSelected: (_) =>
-                                  setState(() => _filter = entry.$1),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Expanded(
-                        child: _filtered.isEmpty
-                            ? Text(
-                                'No registrations in this category.',
-                                style: GoogleFonts.inter(
-                                  color: AppColors.bodyText,
-                                ),
-                              )
-                            : ListView.separated(
-                                itemCount: _filtered.length,
-                                separatorBuilder: (_, _) =>
-                                    const Divider(height: 1),
-                                itemBuilder: (context, index) {
-                                  final item = _filtered[index];
-                                  final busy = _busyId == item.id;
-                                  return Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 8,
-                                    ),
-                                    child: Row(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                item.fullName ?? 'Member',
-                                                style: GoogleFonts.inter(
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 4),
-                                              Text(
-                                                [
-                                                  item.kindLabel,
-                                                  item.status,
-                                                  if (item.email != null)
-                                                    item.email!,
-                                                  if (item.programTracks
-                                                      .isNotEmpty)
-                                                    item.programTracks
-                                                        .join(', '),
-                                                  if (item.registrationTypes
-                                                      .isNotEmpty)
-                                                    item.registrationTypes
-                                                        .join(', '),
-                                                ].join(' · '),
-                                                style: GoogleFonts.inter(
-                                                  fontSize: 12,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        if (busy)
-                                          const SizedBox(
-                                            width: 24,
-                                            height: 24,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                            ),
-                                          )
-                                        else
-                                          PopupMenuButton<String>(
-                                            tooltip: 'Update status',
-                                            onSelected: (value) =>
-                                                _updateStatus(item, value),
-                                            itemBuilder: (context) => [
-                                              for (final status
-                                                  in _statusOptionsFor(
-                                                item.kind,
-                                              ))
-                                                PopupMenuItem(
-                                                  value: status,
-                                                  child: Text(status),
-                                                ),
-                                            ],
-                                          ),
-                                      ],
-                                    ),
-                                  );
-                                },
-                              ),
-                      ),
-                    ],
-                  ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Close'),
-        ),
-      ],
     );
   }
 }

@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/auth/role_utils.dart';
 import '../../../core/constants/app_assets.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/events_api_service.dart';
 import '../../../core/widgets/event_card.dart';
+import '../../events/widgets/event_registrations_dialog.dart';
 import '../widgets/dashboard_layout.dart';
 
 class DashboardEventsScreen extends StatefulWidget {
@@ -69,8 +71,17 @@ class _DashboardEventsScreenState extends State<DashboardEventsScreen> {
     context.go('/my-events/${event.slug}');
   }
 
+  void _openRegistrants(EventItem event) {
+    showEventRegistrationsDialog(
+      context,
+      eventId: event.id,
+      eventTitle: event.title,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isAdmin = canManageEvents(currentUserRole);
     return SingleChildScrollView(
       padding: DashboardLayout.screenPadding(context),
       child: Center(
@@ -80,7 +91,7 @@ class _DashboardEventsScreenState extends State<DashboardEventsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 28),
-              if (!_loading && _error == null && _myRegistrations.isNotEmpty) ...[
+              if (!_loading && _error == null && !isAdmin && _myRegistrations.isNotEmpty) ...[
                 Text(
                   'My registrations',
                   style: GoogleFonts.fraunces(
@@ -119,7 +130,9 @@ class _DashboardEventsScreenState extends State<DashboardEventsScreen> {
               else
                 _UpcomingEventGrid(
                   events: _upcoming,
+                  isAdmin: isAdmin,
                   onOpenDetail: _openEventDetail,
+                  onViewRegistrants: isAdmin ? _openRegistrants : null,
                 ),
               if (!_loading && _error == null && _past.isNotEmpty) ...[
                 const SizedBox(height: 40),
@@ -134,7 +147,9 @@ class _DashboardEventsScreenState extends State<DashboardEventsScreen> {
                 const SizedBox(height: 20),
                 _PastEventGrid(
                   events: _past,
+                  isAdmin: isAdmin,
                   onOpen: _openEventDetail,
+                  onViewRegistrants: isAdmin ? _openRegistrants : null,
                 ),
               ],
             ],
@@ -211,11 +226,15 @@ class _MyRegistrationTile extends StatelessWidget {
 class _UpcomingEventGrid extends StatelessWidget {
   const _UpcomingEventGrid({
     required this.events,
+    required this.isAdmin,
     required this.onOpenDetail,
+    this.onViewRegistrants,
   });
 
   final List<EventItem> events;
+  final bool isAdmin;
   final void Function(EventItem event) onOpenDetail;
+  final void Function(EventItem event)? onViewRegistrants;
 
   @override
   Widget build(BuildContext context) {
@@ -241,7 +260,10 @@ class _UpcomingEventGrid extends StatelessWidget {
                   isRegistered: event.isRegistered ?? false,
                   showRegistrationUi: true,
                   onTap: () => onOpenDetail(event),
-                  onRegister: event.registrationOpen
+                  onViewRegistrants: isAdmin && onViewRegistrants != null
+                      ? () => onViewRegistrants!(event)
+                      : null,
+                  onRegister: !isAdmin && event.registrationOpen
                       ? () => onOpenDetail(event)
                       : null,
                 ),
@@ -256,11 +278,15 @@ class _UpcomingEventGrid extends StatelessWidget {
 class _PastEventGrid extends StatelessWidget {
   const _PastEventGrid({
     required this.events,
+    required this.isAdmin,
     required this.onOpen,
+    this.onViewRegistrants,
   });
 
   final List<EventItem> events;
+  final bool isAdmin;
   final void Function(EventItem event) onOpen;
+  final void Function(EventItem event)? onViewRegistrants;
 
   @override
   Widget build(BuildContext context) {
@@ -286,7 +312,10 @@ class _PastEventGrid extends StatelessWidget {
                   isRegistered: event.isRegistered ?? false,
                   showRegistrationUi: true,
                   onTap: () => onOpen(event),
-                  onRegister: event.registrationOpen
+                  onViewRegistrants: isAdmin && onViewRegistrants != null
+                      ? () => onViewRegistrants!(event)
+                      : null,
+                  onRegister: !isAdmin && event.registrationOpen
                       ? () => onOpen(event)
                       : null,
                 ),

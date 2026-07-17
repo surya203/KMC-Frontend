@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/auth/role_utils.dart';
+
 class DashboardNavItem {
   const DashboardNavItem(this.label, this.icon, this.path);
 
@@ -20,6 +22,13 @@ const dashboardNavItems = <DashboardNavItem>[
   DashboardNavItem('Payments', Icons.payments_outlined, '/my-payments'),
   DashboardNavItem('Settings', Icons.settings_outlined, '/settings'),
 ];
+
+String dashboardNavPath(DashboardNavItem item, String? role) {
+  if (item.path == '/my-events' && canManageEvents(role)) {
+    return '/admin/events';
+  }
+  return item.path;
+}
 
 String dashboardTitleForPath(String path, {bool compact = false}) {
   if (path.startsWith('/dashboard/drugs')) {
@@ -42,7 +51,16 @@ String dashboardTitleForPath(String path, {bool compact = false}) {
   return 'Dashboard';
 }
 
-bool dashboardNavItemIsActive(String itemPath, String currentPath) {
+bool dashboardNavItemIsActive(
+  DashboardNavItem item,
+  String currentPath, {
+  String? role,
+}) {
+  final itemPath = dashboardNavPath(item, role);
   if (itemPath == currentPath) return true;
+  if (itemPath == '/admin/events' &&
+      currentPath.startsWith('/admin/events/')) {
+    return true;
+  }
   return currentPath.startsWith('$itemPath/');
 }

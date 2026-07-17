@@ -61,6 +61,8 @@ class _AdminDrugsScreenState extends State<AdminDrugsScreen> {
         _drugs = drugs;
         _loading = false;
       });
+      // Keep sidebar banner in sync (retries if an earlier load failed).
+      await DrugHeaderStore.instance.refresh();
     } catch (e) {
       if (!mounted) return;
       setState(() {
