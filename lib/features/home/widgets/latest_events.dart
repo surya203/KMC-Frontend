@@ -78,8 +78,12 @@ class _LatestEventsState extends State<LatestEvents> {
                       coverImageUrl: _event!.coverImageUrl,
                       registrationOpen: _event!.registrationOpen,
                       isRegistered: _event!.isRegistered ?? false,
-                      onTap: () => context.go('/events/${_event!.slug}'),
-                      onRegister: () => context.go('/events/${_event!.slug}'),
+                      // Public home: card is not clickable (no public event detail nav).
+                      onTap: null,
+                      onRegister: null,
+                      registerButtonTooltip: _event!.registrationOpen
+                          ? 'Please login to register'
+                          : null,
                     ),
                   ),
                 )

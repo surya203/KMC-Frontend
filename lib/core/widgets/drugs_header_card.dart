@@ -75,9 +75,19 @@ class _DrugsHeaderCardState extends State<DrugsHeaderCard> {
     // Admin uploaded a details image → open the image viewer page only.
     if (!card.hasDetailImage) return;
 
-    final target = '/dashboard/drugs/${card.id}';
     final location = GoRouterState.of(context).uri.path;
-    if (location == target || location.startsWith('/dashboard/drugs/')) {
+    final inMemberShell = location.startsWith('/dashboard') ||
+        location.startsWith('/my-') ||
+        location.startsWith('/announcements') ||
+        location.startsWith('/connect') ||
+        location.startsWith('/settings') ||
+        location.startsWith('/member/');
+    final target = inMemberShell
+        ? '/dashboard/drugs/${card.id}'
+        : '/drugs/${card.id}';
+    if (location == target ||
+        location.startsWith('/dashboard/drugs/') ||
+        location.startsWith('/drugs/')) {
       return;
     }
     context.push(target);
