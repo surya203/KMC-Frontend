@@ -19,19 +19,23 @@ const assignableUserRoles = [
   'president',
   'vice_president',
   'secretary',
+  'joint_secretary',
   'treasurer',
+  'editor',
   'admin',
 ];
 
 const _userRoleLabels = <String, String>{
-  'member': 'Alumni member',
-  ecMemberRole: 'Executive',
+  'member': 'Member',
+  ecMemberRole: 'Executive Committee Member',
   'staff': 'NRI Alumni',
-  'executive': 'Executive', // legacy role=executive rows
+  'executive': 'Executive Committee Member', // legacy role=executive rows
   'president': 'President',
   'vice_president': 'Vice President',
-  'secretary': 'Secretary',
-  'treasurer': 'Treasurer',
+  'secretary': 'General Secretary',
+  'joint_secretary': 'Joint Secretary',
+  'treasurer': 'Finance Secretary',
+  'editor': 'Editor',
   'admin': 'Admin',
 };
 
@@ -39,7 +43,9 @@ const officerRoles = {
   'president',
   'vice_president',
   'secretary',
+  'joint_secretary',
   'treasurer',
+  'editor',
 };
 
 /// Officers + Executive (`ec_member`; legacy `executive`) + admin — EC group chat.
@@ -92,7 +98,7 @@ bool isAlumniRole(String? role) {
 
 String userRoleLabel(String? role) {
   final resolved = resolveUserRole(role);
-  if (resolved == null) return 'Alumni member';
+  if (resolved == null) return 'Member';
   return _userRoleLabels[resolved] ??
       resolved.replaceAll('_', ' ').split(' ').map((part) {
         if (part.isEmpty) return part;
@@ -139,19 +145,23 @@ bool canPostToExecutiveCommittee(String? role) =>
 
 String executiveCommitteeRoleLabel(String? role) {
   final resolved = resolveUserRole(role);
-  if (resolved == null) return 'Alumni member';
+  if (resolved == null) return 'Member';
   switch (resolved) {
     case 'president':
       return 'President';
     case 'vice_president':
       return 'Vice President';
     case 'secretary':
-      return 'Secretary';
+      return 'General Secretary';
+    case 'joint_secretary':
+      return 'Joint Secretary';
     case 'treasurer':
-      return 'Treasurer';
+      return 'Finance Secretary';
+    case 'editor':
+      return 'Editor';
     case 'ec_member':
     case 'executive':
-      return 'Executive';
+      return 'Executive Committee Member';
     case 'admin':
       return 'Admin';
     default:
@@ -193,7 +203,7 @@ bool canPostToFinanceCouncil(String? role) {
 
 String financeCouncilRoleLabel(String? role) {
   final resolved = resolveUserRole(role);
-  if (resolved == null) return 'Alumni member';
+  if (resolved == null) return 'Member';
   switch (resolved) {
     case 'president':
       return 'President';
@@ -212,7 +222,7 @@ String financeCouncilRoleLabel(String? role) {
 
 String generalGroupRoleLabel(String? role) {
   final resolved = resolveUserRole(role);
-  if (resolved == null) return 'Alumni member';
+  if (resolved == null) return 'Member';
   switch (resolved) {
     case 'president':
       return 'President';

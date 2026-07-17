@@ -562,7 +562,7 @@ class _DashboardConnectScreenState extends State<DashboardConnectScreen> {
                 _activeTab == _ConnectTab.alumniChat
                     ? 'Open chat for all members. Messages older than 3 months are removed automatically.'
                     : _activeTab == _ConnectTab.financeCouncil
-                        ? 'Private room for President, VP, Secretary, and Treasurer. Admin can view only. Documents supported.'
+                        ? 'Private room for President, VP, Secretary, and Treasurer. Documents supported.'
                         : canAccessExecutiveCommittee
                             ? 'View EC members and open EC Group Chat. Messages and documents are kept permanently.'
                             : 'View who is on the Executive Committee. Only EC members can open EC Group Chat.',
@@ -594,12 +594,6 @@ class _DashboardConnectScreenState extends State<DashboardConnectScreen> {
                   message: _executiveCommitteeError!,
                   onRetry: _load,
                 ),
-              ],
-              if (!canPostFinance &&
-                  _activeTab == _ConnectTab.financeCouncil &&
-                  showFinanceCouncilTab) ...[
-                const SizedBox(height: 10),
-                _FinanceCouncilReadOnlyNotice(role: userRole),
               ],
               SizedBox(height: isMobile ? 16 : 20),
               _ModeToggle(
@@ -791,43 +785,6 @@ class _ModeToggle extends StatelessWidget {
             onTap: tab.$4,
           ),
       ],
-    );
-  }
-}
-
-class _FinanceCouncilReadOnlyNotice extends StatelessWidget {
-  const _FinanceCouncilReadOnlyNotice({required this.role});
-
-  final String? role;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFF8E8),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE8D9A8)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(Icons.visibility_outlined, size: 18, color: AppColors.heading),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              'You are signed in as ${financeCouncilRoleLabel(role)} with view-only access. '
-              'Only President, Vice President, Secretary, and Treasurer can post in Financial Decisions.',
-              style: GoogleFonts.inter(
-                fontSize: 13,
-                color: AppColors.bodyText,
-                height: 1.45,
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -2115,8 +2072,8 @@ class _EcMemberDirectory extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   canOpenCommitteeChat
-                      ? 'Browse members below, then open EC Group Chat.'
-                      : 'Browse the Executive Committee member list below.',
+                      ? 'Browse all EC posts below (President → Executives), then open EC Group Chat.'
+                      : 'Browse the full Executive Committee (all posts) listed below.',
                   style: GoogleFonts.inter(
                     fontSize: 12.5,
                     color: AppColors.mutedText,

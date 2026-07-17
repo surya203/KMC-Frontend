@@ -40,8 +40,10 @@ class _AdminMembersScreenState extends State<AdminMembersScreen> {
   Future<void> _load({int page = 1, int attempt = 0}) async {
     await AuthSession.instance.ensureReady();
 
+    final showSpinner = _members.isEmpty;
     setState(() {
-      _loading = attempt == 0;
+      // Keep the list visible while refreshing — never blank the page.
+      _loading = showSpinner && attempt == 0;
       if (attempt == 0) _error = null;
     });
     try {
@@ -84,19 +86,46 @@ class _AdminMembersScreenState extends State<AdminMembersScreen> {
   Future<void> _changeRole(AdminMemberItem member, String role) async {
     if (role == member.role) return;
 
-    setState(() => _savingUserId = member.userId);
+    final previous = member;
+    // Instant UI update — no full-page reload / spinner.
+    setState(() {
+      _savingUserId = member.userId;
+      _members = [
+        for (final m in _members)
+          if (m.userId == member.userId)
+            m.copyWith(
+              role: role,
+              isEcMember: role == ecMemberRole ||
+                  role == 'executive' ||
+                  officerRoles.contains(role) ||
+                  m.isEcMember,
+            )
+          else
+            m,
+      ];
+    });
+
     try {
       await _api.updateUserRole(member.userId, role);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Role updated to $role for ${member.email}'),
+          content: Text(
+            'Role updated to ${userRoleLabel(role)} for ${member.email}',
+          ),
           backgroundColor: const Color(0xFF1F6B3A),
+          duration: const Duration(seconds: 2),
         ),
       );
-      await _load(page: _page);
     } catch (e) {
       if (!mounted) return;
+      // Roll back if the API failed.
+      setState(() {
+        _members = [
+          for (final m in _members)
+            if (m.userId == previous.userId) previous else m,
+        ];
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(_formatError(e)),
