@@ -84,6 +84,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   int get _profileCompletion => _profileCompletionPercent(_profile);
 
+  /// Count registrations that represent attendance (exclude interest-only).
+  static int _attendedEventCount(List<MyEventRegistration> registrations) {
+    return registrations.where((r) => r.registrationKind != 'interest').length;
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
@@ -113,7 +118,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       _StatsGrid(
                         membership: _membership,
                         profile: _profile,
-                        eventsAttended: _myEvents.length,
+                        eventsAttended: _attendedEventCount(_myEvents),
                         profileCompletion: _profileCompletion,
                         batchYear:
                             _profile?.batchYear ??
@@ -131,9 +136,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   completion: _profileCompletion,
                                 ),
                                 const SizedBox(height: 18),
-                                _EventsChartCard(
-                                  eventsAttended: _myEvents.length,
-                                ),
+                                _EventsChartCard(registrations: _myEvents),
                               ],
                             );
                           }
@@ -151,7 +154,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               Expanded(
                                 flex: 3,
                                 child: _EventsChartCard(
-                                  eventsAttended: _myEvents.length,
+                                  registrations: _myEvents,
                                 ),
                               ),
                             ],
@@ -534,12 +537,40 @@ class _SubscriptionCard extends StatelessWidget {
 }
 
 class _EventsChartCard extends StatelessWidget {
-  const _EventsChartCard({required this.eventsAttended});
+  const _EventsChartCard({required this.registrations});
 
-  final int eventsAttended;
+  final List<MyEventRegistration> registrations;
+
+  /// Count this member's attendance-style registrations per calendar year.
+  static ({List<int> years, List<double> counts}) yearlyAttendance(
+    List<MyEventRegistration> registrations, {
+    int yearCount = 6,
+  }) {
+    final nowYear = DateTime.now().year;
+    final years = List<int>.generate(yearCount, (i) => nowYear - (yearCount - 1 - i));
+    final countsByYear = {for (final y in years) y: 0};
+
+    // Prefer real attendance; also count RSVP ("registered") as attended intent.
+    // Skip pure "interest" so the chart matches "Events Attended".
+    for (final reg in registrations) {
+      final kind = reg.registrationKind;
+      if (kind == 'interest') continue;
+      final year = reg.startsAt.toLocal().year;
+      if (!countsByYear.containsKey(year)) continue;
+      countsByYear[year] = countsByYear[year]! + 1;
+    }
+
+    return (
+      years: years,
+      counts: years.map((y) => countsByYear[y]!.toDouble()).toList(),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final series = yearlyAttendance(registrations);
+    final total = series.counts.fold<double>(0, (a, b) => a + b).toInt();
+
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
@@ -564,7 +595,9 @@ class _EventsChartCard extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      'Your participation over the last 6 years',
+                      total == 0
+                          ? 'No attendance recorded in the last 6 years'
+                          : 'Your attendance by year · $total total',
                       style: GoogleFonts.inter(
                         color: AppColors.bodyText,
                         fontSize: 13,
@@ -592,7 +625,8 @@ class _EventsChartCard extends StatelessWidget {
             height: 180,
             child: CustomPaint(
               painter: _EventsLineChartPainter(
-                values: _chartValues(eventsAttended),
+                values: series.counts,
+                labels: series.years.map((y) => '$y').toList(),
               ),
               child: const SizedBox.expand(),
             ),
@@ -601,31 +635,31 @@ class _EventsChartCard extends StatelessWidget {
       ),
     );
   }
-
-  List<double> _chartValues(int total) {
-    if (total <= 0) return [2, 4, 6, 8, 10, 12];
-    final base = total / 6;
-    return List<double>.generate(6, (i) => base * (i + 1) * 0.7 + 2);
-  }
 }
 
 class _EventsLineChartPainter extends CustomPainter {
-  _EventsLineChartPainter({required this.values});
+  _EventsLineChartPainter({
+    required this.values,
+    required this.labels,
+  });
 
   final List<double> values;
-  static const _labels = ['2021', '2022', '2023', '2024', '2025', '2026'];
+  final List<String> labels;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final maxVal = values.reduce((a, b) => a > b ? a : b);
+    if (values.isEmpty) return;
+
+    final maxVal = values.fold<double>(0, (a, b) => a > b ? a : b);
+    final scaleMax = maxVal <= 0 ? 1.0 : maxVal;
     final chartHeight = size.height - 24;
-    final stepX = size.width / (values.length - 1);
+    final stepX = values.length == 1 ? size.width / 2 : size.width / (values.length - 1);
 
     final points = <Offset>[];
     for (var i = 0; i < values.length; i++) {
-      final x = i * stepX;
-      final y = chartHeight - (values[i] / maxVal) * (chartHeight - 12);
-      points.add(Offset(x, y));
+      final x = values.length == 1 ? size.width / 2 : i * stepX;
+      final y = chartHeight - (values[i] / scaleMax) * (chartHeight - 12);
+      points.add(Offset(x, y.clamp(8.0, chartHeight)));
     }
 
     final fillPath = Path()..moveTo(points.first.dx, chartHeight);
@@ -659,25 +693,48 @@ class _EventsLineChartPainter extends CustomPainter {
     }
     canvas.drawPath(linePath, linePaint);
 
+    final dotPaint = Paint()..color = AppColors.primary;
+    final dotBorder = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+    final valueStyle = TextStyle(
+      color: AppColors.heading,
+      fontSize: 10,
+      fontWeight: FontWeight.w600,
+    );
+    for (var i = 0; i < points.length; i++) {
+      final p = points[i];
+      canvas.drawCircle(p, 4, dotPaint);
+      canvas.drawCircle(p, 4, dotBorder);
+      final count = values[i].round();
+      final tp = TextPainter(
+        text: TextSpan(text: '$count', style: valueStyle),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      tp.paint(canvas, Offset(p.dx - tp.width / 2, p.dy - tp.height - 6));
+    }
+
     final labelStyle = TextStyle(
       color: AppColors.mutedText,
       fontSize: 11,
     );
-    for (var i = 0; i < _labels.length; i++) {
+    for (var i = 0; i < labels.length && i < values.length; i++) {
       final tp = TextPainter(
-        text: TextSpan(text: _labels[i], style: labelStyle),
+        text: TextSpan(text: labels[i], style: labelStyle),
         textDirection: TextDirection.ltr,
       )..layout();
+      final x = values.length == 1 ? size.width / 2 : i * stepX;
       tp.paint(
         canvas,
-        Offset(i * stepX - tp.width / 2, size.height - 18),
+        Offset(x - tp.width / 2, size.height - 18),
       );
     }
   }
 
   @override
   bool shouldRepaint(covariant _EventsLineChartPainter oldDelegate) =>
-      oldDelegate.values != values;
+      oldDelegate.values != values || oldDelegate.labels != labels;
 }
 
 class _UpcomingReunionsCard extends StatelessWidget {
