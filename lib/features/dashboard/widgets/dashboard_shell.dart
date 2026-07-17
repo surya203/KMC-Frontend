@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/auth/auth_session.dart';
 import '../../../core/auth/profile_session.dart';
+import '../../../core/auth/role_utils.dart';
 import '../../../core/search/app_search_result.dart';
 import '../../../core/search/app_search_service.dart';
 import '../../../core/constants/app_assets.dart';
@@ -110,6 +111,8 @@ class DashboardSidebar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final role = currentUserRole;
+
     return Container(
       color: AppColors.primary,
       child: SafeArea(
@@ -165,8 +168,13 @@ class DashboardSidebar extends StatelessWidget {
                     for (final item in dashboardNavItems)
                       _SidebarNavTile(
                         item: item,
-                        active: dashboardNavItemIsActive(item.path, currentPath),
+                        active: dashboardNavItemIsActive(
+                          item,
+                          currentPath,
+                          role: role,
+                        ),
                         currentPath: currentPath,
+                        role: role,
                       ),
                   ],
                 ),
@@ -198,16 +206,19 @@ class _SidebarNavTile extends StatelessWidget {
     required this.item,
     required this.active,
     required this.currentPath,
+    required this.role,
   });
 
   final DashboardNavItem item;
   final bool active;
   final String currentPath;
+  final String? role;
 
   @override
   Widget build(BuildContext context) {
     final bg = active ? AppColors.secondary : Colors.transparent;
     final fg = active ? AppColors.primary : Colors.white;
+    final targetPath = dashboardNavPath(item, role);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
@@ -224,8 +235,8 @@ class _SidebarNavTile extends StatelessWidget {
             if (scaffold?.isDrawerOpen ?? false) {
               Navigator.of(context).pop();
             }
-            if (item.path == currentPath) return;
-            context.go(item.path);
+            if (targetPath == currentPath) return;
+            context.go(targetPath);
           },
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),

@@ -3,12 +3,14 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/auth/auth_session.dart';
+import '../../../core/auth/role_utils.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/events_api_service.dart';
 import '../../../core/network/profiles_api_service.dart';
 import '../../../core/utils/membership_number_format.dart';
 import '../../../core/utils/validators.dart';
 import '../../../core/widgets/event_card.dart';
+import '../widgets/event_registrations_dialog.dart';
 
 class DashboardEventDetailScreen extends StatefulWidget {
   const DashboardEventDetailScreen({super.key, required this.slug});
@@ -240,6 +242,8 @@ class _DashboardEventDetailScreenState extends State<DashboardEventDetailScreen>
   }
 
   Widget _buildContent(EventItem event) {
+    final isAdmin = canManageEvents(currentUserRole);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -257,8 +261,15 @@ class _DashboardEventDetailScreenState extends State<DashboardEventDetailScreen>
           coverImageUrl: event.coverImageUrl,
           registrationOpen: event.registrationOpen,
           isRegistered: event.isRegistered ?? false,
+          onViewRegistrants: isAdmin
+              ? () => showEventRegistrationsDialog(
+                    context,
+                    eventId: event.id,
+                    eventTitle: event.title,
+                  )
+              : null,
         ),
-        if (event.registrationOpen) ...[
+        if (!isAdmin && event.registrationOpen) ...[
           const SizedBox(height: 24),
           _SectionCard(
             title: 'Registration form',

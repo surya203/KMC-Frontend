@@ -715,11 +715,11 @@ class AdminApiService {
         e.type == DioExceptionType.connectionTimeout ||
         e.type == DioExceptionType.receiveTimeout) {
       return 'Could not reach the server at ${AppConfig.apiBaseUrl}. '
-          'Check that the backend is running on port 8001.';
+          'Check that the backend is running.';
     }
     if (status == 500) {
       return 'Server error while processing admin request (HTTP 500). '
-          'Restart the backend on port 8001 and try again.';
+          'Restart the backend and try again.';
     }
     final fallback = e.message ?? e.response?.statusMessage;
     if (fallback != null && fallback.isNotEmpty) {

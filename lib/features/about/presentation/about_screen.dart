@@ -132,43 +132,58 @@ class _MilestoneEntry extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    final narrow = MediaQuery.sizeOf(context).width < 400;
+    final yearSize = narrow ? 26.0 : 30.0;
+    final titleSize = narrow ? 20.0 : 22.0;
+    // Wide enough for a 4-digit year on one line (e.g. 2008).
+    final yearWidth = narrow ? 72.0 : 88.0;
+    final gap = narrow ? 12.0 : 16.0;
+
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(
-          width: 72,
-          child: Text(
-            '$year',
-            style: GoogleFonts.fraunces(
-              fontSize: 30,
-              fontWeight: FontWeight.w600,
-              color: AppColors.secondary,
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
+          children: [
+            SizedBox(
+              width: yearWidth,
+              child: Text(
+                '$year',
+                maxLines: 1,
+                softWrap: false,
+                style: GoogleFonts.fraunces(
+                  fontSize: yearSize,
+                  fontWeight: FontWeight.w600,
+                  height: 1.15,
+                  color: AppColors.secondary,
+                ),
+              ),
             ),
-          ),
-        ),
-        const SizedBox(width: 24),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
+            SizedBox(width: gap),
+            Expanded(
+              child: Text(
                 title,
                 style: GoogleFonts.fraunces(
-                  fontSize: 22,
+                  fontSize: titleSize,
                   fontWeight: FontWeight.w600,
+                  height: 1.15,
                   color: AppColors.heading,
                 ),
               ),
-              const SizedBox(height: 8),
-              Text(
-                description,
-                style: GoogleFonts.inter(
-                  fontSize: 16,
-                  height: 1.6,
-                  color: AppColors.bodyText,
-                ),
-              ),
-            ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Padding(
+          padding: EdgeInsets.only(left: yearWidth + gap),
+          child: Text(
+            description,
+            style: GoogleFonts.inter(
+              fontSize: 16,
+              height: 1.6,
+              color: AppColors.bodyText,
+            ),
           ),
         ),
       ],
