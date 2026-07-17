@@ -6,6 +6,16 @@ import '../constants/app_assets.dart';
 import '../constants/app_colors.dart';
 import 'safe_asset_image.dart';
 
+class EventDetailMeta {
+  const EventDetailMeta({
+    required this.icon,
+    required this.label,
+  });
+
+  final IconData icon;
+  final String label;
+}
+
 class EventCard extends StatelessWidget {
   const EventCard({
     super.key,
@@ -19,6 +29,8 @@ class EventCard extends StatelessWidget {
     this.registrationOpen = true,
     this.isRegistered = false,
     this.showRegistrationUi = true,
+    this.showDateAndVenue = true,
+    this.detailMeta = const [],
     this.onTap,
     this.onRegister,
     this.registerButtonTooltip,
@@ -34,6 +46,8 @@ class EventCard extends StatelessWidget {
   final bool registrationOpen;
   final bool isRegistered;
   final bool showRegistrationUi;
+  final bool showDateAndVenue;
+  final List<EventDetailMeta> detailMeta;
   final VoidCallback? onTap;
   final VoidCallback? onRegister;
   /// Shown on hover when the Register button is present (e.g. login hint).
@@ -64,29 +78,47 @@ class EventCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Wrap(
-                    spacing: 16,
-                    runSpacing: 8,
-                    children: [
-                      _MetaRow(
-                        icon: Icons.calendar_today_outlined,
-                        label: dateLabel,
-                      ),
-                      _MetaRow(
-                        icon: Icons.location_on_outlined,
-                        label: venueLabel,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  Text(
-                    title,
-                    style: GoogleFonts.fraunces(
-                      fontSize: 26,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.heading,
+                  if (showDateAndVenue) ...[
+                    Wrap(
+                      spacing: 16,
+                      runSpacing: 8,
+                      children: [
+                        _MetaRow(
+                          icon: Icons.calendar_today_outlined,
+                          label: dateLabel,
+                        ),
+                        _MetaRow(
+                          icon: Icons.location_on_outlined,
+                          label: venueLabel,
+                        ),
+                      ],
                     ),
-                  ),
+                    const SizedBox(height: 14),
+                  ],
+                  if (title.trim().isNotEmpty)
+                    Text(
+                      title,
+                      style: GoogleFonts.fraunces(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.heading,
+                      ),
+                    ),
+                  if (detailMeta.isNotEmpty) ...[
+                    if (title.trim().isNotEmpty) const SizedBox(height: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        for (var i = 0; i < detailMeta.length; i++) ...[
+                          if (i > 0) const SizedBox(height: 8),
+                          _MetaRow(
+                            icon: detailMeta[i].icon,
+                            label: detailMeta[i].label,
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
                   if (subtitle != null && subtitle!.trim().isNotEmpty) ...[
                     const SizedBox(height: 8),
                     Text(

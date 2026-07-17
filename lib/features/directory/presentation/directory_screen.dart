@@ -408,7 +408,7 @@ class _FiltersCard extends StatelessWidget {
               ElevatedButton.icon(
                 onPressed: onSearch,
                 icon: const Icon(Icons.search, size: 18),
-                label: Text(compact ? 'Search' : 'Search Alumni Roll'),
+                label: Text(compact ? 'Search' : 'Search Alumni Member'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
