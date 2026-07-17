@@ -73,23 +73,10 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       final result = await _api.registerForEvent(event.id);
       if (!mounted) return;
       setState(() {
-        _event = EventItem(
-          id: event.id,
-          slug: event.slug,
-          title: event.title,
-          startsAt: event.startsAt,
-          description: event.description,
-          endsAt: event.endsAt,
-          venueName: event.venueName,
-          venueAddress: event.venueAddress,
-          city: event.city,
-          isOnline: event.isOnline,
-          meetingUrl: event.meetingUrl,
-          capacity: event.capacity,
-          coverImageUrl: event.coverImageUrl,
-          registrationOpen: event.registrationOpen,
+        _event = event.copyWith(
           registeredCount: result.registeredCount,
-          isRegistered: true,
+          isRegistered: result.status == 'registered',
+          isWaitlisted: result.status == 'waitlisted',
         );
         _registering = false;
         _message = result.message;
@@ -105,7 +92,10 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
   Future<void> _cancel() async {
     final event = _event;
-    if (event == null || !(event.isRegistered ?? false)) return;
+    if (event == null) return;
+    final canCancel =
+        (event.isRegistered ?? false) || (event.isWaitlisted ?? false);
+    if (!canCancel) return;
 
     setState(() {
       _cancelling = true;
@@ -116,23 +106,10 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       final result = await _api.cancelRegistration(event.id);
       if (!mounted) return;
       setState(() {
-        _event = EventItem(
-          id: event.id,
-          slug: event.slug,
-          title: event.title,
-          startsAt: event.startsAt,
-          description: event.description,
-          endsAt: event.endsAt,
-          venueName: event.venueName,
-          venueAddress: event.venueAddress,
-          city: event.city,
-          isOnline: event.isOnline,
-          meetingUrl: event.meetingUrl,
-          capacity: event.capacity,
-          coverImageUrl: event.coverImageUrl,
-          registrationOpen: event.registrationOpen,
+        _event = event.copyWith(
           registeredCount: result.registeredCount,
           isRegistered: false,
+          isWaitlisted: false,
         );
         _cancelling = false;
         _message = result.message;
@@ -203,12 +180,16 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
           registeredCount: event.registeredCount,
           coverImageUrl: event.coverImageUrl,
           registrationOpen: event.registrationOpen,
-          isRegistered: event.isRegistered ?? false,
-          onRegister: _registering || (event.isRegistered ?? false)
+          isRegistered: (event.isRegistered ?? false) ||
+              (event.isWaitlisted ?? false),
+          onRegister: _registering ||
+                  (event.isRegistered ?? false) ||
+                  (event.isWaitlisted ?? false)
               ? null
               : _register,
         ),
-        if (event.isRegistered ?? false) ...[
+        if ((event.isRegistered ?? false) ||
+            (event.isWaitlisted ?? false)) ...[
           const SizedBox(height: 16),
           OutlinedButton(
             onPressed: _cancelling ? null : _cancel,
@@ -218,7 +199,11 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                     height: 20,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Text('Cancel registration'),
+                : Text(
+                    (event.isWaitlisted ?? false)
+                        ? 'Leave waitlist'
+                        : 'Cancel registration',
+                  ),
           ),
         ],
         if (_registering)

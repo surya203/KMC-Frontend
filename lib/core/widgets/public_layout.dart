@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../constants/app_assets.dart';
 import '../constants/app_colors.dart';
+import 'drugs_header_card.dart';
 import 'hover_link.dart';
 import 'safe_asset_image.dart';
 
@@ -96,6 +97,8 @@ class PublicAppBar extends StatelessWidget implements PreferredSizeWidget {
                     ),
                   ),
                 ),
+                const SizedBox(width: 8),
+                const DrugsHeaderCard(),
               ],
             ),
           ),
@@ -133,6 +136,8 @@ class PublicAppBar extends StatelessWidget implements PreferredSizeWidget {
                 ),
               ),
               const Spacer(),
+              const DrugsHeaderCard(),
+              const SizedBox(width: 12),
               HoverLink(
                 label: 'Sign in',
                 fontSize: 14,
