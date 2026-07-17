@@ -3,6 +3,7 @@ import 'package:file_picker/file_picker.dart';
 
 import '../config/app_config.dart';
 import 'api_client.dart';
+import 'api_errors.dart';
 import 'auth_service.dart';
 
 class GalleryAlbum {
@@ -166,29 +167,33 @@ class GalleryApiService {
   }
 
   Future<List<GalleryAlbum>> fetchAlbums() async {
-    try {
-      final response = await _apiClient.get<Map<String, dynamic>>(
-        '${AppConfig.apiPrefix}/gallery/albums',
-      );
-      final albums = response.data?['albums'] as List<dynamic>? ?? [];
-      return albums
-          .map((e) => GalleryAlbum.fromJson(e as Map<String, dynamic>))
-          .toList();
-    } on DioException catch (e) {
-      throw Exception(_readDetail(e));
-    }
+    return withNetworkRetry(() async {
+      try {
+        final response = await _apiClient.get<Map<String, dynamic>>(
+          '${AppConfig.apiPrefix}/gallery/albums',
+        );
+        final albums = response.data?['albums'] as List<dynamic>? ?? [];
+        return albums
+            .map((e) => GalleryAlbum.fromJson(e as Map<String, dynamic>))
+            .toList();
+      } on DioException catch (e) {
+        throw Exception(_readDetail(e));
+      }
+    });
   }
 
   Future<GalleryAlbumDetail> fetchAlbumBySlug(String slug) async {
-    try {
-      final response = await _apiClient.get<Map<String, dynamic>>(
-        '${AppConfig.apiPrefix}/gallery/albums/$slug',
-      );
-      if (response.data == null) throw Exception('Album not found.');
-      return GalleryAlbumDetail.fromJson(response.data!);
-    } on DioException catch (e) {
-      throw Exception(_readDetail(e));
-    }
+    return withNetworkRetry(() async {
+      try {
+        final response = await _apiClient.get<Map<String, dynamic>>(
+          '${AppConfig.apiPrefix}/gallery/albums/$slug',
+        );
+        if (response.data == null) throw Exception('Album not found.');
+        return GalleryAlbumDetail.fromJson(response.data!);
+      } on DioException catch (e) {
+        throw Exception(_readDetail(e));
+      }
+    });
   }
 
   Future<GalleryMediaPage> fetchAlbumMediaPage(
@@ -196,24 +201,26 @@ class GalleryApiService {
     int page = 1,
     int pageSize = 50,
   }) async {
-    try {
-      final response = await _apiClient.get<Map<String, dynamic>>(
-        '${AppConfig.apiPrefix}/gallery/albums/$slug/media',
-        queryParameters: {'page': page, 'page_size': pageSize},
-      );
-      final data = response.data ?? {};
-      final raw = (data['items'] ?? data['media']) as List<dynamic>? ?? [];
-      return GalleryMediaPage(
-        items: raw
-            .map((e) => GalleryMediaItem.fromJson(e as Map<String, dynamic>))
-            .toList(),
-        page: data['page'] as int? ?? page,
-        total: data['total'] as int? ?? raw.length,
-        hasMore: data['has_more'] as bool? ?? false,
-      );
-    } on DioException catch (e) {
-      throw Exception(_readDetail(e));
-    }
+    return withNetworkRetry(() async {
+      try {
+        final response = await _apiClient.get<Map<String, dynamic>>(
+          '${AppConfig.apiPrefix}/gallery/albums/$slug/media',
+          queryParameters: {'page': page, 'page_size': pageSize},
+        );
+        final data = response.data ?? {};
+        final raw = (data['items'] ?? data['media']) as List<dynamic>? ?? [];
+        return GalleryMediaPage(
+          items: raw
+              .map((e) => GalleryMediaItem.fromJson(e as Map<String, dynamic>))
+              .toList(),
+          page: data['page'] as int? ?? page,
+          total: data['total'] as int? ?? raw.length,
+          hasMore: data['has_more'] as bool? ?? false,
+        );
+      } on DioException catch (e) {
+        throw Exception(_readDetail(e));
+      }
+    });
   }
 
   Future<List<GalleryMediaItem>> fetchAlbumMedia(
@@ -281,24 +288,28 @@ class GalleryApiService {
   }
 
   Future<List<GalleryAlbum>> fetchAlbumsAsAdmin() async {
-    try {
-      final response = await _apiClient.get<dynamic>(
-        '${AppConfig.apiPrefix}/admin/gallery/albums',
-        options: _authOptions,
-      );
-      final raw = response.data;
-      final albums = raw is List
-          ? raw
-          : (raw is Map ? (raw['albums'] as List<dynamic>? ?? []) : <dynamic>[]);
-      return albums
-          .map((e) => GalleryAlbum.fromJson({
-                ...(e as Map<String, dynamic>),
-                'media_count': e['media_count'] ?? 0,
-              }))
-          .toList();
-    } on DioException catch (e) {
-      throw Exception(_readDetail(e));
-    }
+    return withNetworkRetry(() async {
+      try {
+        final response = await _apiClient.get<dynamic>(
+          '${AppConfig.apiPrefix}/admin/gallery/albums',
+          options: _authOptions,
+        );
+        final raw = response.data;
+        final albums = raw is List
+            ? raw
+            : (raw is Map
+                ? (raw['albums'] as List<dynamic>? ?? [])
+                : <dynamic>[]);
+        return albums
+            .map((e) => GalleryAlbum.fromJson({
+                  ...(e as Map<String, dynamic>),
+                  'media_count': e['media_count'] ?? 0,
+                }))
+            .toList();
+      } on DioException catch (e) {
+        throw Exception(_readDetail(e));
+      }
+    });
   }
 
   Future<GalleryAlbumDetail> updateAlbum({
@@ -490,9 +501,19 @@ class GalleryApiService {
   }
 
   String _readDetail(DioException e) {
+    if (e.type == DioExceptionType.connectionError ||
+        e.type == DioExceptionType.connectionTimeout ||
+        e.type == DioExceptionType.receiveTimeout ||
+        e.type == DioExceptionType.sendTimeout) {
+      return 'Could not reach the server at ${AppConfig.apiBaseUrl}. '
+          'Check that the backend is running, then tap Retry.';
+    }
     final detail = e.response?.data;
     if (detail is Map && detail['detail'] != null) {
       return '${detail['detail']}';
+    }
+    if (e.response?.statusCode == 502 || e.response?.statusCode == 503) {
+      return 'Gallery service is temporarily unavailable. Tap Retry.';
     }
     return e.response?.statusMessage ?? 'Gallery request failed.';
   }

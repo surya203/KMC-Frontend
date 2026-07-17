@@ -388,21 +388,22 @@ class _DashboardConnectScreenState extends State<DashboardConnectScreen> {
         fileName,
       );
       _messageController.clear();
-      await _load();
+      // Stay in Alumni Chat — WhatsApp-style, no full-page reload after send.
+      await _load(silent: true);
       if (!mounted) return;
       final targeted = targets?.hasAny ?? false;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            targeted
-                ? 'Alert sent only to matching alumni'
-                : hasFile
-                    ? 'Document sent to Alumni Chat'
-                    : 'Message sent to Alumni Chat',
+      if (targeted || hasFile) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              targeted
+                  ? 'Alert sent only to matching alumni'
+                  : 'Document sent to Alumni Chat',
+            ),
+            backgroundColor: const Color(0xFF1F6B3A),
           ),
-          backgroundColor: const Color(0xFF1F6B3A),
-        ),
-      );
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -428,18 +429,17 @@ class _DashboardConnectScreenState extends State<DashboardConnectScreen> {
     try {
       await _api.postFinanceCouncilMessage(text, fileBytes, fileName);
       _messageController.clear();
-      await _load();
+      // Stay in Financial Decisions — no full-page reload after send.
+      await _load(silent: true);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            hasFile
-                ? 'Document sent to Financial Decisions'
-                : 'Message sent to Financial Decisions',
+      if (hasFile) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Document sent to Financial Decisions'),
+            backgroundColor: Color(0xFF1F6B3A),
           ),
-          backgroundColor: const Color(0xFF1F6B3A),
-        ),
-      );
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -468,16 +468,14 @@ class _DashboardConnectScreenState extends State<DashboardConnectScreen> {
       // Stay in EC group chat — never full-page reload after send.
       await _load(silent: true);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            hasFile
-                ? 'Document sent to Executive Committee Chat'
-                : 'Message sent to Executive Committee Chat',
+      if (hasFile) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Document sent to Executive Committee Chat'),
+            backgroundColor: Color(0xFF1F6B3A),
           ),
-          backgroundColor: const Color(0xFF1F6B3A),
-        ),
-      );
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

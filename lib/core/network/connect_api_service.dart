@@ -306,6 +306,15 @@ class ConnectApiService {
     return Options(headers: {'Authorization': header});
   }
 
+  /// Multipart uploads must send Authorization and must not force JSON Content-Type.
+  Options _multipartAuthOptions(String authorizationHeader) {
+    return Options(
+      headers: {'Authorization': authorizationHeader},
+      sendTimeout: const Duration(minutes: 2),
+      receiveTimeout: const Duration(minutes: 2),
+    );
+  }
+
   Future<List<AnnouncementItem>> fetchGeneralGroupPosts() async {
     await AuthSession.instance.ensureReady();
     return _announcementsApi.fetchAnnouncements(category: generalGroupCategory);
@@ -352,6 +361,8 @@ class ConnectApiService {
     await AuthSession.instance.ensureReady();
     final options = _authOptions;
     if (options == null) throw Exception('Sign in to post to Alumni Chat.');
+    final authHeader = AuthService.authorizationHeader;
+    if (authHeader == null) throw Exception('Sign in to post to Alumni Chat.');
     final trimmed = body.trim();
     final hasFile = fileBytes != null &&
         fileBytes.isNotEmpty &&
@@ -373,16 +384,11 @@ class ConnectApiService {
           ),
         });
 
-        // Absolute URL from AppConfig (API_BASE_URL in .env / window.__ENV__).
-        final uploadUrl =
-            '${AppConfig.apiBaseUrl}${AppConfig.apiPrefix}/connect/community/messages/with-file';
+        // Relative path + auth header (same pattern as gallery uploads).
         final response = await _apiClient.dio.post<Map<String, dynamic>>(
-          uploadUrl,
+          '${AppConfig.apiPrefix}/connect/community/messages/with-file',
           data: formData,
-          options: Options(
-            sendTimeout: const Duration(minutes: 2),
-            receiveTimeout: const Duration(minutes: 2),
-          ),
+          options: _multipartAuthOptions(authHeader),
         );
 
         final savedName = response.data?['attachment_name'] as String?;
@@ -465,6 +471,10 @@ class ConnectApiService {
     await AuthSession.instance.ensureReady();
     final options = _authOptions;
     if (options == null) throw Exception('Sign in to post to Financial Decisions.');
+    final authHeader = AuthService.authorizationHeader;
+    if (authHeader == null) {
+      throw Exception('Sign in to post to Financial Decisions.');
+    }
     final trimmed = body.trim();
     final hasFile = fileBytes != null &&
         fileBytes.isNotEmpty &&
@@ -482,15 +492,10 @@ class ConnectApiService {
             filename: fileName.trim(),
           ),
         });
-        final uploadUrl =
-            '${AppConfig.apiBaseUrl}${AppConfig.apiPrefix}/connect/finance-council/messages/with-file';
         final response = await _apiClient.dio.post<Map<String, dynamic>>(
-          uploadUrl,
+          '${AppConfig.apiPrefix}/connect/finance-council/messages/with-file',
           data: formData,
-          options: Options(
-            sendTimeout: const Duration(minutes: 2),
-            receiveTimeout: const Duration(minutes: 2),
-          ),
+          options: _multipartAuthOptions(authHeader),
         );
         final savedName = response.data?['attachment_name'] as String?;
         if (savedName == null || savedName.trim().isEmpty) {
@@ -571,6 +576,10 @@ class ConnectApiService {
     if (options == null) {
       throw Exception('Sign in to post to Executive Committee Chat.');
     }
+    final authHeader = AuthService.authorizationHeader;
+    if (authHeader == null) {
+      throw Exception('Sign in to post to Executive Committee Chat.');
+    }
     final trimmed = body.trim();
     final hasFile = fileBytes != null &&
         fileBytes.isNotEmpty &&
@@ -588,15 +597,10 @@ class ConnectApiService {
             filename: fileName.trim(),
           ),
         });
-        final uploadUrl =
-            '${AppConfig.apiBaseUrl}${AppConfig.apiPrefix}/connect/executive-committee/messages/with-file';
         final response = await _apiClient.dio.post<Map<String, dynamic>>(
-          uploadUrl,
+          '${AppConfig.apiPrefix}/connect/executive-committee/messages/with-file',
           data: formData,
-          options: Options(
-            sendTimeout: const Duration(minutes: 2),
-            receiveTimeout: const Duration(minutes: 2),
-          ),
+          options: _multipartAuthOptions(authHeader),
         );
         final savedName = response.data?['attachment_name'] as String?;
         if (savedName == null || savedName.trim().isEmpty) {
