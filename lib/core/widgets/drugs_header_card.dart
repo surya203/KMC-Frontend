@@ -162,7 +162,7 @@ class _DrugsHeaderCardState extends State<DrugsHeaderCard> {
   }
 
   Widget _placeholder() {
-    final name = _store.card?.name?.trim();
+    final name = _store.card?.name.trim();
     final label = (name != null && name.isNotEmpty) ? name : 'Drug';
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 6),
