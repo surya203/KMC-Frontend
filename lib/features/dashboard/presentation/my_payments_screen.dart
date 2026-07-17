@@ -206,7 +206,7 @@ class _PaymentCard extends StatelessWidget {
                         membershipDisplayId!.isNotEmpty) ...[
                       const SizedBox(height: 4),
                       Text(
-                        'membership id:$membershipDisplayId',
+                        'Membership ID: $membershipDisplayId',
                         style: GoogleFonts.inter(
                           fontSize: 12,
                           color: AppColors.mutedText,

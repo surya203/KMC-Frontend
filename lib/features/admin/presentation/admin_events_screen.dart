@@ -437,6 +437,24 @@ class _EventEditorDialogState extends State<_EventEditorDialog> {
     });
   }
 
+  void _setAsUpcoming() {
+    final now = DateTime.now();
+    setState(() {
+      _publish = true;
+      if (!_startsAt.isAfter(now)) {
+        _startsAt = now.add(const Duration(days: 30));
+      }
+      if (_endsAt != null && !_endsAt!.isAfter(_startsAt)) {
+        _endsAt = null;
+      }
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Upcoming enabled. Save the event to show it on Home.'),
+      ),
+    );
+  }
+
   String _formatDateTime(DateTime dt) {
     final local = dt.toLocal();
     final h = local.hour.toString().padLeft(2, '0');
@@ -668,6 +686,15 @@ class _EventEditorDialogState extends State<_EventEditorDialog> {
                       trailing: const Icon(Icons.calendar_today_outlined),
                       onTap: _pickStartsAt,
                     ),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: OutlinedButton.icon(
+                        onPressed: _saving ? null : _setAsUpcoming,
+                        icon: const Icon(Icons.upcoming_outlined, size: 18),
+                        label: const Text('Set as upcoming on Home'),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
                     ListTile(
                       contentPadding: EdgeInsets.zero,
                       title: const Text('End date & time'),

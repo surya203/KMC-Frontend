@@ -61,6 +61,27 @@ class MembershipNumberFormat {
     return '';
   }
 
+  /// Avatar letter from the real first name (skips Dr./Mr./etc.).
+  static String avatarInitial(String? fullName) {
+    final first = _firstName(fullName);
+    if (first.isEmpty) return 'A';
+    return first[0].toUpperCase();
+  }
+
+  /// Up to [max] initials from name parts after skipping titles.
+  static String avatarInitials(String? fullName, {int max = 2}) {
+    if (fullName == null || fullName.trim().isEmpty) return 'A';
+    final parts = <String>[];
+    for (final part in fullName.trim().split(RegExp(r'\s+'))) {
+      final normalized = _normalizeNameToken(part);
+      if (normalized.isEmpty || _nameTitles.contains(normalized)) continue;
+      parts.add(normalized);
+      if (parts.length >= max) break;
+    }
+    if (parts.isEmpty) return 'A';
+    return parts.map((p) => p[0].toUpperCase()).join();
+  }
+
   static int? _sequence(String? membershipNumber) {
     final raw = membershipNumber?.trim();
     if (raw == null || raw.isEmpty) return null;
