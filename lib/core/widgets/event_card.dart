@@ -33,6 +33,7 @@ class EventCard extends StatelessWidget {
     this.detailMeta = const [],
     this.onTap,
     this.onRegister,
+    this.onViewRegistrants,
     this.registerButtonTooltip,
   });
 
@@ -50,12 +51,15 @@ class EventCard extends StatelessWidget {
   final List<EventDetailMeta> detailMeta;
   final VoidCallback? onTap;
   final VoidCallback? onRegister;
+  /// Admin-only: opens registrant list instead of showing Register.
+  final VoidCallback? onViewRegistrants;
   /// Shown on hover when the Register button is present (e.g. login hint).
   final String? registerButtonTooltip;
 
   @override
   Widget build(BuildContext context) {
-    final canRegister = registrationOpen && !isRegistered;
+    final isAdminView = onViewRegistrants != null;
+    final canRegister = !isAdminView && registrationOpen && !isRegistered;
 
     return Material(
       color: AppColors.card,
@@ -136,18 +140,23 @@ class EventCard extends StatelessWidget {
                       builder: (context, constraints) {
                         final stackActions = constraints.maxWidth < 340;
                         final countLabel = '$registeredCount registered';
-                        final buttonLabel = isRegistered
-                            ? 'Registered'
-                            : registrationOpen
-                                ? 'Register'
-                                : 'Closed';
-                        final registerEnabled =
-                            canRegister && onRegister != null;
+                        final buttonLabel = isAdminView
+                            ? 'View registrants'
+                            : isRegistered
+                                ? 'Registered'
+                                : registrationOpen
+                                    ? 'Register'
+                                    : 'Closed';
+                        final registerEnabled = isAdminView
+                            ? onViewRegistrants != null
+                            : canRegister && onRegister != null;
                         // Disabled ElevatedButtons ignore hover; keep a
                         // pressable target when a tooltip must still show.
                         final registerButton = ElevatedButton(
                           onPressed: registerEnabled
-                              ? onRegister
+                              ? (isAdminView
+                                  ? onViewRegistrants
+                                  : onRegister)
                               : (registerButtonTooltip != null
                                   ? () {}
                                   : null),
