@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/auth/auth_session.dart';
+import '../../../core/auth/role_utils.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/admin_api_service.dart';
 
@@ -15,22 +16,7 @@ class AdminMembersScreen extends StatefulWidget {
 class _AdminMembersScreenState extends State<AdminMembersScreen> {
   final _api = AdminApiService();
   final _search = TextEditingController();
-  final _roles = const [
-    'member',
-    'staff',
-    'executive',
-    'verifier',
-    'president',
-    'vice_president',
-    'secretary',
-    'treasurer',
-    'admin',
-  ];
-
-  /// Legacy DB values → current assignable roles (dropdown value must match an item).
-  static const _roleAliases = {
-    'ec_member': 'executive',
-  };
+  final _roles = assignableUserRoles;
 
   List<AdminMemberItem> _members = [];
   int _page = 1;
@@ -38,19 +24,6 @@ class _AdminMembersScreenState extends State<AdminMembersScreen> {
   bool _loading = true;
   String? _error;
   String? _savingUserId;
-
-  String _normalizeRole(String? role) {
-    final raw = role?.trim() ?? '';
-    if (raw.isEmpty) return 'member';
-    return _roleAliases[raw] ?? raw;
-  }
-
-  /// Dropdown value + items always agree (avoids Flutter assertion on unknown roles).
-  (String value, List<String> items) _roleDropdown(String? role) {
-    final value = _normalizeRole(role);
-    if (_roles.contains(value)) return (value, _roles);
-    return (value, [..._roles, value]);
-  }
 
   @override
   void initState() {
@@ -219,7 +192,13 @@ class _AdminMembersScreenState extends State<AdminMembersScreen> {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                '${m.email} · ${m.planName ?? 'No plan'} · ${m.verificationStatus ?? 'unknown'}',
+                                [
+                                  m.email,
+                                  userRoleLabel(m.role),
+                                  if (m.isEcMember) 'EC',
+                                  m.planName ?? 'No plan',
+                                  m.verificationStatus ?? 'unknown',
+                                ].join(' · '),
                                 style: GoogleFonts.inter(
                                   color: AppColors.mutedText,
                                   fontSize: 12,
@@ -229,29 +208,27 @@ class _AdminMembersScreenState extends State<AdminMembersScreen> {
                           ),
                         ),
                         const SizedBox(width: 12),
-                        Builder(
-                          builder: (context) {
-                            final (roleValue, roleItems) = _roleDropdown(m.role);
-                            return DropdownButton<String>(
-                              value: roleValue,
-                              items: roleItems
-                                  .map(
-                                    (r) => DropdownMenuItem(
-                                      value: r,
-                                      child: Text(r),
-                                    ),
-                                  )
-                                  .toList(),
-                              onChanged: _savingUserId == m.userId
-                                  ? null
-                                  : (value) {
-                                      if (value == null || value == m.role) {
-                                        return;
-                                      }
-                                      _changeRole(m, value);
-                                    },
-                            );
-                          },
+                        DropdownButton<String>(
+                          value: m.role,
+                          items: [
+                            for (final r in {
+                              ..._roles,
+                              // Keep current value selectable if legacy/orphan
+                              // (e.g. old verifier / executive) so the dropdown
+                              // does not assert.
+                              if (!_roles.contains(m.role)) m.role,
+                            })
+                              DropdownMenuItem(
+                                value: r,
+                                child: Text(userRoleLabel(r)),
+                              ),
+                          ],
+                          onChanged: _savingUserId == m.userId
+                              ? null
+                              : (value) {
+                                  if (value == null || value == m.role) return;
+                                  _changeRole(m, value);
+                                },
                         ),
                       ],
                     ),

@@ -562,7 +562,7 @@ class _DashboardConnectScreenState extends State<DashboardConnectScreen> {
                 _activeTab == _ConnectTab.alumniChat
                     ? 'Open chat for all members. Messages older than 3 months are removed automatically.'
                     : _activeTab == _ConnectTab.financeCouncil
-                        ? 'Private room for President, VP, and Treasurer. Admin can view only. Documents supported.'
+                        ? 'Private room for President, VP, Secretary, and Treasurer. Admin can view only. Documents supported.'
                         : canAccessExecutiveCommittee
                             ? 'View EC members and open EC Group Chat. Messages and documents are kept permanently.'
                             : 'View who is on the Executive Committee. Only EC members can open EC Group Chat.',
@@ -818,7 +818,7 @@ class _FinanceCouncilReadOnlyNotice extends StatelessWidget {
           Expanded(
             child: Text(
               'You are signed in as ${financeCouncilRoleLabel(role)} with view-only access. '
-              'Only President, Vice President, and Treasurer can post in Financial Decisions.',
+              'Only President, Vice President, Secretary, and Treasurer can post in Financial Decisions.',
               style: GoogleFonts.inter(
                 fontSize: 13,
                 color: AppColors.bodyText,

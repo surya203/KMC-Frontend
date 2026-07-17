@@ -1,8 +1,39 @@
 import 'auth_session.dart';
 import 'jwt_role.dart';
+import '../network/auth_service.dart';
 
-/// Staff roles that can access the admin area.
-const staffRoles = {'admin', 'staff', 'verifier', 'executive'};
+/// Roles that can access the admin area (legacy `executive` kept for old accounts).
+const staffRoles = {'admin', 'staff', 'executive'};
+
+/// Executive Committee designation (assignable; labeled "Executive").
+const ecMemberRole = 'ec_member';
+
+/// Alumni account roles (member dashboard; not officers/admin).
+const alumniRoles = {ecMemberRole, 'member', 'staff'};
+
+/// Roles assignable in Admin → Members (verifier and legacy `executive` removed).
+const assignableUserRoles = [
+  'member',
+  ecMemberRole,
+  'staff',
+  'president',
+  'vice_president',
+  'secretary',
+  'treasurer',
+  'admin',
+];
+
+const _userRoleLabels = <String, String>{
+  'member': 'Alumni member',
+  ecMemberRole: 'Executive',
+  'staff': 'NRI Alumni',
+  'executive': 'Executive', // legacy role=executive rows
+  'president': 'President',
+  'vice_president': 'Vice President',
+  'secretary': 'Secretary',
+  'treasurer': 'Treasurer',
+  'admin': 'Admin',
+};
 
 const officerRoles = {
   'president',
@@ -11,15 +42,17 @@ const officerRoles = {
   'treasurer',
 };
 
-/// Officers + EC members (`executive`) + admin — can open EC group chat.
+/// Officers + Executive (`ec_member`; legacy `executive`) + admin — EC group chat.
 const executiveCommitteeRoles = {
   ...officerRoles,
+  ecMemberRole,
   'executive',
   'admin',
 };
 
 const announcementPublisherRoles = {
   'admin',
+  ecMemberRole,
   'executive',
   ...officerRoles,
 };
@@ -43,11 +76,36 @@ bool isStaffRole(String? role) {
 
 bool isAdminRole(String? role) => resolveUserRole(role) == 'admin';
 
+bool isEcMemberRole(String? role) => resolveUserRole(role) == ecMemberRole;
+
+/// Prefer the `is_ec_member` flag from `/auth/me` (works for EC presidents too).
+bool isEcMemberUser([AuthUser? user]) {
+  final u = user ?? AuthSession.instance.currentUser;
+  if (u == null) return false;
+  return u.isEcMember || u.role == ecMemberRole || u.role == 'executive';
+}
+
+bool isAlumniRole(String? role) {
+  final resolved = resolveUserRole(role);
+  return resolved != null && alumniRoles.contains(resolved);
+}
+
+String userRoleLabel(String? role) {
+  final resolved = resolveUserRole(role);
+  if (resolved == null) return 'Alumni member';
+  return _userRoleLabels[resolved] ??
+      resolved.replaceAll('_', ' ').split(' ').map((part) {
+        if (part.isEmpty) return part;
+        return '${part[0].toUpperCase()}${part.substring(1)}';
+      }).join(' ');
+}
+
 bool canViewAdminAnalytics(String? role) => resolveUserRole(role) == 'admin';
 
 bool canReviewVerifications(String? role) {
   final resolved = resolveUserRole(role);
-  return resolved == 'admin' || resolved == 'verifier' || resolved == 'staff';
+  // Verifier role removed — admin and NRI Alumni (staff) only.
+  return resolved == 'admin' || resolved == 'staff';
 }
 
 bool canManageMembers(String? role) => resolveUserRole(role) == 'admin';
@@ -70,7 +128,7 @@ bool canStartExecutiveDm(String? role) {
       (officerRoles.contains(resolved) || resolved == 'admin');
 }
 
-/// EC group chat: officers, role=executive (committee members), and admin.
+/// EC group chat: officers, Executive (`ec_member`), legacy `executive`, and admin.
 bool canViewExecutiveCommittee(String? role) {
   final resolved = resolveUserRole(role);
   return resolved != null && executiveCommitteeRoles.contains(resolved);
@@ -81,7 +139,7 @@ bool canPostToExecutiveCommittee(String? role) =>
 
 String executiveCommitteeRoleLabel(String? role) {
   final resolved = resolveUserRole(role);
-  if (resolved == null) return 'Member';
+  if (resolved == null) return 'Alumni member';
   switch (resolved) {
     case 'president':
       return 'President';
@@ -91,12 +149,13 @@ String executiveCommitteeRoleLabel(String? role) {
       return 'Secretary';
     case 'treasurer':
       return 'Treasurer';
+    case 'ec_member':
     case 'executive':
-      return 'Executive Committee';
+      return 'Executive';
     case 'admin':
       return 'Admin';
     default:
-      return 'Member';
+      return userRoleLabel(resolved);
   }
 }
 
@@ -109,6 +168,7 @@ bool canPostToGeneralGroup(String? role) {
 const financeCouncilViewRoles = {
   'president',
   'vice_president',
+  'secretary',
   'treasurer',
   'admin',
 };
@@ -116,10 +176,11 @@ const financeCouncilViewRoles = {
 const financeCouncilPostRoles = {
   'president',
   'vice_president',
+  'secretary',
   'treasurer',
 };
 
-/// Finance Council: President, VP, Treasurer chat; Admin view-only.
+/// Finance Council: President, VP, Secretary, Treasurer chat; Admin view-only.
 bool canViewFinanceCouncil(String? role) {
   final resolved = resolveUserRole(role);
   return resolved != null && financeCouncilViewRoles.contains(resolved);
@@ -132,24 +193,7 @@ bool canPostToFinanceCouncil(String? role) {
 
 String financeCouncilRoleLabel(String? role) {
   final resolved = resolveUserRole(role);
-  if (resolved == null) return 'Member';
-  switch (resolved) {
-    case 'president':
-      return 'President';
-    case 'vice_president':
-      return 'Vice President';
-    case 'treasurer':
-      return 'Treasurer';
-    case 'admin':
-      return 'Admin';
-    default:
-      return 'Member';
-  }
-}
-
-String generalGroupRoleLabel(String? role) {
-  final resolved = resolveUserRole(role);
-  if (resolved == null) return 'Member';
+  if (resolved == null) return 'Alumni member';
   switch (resolved) {
     case 'president':
       return 'President';
@@ -162,7 +206,26 @@ String generalGroupRoleLabel(String? role) {
     case 'admin':
       return 'Admin';
     default:
-      return 'Member';
+      return userRoleLabel(resolved);
+  }
+}
+
+String generalGroupRoleLabel(String? role) {
+  final resolved = resolveUserRole(role);
+  if (resolved == null) return 'Alumni member';
+  switch (resolved) {
+    case 'president':
+      return 'President';
+    case 'vice_president':
+      return 'Vice President';
+    case 'secretary':
+      return 'Secretary';
+    case 'treasurer':
+      return 'Treasurer';
+    case 'admin':
+      return 'Admin';
+    default:
+      return userRoleLabel(resolved);
   }
 }
 
