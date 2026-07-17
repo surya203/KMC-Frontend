@@ -5,6 +5,7 @@ import '../auth/role_utils.dart';
 import '../../features/about/presentation/about_screen.dart';
 import '../../features/admin/presentation/admin_dashboard_screen.dart';
 import '../../features/admin/presentation/admin_drugs_screen.dart';
+import '../../features/admin/presentation/admin_event_registrations_screen.dart';
 import '../../features/admin/presentation/admin_events_screen.dart';
 import '../../features/admin/presentation/admin_members_screen.dart';
 import '../../features/admin/presentation/admin_verifications_screen.dart';
@@ -104,6 +105,10 @@ final GoRouter appRouter = GoRouter(
         if (canReviewVerifications(role)) return '/admin/verifications';
         return '/dashboard';
       }
+    }
+
+    if (location.startsWith('/my-events') && canManageEvents(role)) {
+      return '/admin/events';
     }
 
     if (location == '/admin' &&
@@ -227,6 +232,24 @@ final GoRouter appRouter = GoRouter(
             key: state.pageKey,
             child: const AdminEventsScreen(),
           ),
+          routes: [
+            GoRoute(
+              path: ':eventId',
+              pageBuilder: (context, state) {
+                final extra = state.extra;
+                final title = extra is String && extra.trim().isNotEmpty
+                    ? extra.trim()
+                    : 'Event';
+                return adminPage(
+                  key: state.pageKey,
+                  child: AdminEventRegistrationsScreen(
+                    eventId: state.pathParameters['eventId']!,
+                    eventTitle: title,
+                  ),
+                );
+              },
+            ),
+          ],
         ),
         GoRoute(
           path: '/admin/gallery',
