@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../core/auth/role_utils.dart';
+import '../../../core/auth/role_utils.dart';
 
 class DashboardNavItem {
   const DashboardNavItem(this.label, this.icon, this.path);

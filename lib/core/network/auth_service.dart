@@ -28,6 +28,7 @@ class AuthUser {
     required this.id,
     required this.email,
     required this.role,
+    this.isEcMember = false,
     this.fullName,
     this.batchYear,
     this.membershipNumber,
@@ -36,6 +37,8 @@ class AuthUser {
   final String id;
   final String email;
   final String role;
+  /// True for Executive Committee accounts (independent of [role]).
+  final bool isEcMember;
   final String? fullName;
   final int? batchYear;
   final String? membershipNumber;
@@ -47,6 +50,7 @@ class AuthUser {
       id: json['id'] as String,
       email: json['email'] as String,
       role: json['role'] as String,
+      isEcMember: json['is_ec_member'] as bool? ?? false,
       fullName: profile is Map<String, dynamic>
           ? profile['full_name'] as String?
           : null,

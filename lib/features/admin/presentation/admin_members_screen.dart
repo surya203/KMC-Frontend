@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/auth/auth_session.dart';
+import '../../../core/auth/role_utils.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/admin_api_service.dart';
 
@@ -15,17 +16,7 @@ class AdminMembersScreen extends StatefulWidget {
 class _AdminMembersScreenState extends State<AdminMembersScreen> {
   final _api = AdminApiService();
   final _search = TextEditingController();
-  final _roles = const [
-    'member',
-    'staff',
-    'executive',
-    'verifier',
-    'president',
-    'vice_president',
-    'secretary',
-    'treasurer',
-    'admin',
-  ];
+  final _roles = assignableUserRoles;
 
   List<AdminMemberItem> _members = [];
   int _page = 1;
@@ -201,7 +192,13 @@ class _AdminMembersScreenState extends State<AdminMembersScreen> {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                '${m.email} · ${m.planName ?? 'No plan'} · ${m.verificationStatus ?? 'unknown'}',
+                                [
+                                  m.email,
+                                  userRoleLabel(m.role),
+                                  if (m.isEcMember) 'EC',
+                                  m.planName ?? 'No plan',
+                                  m.verificationStatus ?? 'unknown',
+                                ].join(' · '),
                                 style: GoogleFonts.inter(
                                   color: AppColors.mutedText,
                                   fontSize: 12,
@@ -213,14 +210,19 @@ class _AdminMembersScreenState extends State<AdminMembersScreen> {
                         const SizedBox(width: 12),
                         DropdownButton<String>(
                           value: m.role,
-                          items: _roles
-                              .map(
-                                (r) => DropdownMenuItem(
-                                  value: r,
-                                  child: Text(r),
-                                ),
-                              )
-                              .toList(),
+                          items: [
+                            for (final r in {
+                              ..._roles,
+                              // Keep current value selectable if legacy/orphan
+                              // (e.g. old verifier / executive) so the dropdown
+                              // does not assert.
+                              if (!_roles.contains(m.role)) m.role,
+                            })
+                              DropdownMenuItem(
+                                value: r,
+                                child: Text(userRoleLabel(r)),
+                              ),
+                          ],
                           onChanged: _savingUserId == m.userId
                               ? null
                               : (value) {
