@@ -21,6 +21,7 @@ class EventCard extends StatelessWidget {
     this.showRegistrationUi = true,
     this.onTap,
     this.onRegister,
+    this.registerButtonTooltip,
   });
 
   final String title;
@@ -35,6 +36,8 @@ class EventCard extends StatelessWidget {
   final bool showRegistrationUi;
   final VoidCallback? onTap;
   final VoidCallback? onRegister;
+  /// Shown on hover when the Register button is present (e.g. login hint).
+  final String? registerButtonTooltip;
 
   @override
   Widget build(BuildContext context) {
@@ -106,6 +109,44 @@ class EventCard extends StatelessWidget {
                             : registrationOpen
                                 ? 'Register'
                                 : 'Closed';
+                        final registerEnabled =
+                            canRegister && onRegister != null;
+                        // Disabled ElevatedButtons ignore hover; keep a
+                        // pressable target when a tooltip must still show.
+                        final registerButton = ElevatedButton(
+                          onPressed: registerEnabled
+                              ? onRegister
+                              : (registerButtonTooltip != null
+                                  ? () {}
+                                  : null),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: registerEnabled
+                                ? AppColors.primary
+                                : AppColors.muted.withValues(alpha: 0.4),
+                            foregroundColor: registerEnabled
+                                ? Colors.white
+                                : AppColors.bodyText.withValues(alpha: 0.7),
+                            disabledBackgroundColor:
+                                AppColors.muted.withValues(alpha: 0.4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 14,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                          ),
+                          child: Text(buttonLabel),
+                        );
+                        Widget registerAction = registerButton;
+                        if (registerButtonTooltip != null) {
+                          registerAction = Tooltip(
+                            message: registerButtonTooltip!,
+                            child: registerEnabled
+                                ? registerButton
+                                : AbsorbPointer(child: registerButton),
+                          );
+                        }
 
                         if (stackActions) {
                           return Column(
@@ -133,23 +174,7 @@ class EventCard extends StatelessWidget {
                               const SizedBox(height: 12),
                               Align(
                                 alignment: Alignment.centerLeft,
-                                child: ElevatedButton(
-                                  onPressed: canRegister ? onRegister : null,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppColors.primary,
-                                    foregroundColor: Colors.white,
-                                    disabledBackgroundColor:
-                                        AppColors.muted.withValues(alpha: 0.4),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 24,
-                                      vertical: 14,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(24),
-                                    ),
-                                  ),
-                                  child: Text(buttonLabel),
-                                ),
+                                child: registerAction,
                               ),
                             ],
                           );
@@ -172,23 +197,7 @@ class EventCard extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(width: 8),
-                            ElevatedButton(
-                              onPressed: canRegister ? onRegister : null,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.primary,
-                                foregroundColor: Colors.white,
-                                disabledBackgroundColor:
-                                    AppColors.muted.withValues(alpha: 0.4),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 24,
-                                  vertical: 14,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(24),
-                                ),
-                              ),
-                              child: Text(buttonLabel),
-                            ),
+                            registerAction,
                           ],
                         );
                       },

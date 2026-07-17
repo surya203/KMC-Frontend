@@ -30,7 +30,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   List<EventItem> _upcomingEvents = [];
   List<MyEventRegistration> _myEvents = [];
   List<AnnouncementItem> _announcements = [];
-  String? _error;
   bool _loading = true;
 
   @override
@@ -42,7 +41,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _loadDashboard() async {
     setState(() {
       _loading = true;
-      _error = null;
     });
 
     await AuthSession.instance.ensureReady();
@@ -52,41 +50,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
     List<EventItem> upcomingEvents = [];
     List<MyEventRegistration> myEvents = [];
     List<AnnouncementItem> announcements = [];
-    final errors = <String>[];
 
     try {
       membership = await _membershipApi.fetchMyMembership();
-    } catch (e) {
-      if (!_hasCachedMembershipId) {
-        errors.add(_formatLoadError('Membership', e));
-      }
-    }
+    } catch (_) {}
 
     try {
       profile = await _profilesApi.fetchMyProfile();
-    } catch (e) {
-      if (!_hasCachedProfileBasics) {
-        errors.add(_formatLoadError('Profile', e));
-      }
-    }
+    } catch (_) {}
 
     try {
       upcomingEvents = await _eventsApi.fetchEvents(upcoming: true);
-    } catch (e) {
-      errors.add(_formatLoadError('Events', e));
-    }
+    } catch (_) {}
 
     try {
       myEvents = await _eventsApi.fetchMyRegistrations();
-    } catch (e) {
-      errors.add(_formatLoadError('My events', e));
-    }
+    } catch (_) {}
 
     try {
       announcements = await _announcementsApi.fetchAnnouncements();
-    } catch (e) {
-      errors.add(_formatLoadError('Announcements', e));
-    }
+    } catch (_) {}
 
     if (!mounted) return;
     setState(() {
@@ -95,32 +78,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _upcomingEvents = upcomingEvents;
       _myEvents = myEvents;
       _announcements = announcements;
-      _error = errors.isEmpty ? null : errors.join('\n');
       _loading = false;
     });
   }
 
   int get _profileCompletion => _profileCompletionPercent(_profile);
-
-  bool get _hasCachedMembershipId {
-    final number = AuthSession.instance.currentUser?.membershipNumber;
-    return number != null && number.trim().isNotEmpty;
-  }
-
-  bool get _hasCachedProfileBasics {
-    final user = AuthSession.instance.currentUser;
-    return (user?.fullName != null && user!.fullName!.trim().isNotEmpty) ||
-        user?.batchYear != null;
-  }
-
-  String _formatLoadError(String section, Object error) {
-    var message = '$error';
-    const prefix = 'Exception: ';
-    if (message.startsWith(prefix)) {
-      message = message.substring(prefix.length);
-    }
-    return '$section: $message';
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -148,7 +110,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         membership: _membership,
                       ),
                       const SizedBox(height: 18),
-                      if (_error != null) _InlineError(message: _error!),
                       _StatsGrid(
                         membership: _membership,
                         profile: _profile,
@@ -802,7 +763,8 @@ class _UpcomingReunionsCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     OutlinedButton(
-                      onPressed: () => context.go('/events/${event.slug}'),
+                      onPressed: () =>
+                          context.go('/my-events/${event.slug}'),
                       child: const Text('Register'),
                     ),
                   ],
@@ -1107,28 +1069,6 @@ class _StatCard extends StatelessWidget {
             ),
           ],
         ],
-      ),
-    );
-  }
-}
-
-class _InlineError extends StatelessWidget {
-  const _InlineError({required this.message});
-
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 18),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: AppColors.warning.withValues(alpha: 0.15),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Text(message, style: GoogleFonts.inter(color: AppColors.warning)),
       ),
     );
   }

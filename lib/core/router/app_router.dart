@@ -33,6 +33,7 @@ import '../../features/gallery/presentation/gallery_screen.dart';
 import '../../features/home/presentation/home_screen.dart';
 import '../../features/membership/presentation/membership_screen.dart';
 import '../../features/splash/presentation/splash_screen.dart';
+import '../widgets/public_layout.dart';
 
 bool _requiresAuth(String location) {
   return location.startsWith('/dashboard') ||
@@ -112,11 +113,6 @@ final GoRouter appRouter = GoRouter(
       return '/admin/verifications';
     }
 
-    if (location.startsWith('/drugs/') && isAuthenticated) {
-      final id = location.split('/').last;
-      if (id.isNotEmpty) return '/dashboard/drugs/$id';
-    }
-
     if (location == '/auth' && isAuthenticated) {
       return homeRouteForRole(role);
     }
@@ -194,8 +190,11 @@ final GoRouter appRouter = GoRouter(
     ),
     GoRoute(
       path: '/drugs/:id',
-      builder: (context, state) => DrugDetailsScreen(
-        drugId: state.pathParameters['id']!,
+      builder: (context, state) => PublicLayout(
+        showFooter: false,
+        child: DrugDetailsScreen(
+          drugId: state.pathParameters['id']!,
+        ),
       ),
     ),
     ShellRoute(

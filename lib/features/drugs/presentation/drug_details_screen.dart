@@ -88,9 +88,14 @@ class _DrugDetailsScreenState extends State<DrugDetailsScreen> {
   void _close() {
     if (context.canPop()) {
       context.pop();
-    } else {
-      context.go('/dashboard');
+      return;
     }
+    final path = GoRouterState.of(context).uri.path;
+    if (path.startsWith('/drugs/')) {
+      context.go('/');
+      return;
+    }
+    context.go('/dashboard');
   }
 
   String? get _linkUrl {

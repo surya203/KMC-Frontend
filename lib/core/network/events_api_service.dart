@@ -23,6 +23,7 @@ class EventItem {
     this.registrationOpen = true,
     this.registeredCount = 0,
     this.isRegistered,
+    this.isWaitlisted,
     this.programs = const [],
     this.hasInterestRegistration,
     this.hasAttendanceRegistration,
@@ -44,6 +45,7 @@ class EventItem {
   final bool registrationOpen;
   final int registeredCount;
   final bool? isRegistered;
+  final bool? isWaitlisted;
   final List<String> programs;
   final bool? hasInterestRegistration;
   final bool? hasAttendanceRegistration;
@@ -59,6 +61,7 @@ class EventItem {
   EventItem copyWith({
     int? registeredCount,
     bool? isRegistered,
+    bool? isWaitlisted,
     bool? hasInterestRegistration,
     bool? hasAttendanceRegistration,
   }) {
@@ -79,6 +82,7 @@ class EventItem {
       registrationOpen: registrationOpen,
       registeredCount: registeredCount ?? this.registeredCount,
       isRegistered: isRegistered ?? this.isRegistered,
+      isWaitlisted: isWaitlisted ?? this.isWaitlisted,
       programs: programs,
       hasInterestRegistration:
           hasInterestRegistration ?? this.hasInterestRegistration,
@@ -108,6 +112,7 @@ class EventItem {
       registrationOpen: json['registration_open'] as bool? ?? true,
       registeredCount: json['registered_count'] as int? ?? 0,
       isRegistered: json['is_registered'] as bool?,
+      isWaitlisted: json['is_waitlisted'] as bool?,
       programs: rawPrograms.map((e) => '$e').toList(),
       hasInterestRegistration: json['has_interest_registration'] as bool?,
       hasAttendanceRegistration: json['has_attendance_registration'] as bool?,
@@ -203,7 +208,7 @@ class MyEventRegistration {
   String get displayKind {
     switch (registrationKind) {
       case 'attendance':
-        return 'Attendance';
+        return 'Registration';
       case 'interest':
         return 'Participation';
       case 'registered':
@@ -296,10 +301,12 @@ class EventsApiService {
     int? batchYear,
     String? mobile,
     String? city,
+    String? specialty,
+    int attendeesCount = 1,
     String? notes,
   }) async {
     final options = _authOptions;
-    if (options == null) throw Exception('Sign in to register attendance.');
+    if (options == null) throw Exception('Sign in to register.');
     try {
       final response = await _apiClient.post<Map<String, dynamic>>(
         '${AppConfig.apiPrefix}/events/$eventId/attendance',
@@ -307,16 +314,18 @@ class EventsApiService {
           'program_tracks': programTracks,
           'full_name': fullName,
           'email': email,
+          'attendees_count': attendeesCount,
           if (membershipNumber != null && membershipNumber.isNotEmpty)
             'membership_number': membershipNumber,
           if (batchYear != null) 'batch_year': batchYear,
           if (mobile != null && mobile.isNotEmpty) 'mobile': mobile,
           if (city != null && city.isNotEmpty) 'city': city,
+          if (specialty != null && specialty.isNotEmpty) 'specialty': specialty,
           if (notes != null && notes.isNotEmpty) 'notes': notes,
         },
         options: options,
       );
-      if (response.data == null) throw Exception('Attendance submission failed.');
+      if (response.data == null) throw Exception('Registration failed.');
       return EventSubmissionResult.fromJson(response.data!);
     } on DioException catch (e) {
       throw Exception(_readDetail(e));
@@ -414,6 +423,36 @@ class EventsApiService {
       );
       if (response.data == null) throw Exception('Cancellation failed.');
       return EventRegistrationResult.fromJson(response.data!);
+    } on DioException catch (e) {
+      throw Exception(_readDetail(e));
+    }
+  }
+
+  Future<EventSubmissionResult> cancelAttendance(String eventId) async {
+    final options = _authOptions;
+    if (options == null) throw Exception('Sign in to cancel attendance.');
+    try {
+      final response = await _apiClient.delete<Map<String, dynamic>>(
+        '${AppConfig.apiPrefix}/events/$eventId/attendance',
+        options: options,
+      );
+      if (response.data == null) throw Exception('Cancellation failed.');
+      return EventSubmissionResult.fromJson(response.data!);
+    } on DioException catch (e) {
+      throw Exception(_readDetail(e));
+    }
+  }
+
+  Future<EventSubmissionResult> cancelInterest(String eventId) async {
+    final options = _authOptions;
+    if (options == null) throw Exception('Sign in to cancel participation.');
+    try {
+      final response = await _apiClient.delete<Map<String, dynamic>>(
+        '${AppConfig.apiPrefix}/events/$eventId/interest',
+        options: options,
+      );
+      if (response.data == null) throw Exception('Cancellation failed.');
+      return EventSubmissionResult.fromJson(response.data!);
     } on DioException catch (e) {
       throw Exception(_readDetail(e));
     }

@@ -263,6 +263,106 @@ class AdminEventItem {
   }
 }
 
+class AdminEventRegistrant {
+  const AdminEventRegistrant({
+    required this.id,
+    required this.kind,
+    required this.userId,
+    required this.status,
+    required this.registeredAt,
+    this.fullName,
+    this.email,
+    this.programTracks = const [],
+    this.registrationTypes = const [],
+    this.title,
+    this.mobile,
+    this.batchYear,
+    this.supportingDocumentUrl,
+  });
+
+  final String id;
+  final String kind;
+  final String userId;
+  final String status;
+  final DateTime registeredAt;
+  final String? fullName;
+  final String? email;
+  final List<String> programTracks;
+  final List<String> registrationTypes;
+  final String? title;
+  final String? mobile;
+  final int? batchYear;
+  final String? supportingDocumentUrl;
+
+  String get kindLabel {
+    switch (kind) {
+      case 'attendance':
+        return 'Registration';
+      case 'interest':
+        return 'Participation';
+      case 'registered':
+        return 'RSVP';
+      default:
+        return kind;
+    }
+  }
+
+  factory AdminEventRegistrant.fromJson(Map<String, dynamic> json) {
+    final tracks = json['program_tracks'] as List<dynamic>? ?? [];
+    final types = json['registration_types'] as List<dynamic>? ?? [];
+    return AdminEventRegistrant(
+      id: json['id'] as String,
+      kind: json['kind'] as String,
+      userId: json['user_id'] as String,
+      status: json['status'] as String,
+      registeredAt: DateTime.parse(json['registered_at'] as String),
+      fullName: json['full_name'] as String?,
+      email: json['email'] as String?,
+      programTracks: tracks.map((e) => '$e').toList(),
+      registrationTypes: types.map((e) => '$e').toList(),
+      title: json['title'] as String?,
+      mobile: json['mobile'] as String?,
+      batchYear: json['batch_year'] as int?,
+      supportingDocumentUrl: json['supporting_document_url'] as String?,
+    );
+  }
+}
+
+class AdminEventRegistrationsPage {
+  const AdminEventRegistrationsPage({
+    required this.eventId,
+    required this.eventTitle,
+    required this.registrations,
+    required this.registeredCount,
+    required this.waitlistedCount,
+    required this.attendanceCount,
+    required this.interestCount,
+  });
+
+  final String eventId;
+  final String eventTitle;
+  final List<AdminEventRegistrant> registrations;
+  final int registeredCount;
+  final int waitlistedCount;
+  final int attendanceCount;
+  final int interestCount;
+
+  factory AdminEventRegistrationsPage.fromJson(Map<String, dynamic> json) {
+    final raw = json['registrations'] as List<dynamic>? ?? [];
+    return AdminEventRegistrationsPage(
+      eventId: json['event_id'] as String,
+      eventTitle: json['event_title'] as String,
+      registrations: raw
+          .map((e) => AdminEventRegistrant.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      registeredCount: json['registered_count'] as int? ?? 0,
+      waitlistedCount: json['waitlisted_count'] as int? ?? 0,
+      attendanceCount: json['attendance_count'] as int? ?? 0,
+      interestCount: json['interest_count'] as int? ?? 0,
+    );
+  }
+}
+
 class AdminApiService {
   AdminApiService({ApiClient? apiClient}) : _apiClient = apiClient ?? ApiClient();
 
@@ -502,6 +602,36 @@ class AdminApiService {
     } on DioException catch (e) {
       // 204 No Content is success; some clients still raise on empty body.
       if (e.response?.statusCode == 204) return;
+      throw Exception(_readDetail(e));
+    }
+  }
+
+  Future<AdminEventRegistrationsPage> fetchEventRegistrations(
+    String eventId,
+  ) async {
+    try {
+      final response = await _authenticatedGet(
+        '${AppConfig.apiPrefix}/admin/events/$eventId/registrations',
+      );
+      return AdminEventRegistrationsPage.fromJson(response.data ?? {});
+    } on DioException catch (e) {
+      throw Exception(_readDetail(e));
+    }
+  }
+
+  Future<AdminEventRegistrant> updateEventRegistrationStatus({
+    required String eventId,
+    required String kind,
+    required String registrationId,
+    required String status,
+  }) async {
+    try {
+      final response = await _authenticatedPatch(
+        '${AppConfig.apiPrefix}/admin/events/$eventId/registrations/$kind/$registrationId',
+        data: {'status': status},
+      );
+      return AdminEventRegistrant.fromJson(response.data ?? {});
+    } on DioException catch (e) {
       throw Exception(_readDetail(e));
     }
   }
