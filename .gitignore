@@ -33,6 +33,9 @@ ios/Flutter/ephemeral/
 # Windows
 windows/flutter/ephemeral/
 
+# Linux
+linux/flutter/ephemeral/
+
 # Web
 web/.dart_tool/
 

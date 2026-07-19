@@ -1,0 +1,54 @@
+# Frontend LIVE reload on port 8080 (Flutter web-server + bind mounts).
+#
+# Stop production nginx FE first (same port):
+#   docker compose down
+#
+# Then:
+#   docker compose -f docker-compose.dev.yml up --build
+#
+# Edit lib/ (e.g. footer text) → container hot-restarts → refresh browser.
+# Backend should be on http://localhost:8001 (docker-compose.dev in KMC-Backend).
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: kmc-frontend-dev
+    ports:
+      - "8080:8080"
+    environment:
+      ENV: development
+      API_BASE_URL: http://localhost:8001
+      API_PREFIX: /api/v1
+      SUPABASE_URL: ${SUPABASE_URL:-}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-}
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
+      SUPABASE_STORAGE_BUCKET: verification-documents
+    volumes:
+      - .:/app
+      # Keep Linux tool caches off the Windows bind mount
+      - fe_pub_cache:/root/.pub-cache
+      - fe_dart_tool:/app/.dart_tool
+      - fe_build:/app/build
+    working_dir: /app
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "bash",
+          "-c",
+          "exec 3<>/dev/tcp/127.0.0.1/8080",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 300s
+
+volumes:
+  fe_pub_cache:
+  fe_dart_tool:
+  fe_build:
