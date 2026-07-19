@@ -34,7 +34,7 @@ class AppConfig {
   static bool get isDevelopment => env == 'development';
 
   static String get apiBaseUrl =>
-      _env('API_BASE_URL', 'http://localhost:8000');
+      _env('API_BASE_URL', 'http://localhost:8001');
 
   static String get apiPrefix => _env('API_PREFIX', '/api/v1');
 
