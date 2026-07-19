@@ -790,20 +790,14 @@ class _Avatar extends StatelessWidget {
   }
 
   Widget _fallback() {
-    final initials = name
-        .trim()
-        .split(RegExp(r'\s+'))
-        .where((p) => p.isNotEmpty)
-        .take(2)
-        .map((p) => p[0].toUpperCase())
-        .join();
+    final initials = MembershipNumberFormat.avatarInitials(name);
     return Container(
       width: 56,
       height: 56,
       color: const Color(0xFFE8EEF6),
       alignment: Alignment.center,
       child: Text(
-        initials.isEmpty ? 'A' : initials,
+        initials,
         style: GoogleFonts.inter(
           fontWeight: FontWeight.w700,
           color: AppColors.primary,

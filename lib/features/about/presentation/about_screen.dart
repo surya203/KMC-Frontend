@@ -64,32 +64,17 @@ class _AboutScreenState extends State<AboutScreen> {
                     children: [
                       TwoColumnSection(
                         heading: 'Our mission',
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (content.fromApi)
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 12),
-                                child: Text(
-                                  'Live content from API',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.success,
-                                  ),
-                                ),
-                              ),
-                            Text(
-                              content.mission,
-                              style: GoogleFonts.inter(
-                                fontSize: 17,
-                                height: 1.8,
-                                color: AppColors.bodyText,
-                              ),
-                            ),
-                          ],
+                        showDivider: false,
+                        child: Text(
+                          content.mission,
+                          style: GoogleFonts.inter(
+                            fontSize: 17,
+                            height: 1.8,
+                            color: AppColors.bodyText,
+                          ),
                         ),
                       ),
+                      const SizedBox(height: 56),
                       TwoColumnSection(
                         heading: 'Milestones',
                         showDivider: false,

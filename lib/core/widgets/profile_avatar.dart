@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../constants/app_colors.dart';
+import '../utils/membership_number_format.dart';
 import '../utils/resilient_profile_image.dart';
 
 /// Circular profile photo — prefers local bytes, then network URL.
@@ -23,11 +24,7 @@ class ProfileAvatar extends StatelessWidget {
   final double size;
   final Object? cacheKey;
 
-  String get _initial {
-    final trimmed = name.trim();
-    if (trimmed.isEmpty) return 'A';
-    return trimmed[0].toUpperCase();
-  }
+  String get _initial => MembershipNumberFormat.avatarInitial(name);
 
   @override
   Widget build(BuildContext context) {
