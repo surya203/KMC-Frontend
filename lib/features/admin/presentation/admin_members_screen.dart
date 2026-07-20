@@ -168,7 +168,7 @@ class _AdminMembersScreenState extends State<AdminMembersScreen> {
                       controller: _search,
                       onSubmitted: (_) => _load(),
                       decoration: const InputDecoration(
-                        hintText: 'Search by email...',
+                        hintText: 'Search by name or email...',
                         prefixIcon: Icon(Icons.search),
                       ),
                     ),

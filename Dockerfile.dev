@@ -1,0 +1,17 @@
+# Dev image: Flutter web-server with bind-mounted source (hot reload).
+FROM ghcr.io/cirruslabs/flutter:stable
+
+WORKDIR /app
+
+COPY pubspec.yaml pubspec.lock ./
+RUN flutter pub get
+
+COPY docker/dev-entrypoint.sh /dev-entrypoint.sh
+RUN sed -i 's/\r$//' /dev-entrypoint.sh && chmod +x /dev-entrypoint.sh
+
+# .env is an asset; create empty placeholder (host .env is mounted at runtime).
+RUN touch .env
+
+EXPOSE 8080
+
+ENTRYPOINT ["/dev-entrypoint.sh"]

@@ -1,22 +1,18 @@
 import '../config/app_config.dart';
 
-/// Build one or more candidate public URLs for a profile photo path/URL.
+/// Build candidate public URLs for a profile photo path/URL.
 ///
-/// Handles absolute URLs and legacy relative storage keys that may live in
-/// `gallery`, `verification-documents`, or `profile-photos`.
+/// Prefers API `/media/{bucket}/...` (local Postgres mode). Also keeps
+/// legacy Supabase public object URLs when [AppConfig.supabaseUrl] is set.
 List<String> profilePhotoUrlCandidates(String? raw) {
   final value = raw?.trim() ?? '';
   if (value.isEmpty) return const [];
 
   if (value.startsWith('http://') || value.startsWith('https://')) {
-    return _alternatePublicBucketUrls(value);
+    return _expandAbsolute(value);
   }
 
-  final base = AppConfig.supabaseUrl.replaceAll(RegExp(r'/+$'), '');
-  if (base.isEmpty) return const [];
-
   final clean = value.replaceFirst(RegExp(r'^/+'), '');
-  // Gallery first: uploads often land there when other buckets reject files.
   final buckets = <String>{
     'gallery',
     AppConfig.storageBucket,
@@ -24,33 +20,59 @@ List<String> profilePhotoUrlCandidates(String? raw) {
     'profile-photos',
   }.where((b) => b.trim().isNotEmpty).toList();
 
-  return [
-    for (final bucket in buckets)
-      '$base/storage/v1/object/public/$bucket/$clean',
+  final apiBase = AppConfig.apiBaseUrl.replaceAll(RegExp(r'/+$'), '');
+  final out = <String>[
+    for (final bucket in buckets) '$apiBase/media/$bucket/$clean',
   ];
+
+  final supabaseBase = AppConfig.supabaseUrl.replaceAll(RegExp(r'/+$'), '');
+  if (supabaseBase.isNotEmpty) {
+    for (final bucket in buckets) {
+      out.add('$supabaseBase/storage/v1/object/public/$bucket/$clean');
+    }
+  }
+  return out;
 }
 
-List<String> _alternatePublicBucketUrls(String url) {
-  const marker = '/storage/v1/object/public/';
-  final idx = url.indexOf(marker);
-  if (idx < 0) return [url];
-  final rest = url.substring(idx + marker.length);
-  final slash = rest.indexOf('/');
-  if (slash < 0) return [url];
-  final key = rest.substring(slash + 1);
-  final prefix = url.substring(0, idx + marker.length);
-  final buckets = <String>{
-    url.substring(idx + marker.length, idx + marker.length + slash),
-    'gallery',
-    AppConfig.storageBucket,
-    'verification-documents',
-    'profile-photos',
-  }.where((b) => b.trim().isNotEmpty);
-
+List<String> _expandAbsolute(String url) {
   final out = <String>[url];
-  for (final bucket in buckets) {
-    final candidate = '$prefix$bucket/$key';
-    if (!out.contains(candidate)) out.add(candidate);
+  const supabaseMarker = '/storage/v1/object/public/';
+  final sIdx = url.indexOf(supabaseMarker);
+  if (sIdx >= 0) {
+    final rest = url.substring(sIdx + supabaseMarker.length);
+    final slash = rest.indexOf('/');
+    if (slash > 0) {
+      final key = rest.substring(slash + 1);
+      final apiBase = AppConfig.apiBaseUrl.replaceAll(RegExp(r'/+$'), '');
+      for (final bucket in {
+        rest.substring(0, slash),
+        'gallery',
+        AppConfig.storageBucket,
+        'profile-photos',
+      }.where((b) => b.trim().isNotEmpty)) {
+        final candidate = '$apiBase/media/$bucket/$key';
+        if (!out.contains(candidate)) out.add(candidate);
+      }
+    }
+  }
+  const mediaMarker = '/media/';
+  final mIdx = url.indexOf(mediaMarker);
+  if (mIdx >= 0) {
+    final rest = url.substring(mIdx + mediaMarker.length);
+    final slash = rest.indexOf('/');
+    if (slash > 0) {
+      final key = rest.substring(slash + 1);
+      final apiBase = AppConfig.apiBaseUrl.replaceAll(RegExp(r'/+$'), '');
+      for (final bucket in {
+        rest.substring(0, slash),
+        'gallery',
+        AppConfig.storageBucket,
+        'profile-photos',
+      }.where((b) => b.trim().isNotEmpty)) {
+        final candidate = '$apiBase/media/$bucket/$key';
+        if (!out.contains(candidate)) out.add(candidate);
+      }
+    }
   }
   return out;
 }

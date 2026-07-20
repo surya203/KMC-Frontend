@@ -4,13 +4,16 @@ services:
     ports:
       - "8080:80"
     environment:
-      ENV: production
-      API_BASE_URL: http://localhost:8001
-      API_PREFIX: /api/v1
+      # Production: override API_BASE_URL to your public API (never ship localhost).
+      ENV: ${ENV:-production}
+      API_BASE_URL: ${API_BASE_URL:-http://localhost:8001}
+      API_PREFIX: ${API_PREFIX:-/api/v1}
+      STORAGE_BUCKET: ${STORAGE_BUCKET:-verification-documents}
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
+      # Legacy optional — not required with Postgres media
       SUPABASE_URL: ${SUPABASE_URL:-}
       SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-}
-      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
-      SUPABASE_STORAGE_BUCKET: verification-documents
+      SUPABASE_STORAGE_BUCKET: ${SUPABASE_STORAGE_BUCKET:-verification-documents}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
