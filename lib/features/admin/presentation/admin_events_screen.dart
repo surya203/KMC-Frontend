@@ -126,7 +126,7 @@ class _AdminEventsScreenState extends State<AdminEventsScreen> {
                     children: [
                       Expanded(
                         child: Text(
-                          'Create, edit, publish, and delete alumni events shown to members.',
+                          'Create, edit, publish and delete alumni events shown to members.',
                           style: GoogleFonts.inter(color: AppColors.bodyText),
                         ),
                       ),
@@ -338,6 +338,7 @@ class _EventEditorDialogState extends State<_EventEditorDialog> {
   bool _isOnline = false;
   bool _registrationOpen = true;
   bool _publish = true;
+  bool _showOnHome = false;
   bool _slugTouched = false;
   bool _saving = false;
   bool _uploadingCover = false;
@@ -368,6 +369,7 @@ class _EventEditorDialogState extends State<_EventEditorDialog> {
     _isOnline = event?.isOnline ?? false;
     _registrationOpen = event?.registrationOpen ?? true;
     _publish = event?.isPublished ?? true;
+    _showOnHome = event?.showOnHome ?? false;
     _slugTouched = event != null;
     _title.addListener(_onTitleChanged);
   }
@@ -440,6 +442,7 @@ class _EventEditorDialogState extends State<_EventEditorDialog> {
   void _setAsUpcoming() {
     final now = DateTime.now();
     setState(() {
+      _showOnHome = true;
       _publish = true;
       if (!_startsAt.isAfter(now)) {
         _startsAt = now.add(const Duration(days: 30));
@@ -450,7 +453,7 @@ class _EventEditorDialogState extends State<_EventEditorDialog> {
     });
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Upcoming enabled. Save the event to show it on Home.'),
+        content: Text('Marked for Home. Save the event to apply.'),
       ),
     );
   }
@@ -571,6 +574,7 @@ class _EventEditorDialogState extends State<_EventEditorDialog> {
           .where((line) => line.isNotEmpty)
           .toList(),
       'publish': _publish,
+      'show_on_home': _showOnHome,
     };
 
     setState(() => _saving = true);
@@ -824,6 +828,15 @@ class _EventEditorDialogState extends State<_EventEditorDialog> {
                       title: const Text('Registration open'),
                       value: _registrationOpen,
                       onChanged: (v) => setState(() => _registrationOpen = v),
+                    ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Show on Home (upcoming)'),
+                      subtitle: const Text(
+                        'Only events marked here appear in the home page Upcoming Events section.',
+                      ),
+                      value: _showOnHome,
+                      onChanged: (v) => setState(() => _showOnHome = v),
                     ),
                   ],
                 ),

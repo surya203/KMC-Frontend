@@ -270,7 +270,7 @@ class _AdminDrugsScreenState extends State<AdminDrugsScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Manage drug name, description, and two independent images (header card + details page).',
+                    'Manage drug name, description and two independent images (header card + details page).',
                     style: GoogleFonts.inter(
                       color: AppColors.bodyText,
                       fontSize: 15,

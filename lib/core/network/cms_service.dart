@@ -75,7 +75,7 @@ class AboutContent {
   static const fallback = AboutContent(
     mission:
         'For over six decades, Kakatiya Medical College has trained generations of '
-        'physicians, surgeons, and healthcare leaders — Kakatiya Medical College has '
+        'physicians, surgeons and healthcare leaders — Kakatiya Medical College has '
         'been a beacon of medical excellence in Telangana.',
     milestones: [
       AboutMilestone(

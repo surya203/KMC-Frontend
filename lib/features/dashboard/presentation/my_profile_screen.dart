@@ -783,7 +783,7 @@ class _MyProfileScreenState extends State<MyProfileScreen>
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
-                'You can update your mobile number, photo, and alumni directory details. Name, batch, and email are locked.',
+                'You can update your mobile number, photo and alumni directory details. Name, batch and email are locked.',
                 style: GoogleFonts.inter(
                   fontSize: 13,
                   color: AppColors.heading,
@@ -998,7 +998,7 @@ class _MyProfileScreenState extends State<MyProfileScreen>
             border: Border.all(color: AppColors.border),
           ),
           child: Text(
-            'Your alumni directory profile is not complete yet. Tap Edit to add your title, organization, city, bio, and LinkedIn URL.',
+            'Your alumni directory profile is not complete yet. Tap Edit to add your title, organization, city, bio and LinkedIn URL.',
             style: GoogleFonts.inter(
               fontSize: 14,
               color: AppColors.bodyText,

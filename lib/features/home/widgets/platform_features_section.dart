@@ -48,7 +48,7 @@ class PlatformFeaturesSection extends StatelessWidget {
     (
       Icons.insights_outlined,
       'Member Analytics',
-      'Track engagement, attendance, and contributions.',
+      'Track engagement, attendance and contributions.',
       null,
     ),
     (

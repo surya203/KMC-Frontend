@@ -237,6 +237,7 @@ class AdminEventItem {
     this.coverImageUrl,
     this.programs = const [],
     this.publishedAt,
+    this.showOnHome = false,
   });
 
   final String id;
@@ -255,6 +256,7 @@ class AdminEventItem {
   final String? coverImageUrl;
   final List<String> programs;
   final DateTime? publishedAt;
+  final bool showOnHome;
   final int registeredCount;
 
   bool get isPublished => publishedAt != null;
@@ -282,6 +284,7 @@ class AdminEventItem {
       publishedAt: json['published_at'] != null
           ? DateTime.parse(json['published_at'] as String)
           : null,
+      showOnHome: json['show_on_home'] as bool? ?? false,
       registeredCount: json['registered_count'] as int? ?? 0,
     );
   }

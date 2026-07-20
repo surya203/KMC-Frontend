@@ -528,7 +528,8 @@ class _DashboardConnectScreenState extends State<DashboardConnectScreen> {
     final userRole = AuthSession.instance.currentUser?.role;
     final canPostFinance = canPostToFinanceCouncil(userRole);
     final showFinanceCouncilTab = canViewFinanceCouncil(userRole);
-    final canAccessExecutiveCommittee = canViewExecutiveCommittee(userRole);
+    final canAccessExecutiveCommittee =
+        canViewExecutiveCommittee(userRole) || isEcMemberUser();
 
     if (_loading) {
       return const Center(child: CircularProgressIndicator());
@@ -562,7 +563,7 @@ class _DashboardConnectScreenState extends State<DashboardConnectScreen> {
                 _activeTab == _ConnectTab.alumniChat
                     ? 'Open chat for all members. Messages older than 3 months are removed automatically.'
                     : _activeTab == _ConnectTab.financeCouncil
-                        ? 'Private room for President, VP, Secretary, and Treasurer. Documents supported.'
+                        ? 'Private room for President, VP, Secretary and Treasurer. Documents supported.'
                         : canAccessExecutiveCommittee
                             ? 'View EC members and open EC Group Chat. Messages and documents are kept permanently.'
                             : 'View who is on the Executive Committee. Only EC members can open EC Group Chat.',
@@ -1097,7 +1098,7 @@ class _AlumniChatPanelState extends State<_AlumniChatPanel> {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Run migration-018, migration-020, and migration-022 in Supabase SQL Editor, then tap Retry.',
+                            'Run migration-018, migration-020 and migration-022 in Supabase SQL Editor, then tap Retry.',
                             textAlign: TextAlign.center,
                             style: GoogleFonts.inter(
                               fontSize: 13,
@@ -1730,7 +1731,7 @@ class _FinanceCouncilPanelState extends State<_FinanceCouncilPanel> {
                         child: Padding(
                           padding: const EdgeInsets.all(24),
                           child: Text(
-                            'No messages yet. Discuss Alumni building, budgets, and financial approvals here.',
+                            'No messages yet. Discuss Alumni building, budgets and financial approvals here.',
                             style: GoogleFonts.inter(color: AppColors.mutedText),
                             textAlign: TextAlign.center,
                           ),
