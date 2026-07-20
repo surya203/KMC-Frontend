@@ -26,10 +26,10 @@ const assignableUserRoles = [
 ];
 
 const _userRoleLabels = <String, String>{
-  'member': 'Member',
-  ecMemberRole: 'Executive Committee Member',
+  'member': 'Alumni Member',
+  ecMemberRole: 'Executive',
   'staff': 'NRI Alumni',
-  'executive': 'Executive Committee Member', // legacy role=executive rows
+  'executive': 'Executive', // legacy role=executive rows
   'president': 'President',
   'vice_president': 'Vice President',
   'secretary': 'General Secretary',
@@ -98,7 +98,7 @@ bool isAlumniRole(String? role) {
 
 String userRoleLabel(String? role) {
   final resolved = resolveUserRole(role);
-  if (resolved == null) return 'Member';
+  if (resolved == null) return 'Alumni Member';
   return _userRoleLabels[resolved] ??
       resolved.replaceAll('_', ' ').split(' ').map((part) {
         if (part.isEmpty) return part;
@@ -161,7 +161,7 @@ String executiveCommitteeRoleLabel(String? role) {
       return 'Editor';
     case 'ec_member':
     case 'executive':
-      return 'Executive Committee Member';
+      return 'Executive';
     case 'admin':
       return 'Admin';
     default:

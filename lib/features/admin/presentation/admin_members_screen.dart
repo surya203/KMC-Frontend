@@ -157,7 +157,7 @@ class _AdminMembersScreenState extends State<AdminMembersScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Search members, review verification status, and assign roles.',
+                'Search members, review verification status and assign roles.',
                 style: GoogleFonts.inter(color: AppColors.bodyText),
               ),
               const SizedBox(height: 16),

@@ -50,7 +50,7 @@ class _AboutScreenState extends State<AboutScreen> {
               ),
               subtitle:
                   'From its founding in Warangal to a global network of physicians, '
-                  'surgeons, and healthcare leaders — Kakatiya Medical College has '
+                  'surgeons and healthcare leaders — Kakatiya Medical College has '
                   'shaped generations of medical excellence.',
             ),
             Container(

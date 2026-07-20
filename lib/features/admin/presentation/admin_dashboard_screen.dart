@@ -126,7 +126,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               ),
               const SizedBox(height: 6),
               Text(
-                'Members, events, revenue, and verification queue.',
+                'Members, events, revenue and verification queue.',
                 style: GoogleFonts.inter(color: AppColors.bodyText),
               ),
               const SizedBox(height: 20),

@@ -2212,7 +2212,7 @@ class _CompleteStep extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Download your official PDF receipt with membership details, receipt ID, and transaction number.',
+                  'Download your official PDF receipt with membership details, receipt ID and transaction number.',
                   style: GoogleFonts.inter(
                     fontSize: 13,
                     height: 1.5,

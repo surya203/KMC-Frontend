@@ -27,6 +27,8 @@ class _LatestEventsState extends State<LatestEvents> {
 
   Future<void> _loadEvent() async {
     try {
+      // Home: show the same "upcoming" list as /events (no extra home=true filter),
+      // so the card/message always stays in sync with "View all".
       final events = await _api.fetchEvents(upcoming: true);
       if (!mounted) return;
       setState(() {
@@ -92,8 +94,8 @@ class _LatestEventsState extends State<LatestEvents> {
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 520),
                     child: EventCard(
-                      title: '',
-                      dateLabel: event.displayDate,
+                      title: event.title,
+                      dateLabel: event.displayDateRange,
                       venueLabel: event.displayVenue,
                       registeredCount: event.registeredCount,
                       coverImageUrl: event.coverImageUrl,

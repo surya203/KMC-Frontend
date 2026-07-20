@@ -316,11 +316,17 @@ class EventsApiService {
     return Options(headers: {'Authorization': header});
   }
 
-  Future<List<EventItem>> fetchEvents({bool upcoming = false}) async {
+  Future<List<EventItem>> fetchEvents({
+    bool upcoming = false,
+    bool home = false,
+  }) async {
     try {
       final response = await _apiClient.get<Map<String, dynamic>>(
         '${AppConfig.apiPrefix}/events',
-        queryParameters: {'upcoming': upcoming},
+        queryParameters: {
+          'upcoming': upcoming,
+          if (home) 'home': true,
+        },
         options: _authOptions,
       );
       final events = response.data?['events'] as List<dynamic>? ?? [];
