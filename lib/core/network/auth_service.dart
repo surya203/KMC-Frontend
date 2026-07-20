@@ -214,6 +214,7 @@ class AuthService {
       return ForgotPasswordResult(
         message: data['message'] as String? ??
             'Check your email for the 6-digit reset code.',
+        debugResetCode: data['debug_reset_code'] as String?,
       );
     } on DioException catch (e) {
       final detail = e.response?.data;
@@ -267,7 +268,11 @@ class AuthService {
 }
 
 class ForgotPasswordResult {
-  const ForgotPasswordResult({required this.message});
+  const ForgotPasswordResult({
+    required this.message,
+    this.debugResetCode,
+  });
 
   final String message;
+  final String? debugResetCode;
 }

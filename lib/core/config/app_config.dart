@@ -46,6 +46,9 @@ class AppConfig {
 
   static String get razorpayKeyId => _env('RAZORPAY_KEY_ID', '');
 
-  static String get storageBucket =>
-      _env('SUPABASE_STORAGE_BUCKET', 'verification-documents');
+  static String get storageBucket {
+    final preferred = _env('STORAGE_BUCKET', '');
+    if (preferred.isNotEmpty) return preferred;
+    return _env('SUPABASE_STORAGE_BUCKET', 'verification-documents');
+  }
 }

@@ -26,15 +26,15 @@ const assignableUserRoles = [
 ];
 
 const _userRoleLabels = <String, String>{
-  'member': 'Alumni Member',
-  ecMemberRole: 'Executive',
+  'member': 'Member',
+  ecMemberRole: 'Executive Member',
   'staff': 'NRI Alumni',
-  'executive': 'Executive', // legacy role=executive rows
+  'executive': 'Executive Member', // legacy role=executive rows
   'president': 'President',
   'vice_president': 'Vice President',
   'secretary': 'General Secretary',
   'joint_secretary': 'Joint Secretary',
-  'treasurer': 'Finance Secretary',
+  'treasurer': 'Treasurer',
   'editor': 'Editor',
   'admin': 'Admin',
 };
@@ -156,12 +156,12 @@ String executiveCommitteeRoleLabel(String? role) {
     case 'joint_secretary':
       return 'Joint Secretary';
     case 'treasurer':
-      return 'Finance Secretary';
+      return 'Treasurer';
     case 'editor':
       return 'Editor';
     case 'ec_member':
     case 'executive':
-      return 'Executive';
+      return 'Executive Member';
     case 'admin':
       return 'Admin';
     default:

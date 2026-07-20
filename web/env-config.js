@@ -6,6 +6,6 @@ window.__ENV__ = window.__ENV__ || {
   API_PREFIX: '/api/v1',
   SUPABASE_URL: '',
   SUPABASE_ANON_KEY: '',
-  RAZORPAY_KEY_ID: '',
+  RAZORPAY_KEY_ID: 'rzp_test_T6cRniAkd0zVdl',
   SUPABASE_STORAGE_BUCKET: 'verification-documents',
 };

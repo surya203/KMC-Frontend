@@ -2,7 +2,14 @@
 
 ## Start
 
-**Backend + DB migrator:**
+**Postgres + pgAdmin (once):**
+
+```powershell
+cd C:\Users\user\Downloads\KMC-Backend
+docker compose -f docker-compose.pgsql.yml up -d
+```
+
+**Backend:**
 
 ```powershell
 cd C:\Users\user\Downloads\KMC-Backend
@@ -20,6 +27,7 @@ docker compose -f docker-compose.dev.yml up --build
 | --- | --- |
 | App | http://localhost:8080 |
 | API | http://localhost:8001/health |
+| pgAdmin | http://localhost:5050 |
 
 ## What auto-updates
 
@@ -27,34 +35,32 @@ docker compose -f docker-compose.dev.yml up --build
 | --- | --- | --- |
 | FE (`lib/`) | **Yes** | Refresh http://localhost:8080 |
 | BE (`app/`) | **Yes** | uvicorn reload |
-| DB (`docs/migration-*.sql`) | **Yes*** | `kmc-db-migrate` applies SQL |
+| DB (`docs/migration-*.sql`) | Manual | Apply via psql / pgAdmin against local Postgres |
 
-### DB setup (one-time — required for auto-migrate)
-
-Supabase direct DB host is often **IPv6-only**. Docker Desktop usually cannot reach it.
-
-1. Open Supabase → **Project Settings → Database → Connect**
-2. Choose **Connection pooling** (URI)
-3. Copy the URI into `KMC-Backend/.env`:
-
-```env
-SUPABASE_DB_POOLER_URL=postgresql://postgres.YOUR_REF:YOUR_PASSWORD@aws-0-REGION.pooler.supabase.com:6543/postgres
-```
-
-4. Restart:
+### Database (local Postgres + pgAdmin)
 
 ```powershell
-docker restart kmc-db-migrate
-docker logs kmc-db-migrate --tail 30
+cd C:\Users\user\Downloads\KMC-Backend
+docker compose -f docker-compose.pgsql.yml up -d
+# Optional one-time copy from old Supabase:
+powershell -File scripts\dump_supabase_to_local.ps1
 ```
 
-You should see: `connected via ...pooler...` then `startup done`.
+In `KMC-Backend/.env`:
 
-After that, saving a new `docs/migration-028-....sql` applies automatically within ~5 seconds.
+```env
+DATABASE_URL=postgresql://kmc:kmc@localhost:5433/kmc
+PUBLIC_API_BASE_URL=http://localhost:8001
+LOCAL_STORAGE_ROOT=./storage_data
+```
 
-### If Docker migrator still cannot connect
+- Postgres: `localhost:5433` (`kmc` / `kmc` / `kmc`)
+- pgAdmin: http://localhost:5050 — details in `KMC-Backend/docs/migrate-to-pgsql-pgadmin.md`
+- Full cutover guide: `KMC-Backend/docs/migrate-to-pgsql-pgadmin.md`
 
-Run on the Windows host instead:
+### Legacy remote migrator
+
+If you still point `SUPABASE_DB_POOLER_URL` at a remote DB:
 
 ```powershell
 cd C:\Users\user\Downloads\KMC-Backend
