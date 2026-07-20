@@ -105,7 +105,7 @@ class _FeaturedAlumniSectionState extends State<FeaturedAlumniSection> {
       id: profile.id,
       name: profile.fullName,
       quote: quote,
-      roleLine: parts.join(' · '),
+      roleLine: parts.join('\n'),
       photoUrl: profile.photoUrl,
     );
   }

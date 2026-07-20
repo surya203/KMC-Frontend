@@ -102,7 +102,7 @@ class ReconnectSection extends StatelessWidget {
                     ),
                     SizedBox(height: isCompact ? 20 : 28),
                     Text(
-                      'Verify your batch, claim your profile, and join thousands '
+                      'Verify your batch, claim your profile and join thousands '
                       'of KMC alumni already on the platform.',
                       textAlign: TextAlign.center,
                       style: TextStyle(

@@ -395,7 +395,7 @@ class ConnectApiService {
         if (savedName == null || savedName.trim().isEmpty) {
           throw Exception(
             'Document was not saved. Check API_BASE_URL (${AppConfig.apiBaseUrl}), '
-            'migration-022, and storage bucket, then retry.',
+            'migration-022 and storage bucket, then retry.',
           );
         }
       } else {

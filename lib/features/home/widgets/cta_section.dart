@@ -29,7 +29,7 @@ class CtaSection extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               Text(
-                'Verify your batch, claim your profile, and join thousands of KMC alumni already on the platform.',
+                'Verify your batch, claim your profile and join thousands of KMC alumni already on the platform.',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.inter(
                   fontSize: 18,

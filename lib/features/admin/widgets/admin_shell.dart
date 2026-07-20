@@ -151,7 +151,7 @@ class _AdminSidebar extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'App control',
+                    'APP CONTROL',
                     style: GoogleFonts.fraunces(
                       color: Colors.white,
                       fontSize: 20,

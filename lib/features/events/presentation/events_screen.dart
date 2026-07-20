@@ -73,7 +73,7 @@ class _EventsScreenState extends State<EventsScreen> {
                 italic: 'and small ceremonies.',
               ),
               subtitle:
-                  'Every gathering of the KMC family — on campus, across India, and online.',
+                  'Every gathering of the KMC family — on campus, across India and online.',
             ),
             Container(
               width: double.infinity,

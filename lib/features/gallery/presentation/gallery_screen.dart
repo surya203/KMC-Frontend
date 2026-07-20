@@ -71,8 +71,8 @@ class _GalleryScreenState extends State<GalleryScreen> {
                 italic: 'memories.',
               ),
               subtitle:
-                  'Reunions, convocations, ceremonies, and the quiet everyday '
-                  'moments that shaped a campus.',
+                  'Reunions, convocations, ceremonies and the quiet everyday '
+                  'moments that shaped generations.',
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 8, 24, 72),

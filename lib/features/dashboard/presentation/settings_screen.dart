@@ -115,7 +115,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       style: GoogleFonts.inter(fontWeight: FontWeight.w600),
                     ),
                     subtitle: Text(
-                      'Update photo, phone, and directory details',
+                      'Update photo, phone and directory details',
                       style: GoogleFonts.inter(fontSize: 13),
                     ),
                     trailing: const Icon(Icons.chevron_right),
