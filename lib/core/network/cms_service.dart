@@ -79,28 +79,34 @@ class AboutContent {
         'been a beacon of medical excellence in Telangana.',
     milestones: [
       AboutMilestone(
-        year: 1959,
-        title: 'Founded',
-        description:
-            'Kakatiya Medical College established in Warangal, Telangana.',
-      ),
-      AboutMilestone(
         year: 1972,
         title: 'Postgraduate Programs',
         description:
             'Expansion of specialist training and research across departments.',
       ),
       AboutMilestone(
+        year: 1984,
+        title: 'Silver Jubilee',
+        description:
+            'Celebrating 25 years of excellence — a silver milestone in healing, teaching and service.',
+      ),
+      AboutMilestone(
         year: 2008,
         title: 'Golden Jubilee',
         description:
-            'Celebrating fifty years of medical education and alumni pride.',
+            'Celebrating 50 years of medical education and alumni pride.',
       ),
       AboutMilestone(
-        year: 2025,
+        year: 2019,
+        title: 'Diamond Jubilee',
+        description:
+            'Celebrating 75 years of medical education and alumni pride.',
+      ),
+      AboutMilestone(
+        year: 2026,
         title: 'Digital Alumni Platform',
         description:
-            'KMC Alumni Connect launches to unite batches worldwide.',
+            'KMC Alumni Connect launched to unite batches worldwide.',
       ),
     ],
   );
