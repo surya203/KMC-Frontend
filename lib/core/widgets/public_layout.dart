@@ -305,9 +305,9 @@ class PublicDrawer extends StatelessWidget {
             const Divider(),
             _DrawerTile(label: 'Home', path: '/', currentPath: currentPath),
             _DrawerTile(label: 'About', path: '/about', currentPath: currentPath),
+            _DrawerTile(label: 'MY KMC', path: '/membership', currentPath: currentPath),
             _DrawerTile(label: 'Events', path: '/events', currentPath: currentPath),
             _DrawerTile(label: 'Gallery', path: '/gallery', currentPath: currentPath),
-            _DrawerTile(label: 'MY KMC', path: '/membership', currentPath: currentPath),
             const Divider(),
             _DrawerTile(label: 'Sign in', path: '/auth', currentPath: currentPath),
             _DrawerTile(

@@ -15,9 +15,9 @@ class HeroSection extends StatelessWidget {
   static const _heroNavItems = [
     ('Home', '/'),
     ('About', '/about'),
+    ('MY KMC', '/membership'),
     ('Events', '/events'),
     ('Gallery', '/gallery'),
-    ('MY KMC', '/membership'),
   ];
 
   @override
