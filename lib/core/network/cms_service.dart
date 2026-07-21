@@ -85,7 +85,7 @@ class AboutContent {
             'Kakatiya Medical College established in Warangal, Telangana.',
       ),
       AboutMilestone(
-        year: 1985,
+        year: 1972,
         title: 'Postgraduate Programs',
         description:
             'Expansion of specialist training and research across departments.',

@@ -3,7 +3,7 @@ import 'jwt_role.dart';
 import '../network/auth_service.dart';
 
 /// Roles that can access the admin area (legacy `executive` kept for old accounts).
-const staffRoles = {'admin', 'staff', 'executive'};
+const staffRoles = {'admin', 'staff', 'nri_admin', 'executive'};
 
 /// Executive Committee designation (assignable; labeled "Executive").
 const ecMemberRole = 'ec_member';
@@ -16,6 +16,7 @@ const assignableUserRoles = [
   'member',
   ecMemberRole,
   'staff',
+  'nri_admin',
   'president',
   'vice_president',
   'secretary',
@@ -30,6 +31,7 @@ const _userRoleLabels = <String, String>{
   'member': 'Member',
   ecMemberRole: 'Executive Member',
   'staff': 'NRI Alumni',
+  'nri_admin': 'NRI Admin',
   'executive': 'Executive Member', // legacy role=executive rows
   'president': 'President',
   'vice_president': 'Vice President',
@@ -51,16 +53,19 @@ const officerRoles = {
   'editor',
 };
 
-/// Officers + Executive (`ec_member`; legacy `executive`) + admin — EC group chat.
+/// Officers + Executive (`ec_member`; legacy `executive`) + NRI + admin — EC group chat.
 const executiveCommitteeRoles = {
   ...officerRoles,
   ecMemberRole,
   'executive',
+  'staff',
+  'nri_admin',
   'admin',
 };
 
 const announcementPublisherRoles = {
   'admin',
+  'nri_admin',
   ecMemberRole,
   'executive',
   ...officerRoles,
@@ -113,8 +118,10 @@ bool canViewAdminAnalytics(String? role) => resolveUserRole(role) == 'admin';
 
 bool canReviewVerifications(String? role) {
   final resolved = resolveUserRole(role);
-  // Verifier role removed — admin and NRI Alumni (staff) only.
-  return resolved == 'admin' || resolved == 'staff';
+  // Verifier role removed — admin, NRI Admin, and NRI Alumni (staff) only.
+  return resolved == 'admin' ||
+      resolved == 'nri_admin' ||
+      resolved == 'staff';
 }
 
 bool canManageMembers(String? role) => resolveUserRole(role) == 'admin';
@@ -130,14 +137,17 @@ bool isAnnouncementPublisher(String? role) {
   return resolved != null && announcementPublisherRoles.contains(resolved);
 }
 
-/// President, VP, Secretary, Treasurer, or Admin can start an Executive Committee DM.
+/// Officers, NRI roles, or Admin can start an Executive Committee DM.
 bool canStartExecutiveDm(String? role) {
   final resolved = resolveUserRole(role);
   return resolved != null &&
-      (officerRoles.contains(resolved) || resolved == 'admin');
+      (officerRoles.contains(resolved) ||
+          resolved == 'admin' ||
+          resolved == 'nri_admin' ||
+          resolved == 'staff');
 }
 
-/// EC group chat: officers, Executive (`ec_member`), legacy `executive`, and admin.
+/// EC group chat: officers, Executive (`ec_member`), legacy `executive`, NRI, and admin.
 bool canViewExecutiveCommittee(String? role) {
   final resolved = resolveUserRole(role);
   return resolved != null && executiveCommitteeRoles.contains(resolved);
@@ -166,6 +176,8 @@ String executiveCommitteeRoleLabel(String? role) {
       return 'Editor';
     case 'staff':
       return 'NRI Alumni';
+    case 'nri_admin':
+      return 'NRI Admin';
     case 'ec_member':
     case 'executive':
       return 'Executive Member';
@@ -189,6 +201,7 @@ const financeCouncilViewRoles = {
   'finance_secretary',
   'treasurer',
   'admin',
+  'nri_admin',
 };
 
 const financeCouncilPostRoles = {
@@ -226,6 +239,8 @@ String financeCouncilRoleLabel(String? role) {
       return 'Treasurer';
     case 'admin':
       return 'Admin';
+    case 'nri_admin':
+      return 'NRI Admin';
     default:
       return userRoleLabel(resolved);
   }
@@ -247,6 +262,8 @@ String generalGroupRoleLabel(String? role) {
       return 'Treasurer';
     case 'admin':
       return 'Admin';
+    case 'nri_admin':
+      return 'NRI Admin';
     default:
       return userRoleLabel(resolved);
   }

@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 
 import '../config/app_config.dart';
+import '../utils/media_url.dart';
 import 'api_client.dart';
 import 'api_errors.dart';
 import 'auth_service.dart';
@@ -31,7 +32,7 @@ class GalleryAlbum {
       slug: json['slug'] as String,
       title: json['title'] as String,
       description: json['description'] as String?,
-      coverImageUrl: json['cover_image_url'] as String?,
+      coverImageUrl: resolveMediaUrl(json['cover_image_url'] as String?),
       mediaCount: json['media_count'] as int? ?? 0,
       createdBy: json['created_by'] as String?,
     );
@@ -55,15 +56,18 @@ class GalleryMediaItem {
   final String? thumbnailUrl;
   final int sortOrder;
 
-  String get imageUrl => storageUrl ?? storagePath;
+  String get imageUrl =>
+      resolveMediaUrl(storageUrl) ??
+      resolveMediaUrl(storagePath) ??
+      storagePath;
 
   factory GalleryMediaItem.fromJson(Map<String, dynamic> json) {
     return GalleryMediaItem(
       id: json['id'] as String,
       storagePath: json['storage_path'] as String,
       caption: json['caption'] as String?,
-      storageUrl: json['storage_url'] as String?,
-      thumbnailUrl: json['thumbnail_url'] as String?,
+      storageUrl: resolveMediaUrl(json['storage_url'] as String?),
+      thumbnailUrl: resolveMediaUrl(json['thumbnail_url'] as String?),
       sortOrder: json['sort_order'] as int? ?? 0,
     );
   }
@@ -128,7 +132,7 @@ class GalleryAlbumDetail {
       slug: json['slug'] as String,
       title: json['title'] as String,
       description: json['description'] as String?,
-      coverImageUrl: json['cover_image_url'] as String?,
+      coverImageUrl: resolveMediaUrl(json['cover_image_url'] as String?),
       mediaCount: json['media_count'] as int? ?? 0,
       media: rawMedia
           .map((e) => GalleryMediaItem.fromJson(e as Map<String, dynamic>))
@@ -413,7 +417,7 @@ class GalleryApiService {
             (e) => GalleryMediaItem(
               id: e['id'] as String,
               storagePath: e['storage_path'] as String,
-              storageUrl: e['storage_url'] as String?,
+              storageUrl: resolveMediaUrl(e['storage_url'] as String?),
               caption: e['caption'] as String?,
               sortOrder: e['sort_order'] as int? ?? 0,
             ),

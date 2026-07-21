@@ -29,7 +29,7 @@ class TestimonialSection extends StatelessWidget {
               ),
               const SizedBox(height: 20),
               Text(
-                '— Dr. Bhanu Prasad, Batch of 1985, Cardiothoracic Surgeon',
+                '— Dr. Bhanu Prasad, Batch of 1972, Cardiothoracic Surgeon',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.inter(
                   fontSize: 16,
