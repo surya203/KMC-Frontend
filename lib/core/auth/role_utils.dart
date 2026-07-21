@@ -20,6 +20,7 @@ const assignableUserRoles = [
   'vice_president',
   'secretary',
   'joint_secretary',
+  'finance_secretary',
   'treasurer',
   'editor',
   'admin',
@@ -34,6 +35,7 @@ const _userRoleLabels = <String, String>{
   'vice_president': 'Vice President',
   'secretary': 'General Secretary',
   'joint_secretary': 'Joint Secretary',
+  'finance_secretary': 'Finance Secretary',
   'treasurer': 'Treasurer',
   'editor': 'Editor',
   'admin': 'Admin',
@@ -44,6 +46,7 @@ const officerRoles = {
   'vice_president',
   'secretary',
   'joint_secretary',
+  'finance_secretary',
   'treasurer',
   'editor',
 };
@@ -155,10 +158,14 @@ String executiveCommitteeRoleLabel(String? role) {
       return 'General Secretary';
     case 'joint_secretary':
       return 'Joint Secretary';
+    case 'finance_secretary':
+      return 'Finance Secretary';
     case 'treasurer':
       return 'Treasurer';
     case 'editor':
       return 'Editor';
+    case 'staff':
+      return 'NRI Alumni';
     case 'ec_member':
     case 'executive':
       return 'Executive Member';
@@ -179,6 +186,7 @@ const financeCouncilViewRoles = {
   'president',
   'vice_president',
   'secretary',
+  'finance_secretary',
   'treasurer',
   'admin',
 };
@@ -187,6 +195,7 @@ const financeCouncilPostRoles = {
   'president',
   'vice_president',
   'secretary',
+  'finance_secretary',
   'treasurer',
 };
 
@@ -210,7 +219,9 @@ String financeCouncilRoleLabel(String? role) {
     case 'vice_president':
       return 'Vice President';
     case 'secretary':
-      return 'Secretary';
+      return 'General Secretary';
+    case 'finance_secretary':
+      return 'Finance Secretary';
     case 'treasurer':
       return 'Treasurer';
     case 'admin':
@@ -229,7 +240,9 @@ String generalGroupRoleLabel(String? role) {
     case 'vice_president':
       return 'Vice President';
     case 'secretary':
-      return 'Secretary';
+      return 'General Secretary';
+    case 'finance_secretary':
+      return 'Finance Secretary';
     case 'treasurer':
       return 'Treasurer';
     case 'admin':

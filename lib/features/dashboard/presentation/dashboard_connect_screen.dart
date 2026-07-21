@@ -561,9 +561,9 @@ class _DashboardConnectScreenState extends State<DashboardConnectScreen> {
               ],
               Text(
                 _activeTab == _ConnectTab.alumniChat
-                    ? 'Open chat for all members. Messages older than 3 months are removed automatically.'
+                    ? 'Any member can start chat here and Executive Committee member can discuss further.'
                     : _activeTab == _ConnectTab.financeCouncil
-                        ? 'Private room for President, VP, Secretary and Treasurer. Documents supported.'
+                        ? 'Financial decisions between President, General Secretary, Finance Secretary and Treasurer.'
                         : canAccessExecutiveCommittee
                             ? 'View EC members and open EC Group Chat. Messages and documents are kept permanently.'
                             : 'View who is on the Executive Committee. Only EC members can open EC Group Chat.',
@@ -1063,7 +1063,7 @@ class _AlumniChatPanelState extends State<_AlumniChatPanel> {
                 Text(
                   widget.isAdminViewer
                       ? 'Members chat here. Messages older than 3 months are removed. Targeted alerts go only to matching alumni — Admin sees all alerts.'
-                      : 'Please chat medical & clinical communications and any family achievements. This chat & documents deleted every 3 months. Admin can delete at any time.',
+                      : 'Alumni chat will be deleted in 3 months',
                   style: GoogleFonts.inter(
                     fontSize: 12,
                     color: AppColors.mutedText,

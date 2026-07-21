@@ -24,7 +24,7 @@ class PlatformFeaturesSection extends StatelessWidget {
     (
       Icons.campaign_outlined,
       'Announcements',
-      'Direct messages from President, Secretary, Treasurer and Admin Office.',
+      'Direct messages from President, General Secretary, Finance Secretary, Treasurer and Admin Office.',
       null,
     ),
     (
