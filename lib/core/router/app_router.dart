@@ -32,6 +32,12 @@ import '../../features/gallery/presentation/dashboard_gallery_album_screen.dart'
 import '../../features/gallery/presentation/dashboard_gallery_manage_screen.dart';
 import '../../features/gallery/presentation/gallery_screen.dart';
 import '../../features/home/presentation/home_screen.dart';
+import '../../features/legal/presentation/contact_screen.dart';
+import '../../features/legal/presentation/pricing_screen.dart';
+import '../../features/legal/presentation/privacy_screen.dart';
+import '../../features/legal/presentation/refund_policy_screen.dart';
+import '../../features/legal/presentation/shipping_policy_screen.dart';
+import '../../features/legal/presentation/terms_screen.dart';
 import '../../features/membership/presentation/membership_screen.dart';
 import '../../features/splash/presentation/splash_screen.dart';
 import '../widgets/public_layout.dart';
@@ -188,6 +194,30 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: '/membership',
       builder: (context, state) => const MembershipScreen(),
+    ),
+    GoRoute(
+      path: '/terms',
+      builder: (context, state) => const TermsScreen(),
+    ),
+    GoRoute(
+      path: '/privacy',
+      builder: (context, state) => const PrivacyScreen(),
+    ),
+    GoRoute(
+      path: '/refund-policy',
+      builder: (context, state) => const RefundPolicyScreen(),
+    ),
+    GoRoute(
+      path: '/shipping-policy',
+      builder: (context, state) => const ShippingPolicyScreen(),
+    ),
+    GoRoute(
+      path: '/contact',
+      builder: (context, state) => const ContactScreen(),
+    ),
+    GoRoute(
+      path: '/pricing',
+      builder: (context, state) => const PricingScreen(),
     ),
     GoRoute(
       path: '/drugs/:id',
