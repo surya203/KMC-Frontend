@@ -44,6 +44,8 @@ class _MembershipScreenState extends State<MembershipScreen> {
 
   List<MembershipPlan> _plans = [];
   MembershipPlan? _selectedPlan;
+  MembershipCountryPrice _selectedCountryPrice =
+      MembershipCountryPrice.options.first;
   RegistrationDraft? _draft;
   CompleteRegistrationResult? _completion;
 
@@ -130,6 +132,9 @@ class _MembershipScreenState extends State<MembershipScreen> {
       setState(() {
         _plans = plans;
         _selectedPlan = plans.isNotEmpty ? plans.first : null;
+        _selectedCountryPrice = MembershipCountryPrice.resolve(
+          plan: _selectedPlan,
+        );
         _draft = draft;
         _step = _mapDraftStep(draft, _completion);
         _hydrateFromDraft(draft);
@@ -207,6 +212,11 @@ class _MembershipScreenState extends State<MembershipScreen> {
     if (planId != null) {
       _selectedPlan = _plans.where((p) => p.id == planId).firstOrNull ?? _selectedPlan;
     }
+    _selectedCountryPrice = MembershipCountryPrice.resolve(
+      plan: _selectedPlan,
+      countryCode: draft.payload['country_code']?.toString(),
+      currency: draft.payload['currency']?.toString(),
+    );
     if (_hasPendingOtp(draft)) {
       _otpSent = true;
       _otpStatusMessage ??=
@@ -232,9 +242,21 @@ class _MembershipScreenState extends State<MembershipScreen> {
   Future<void> _savePlanStep() async {
     final plan = _selectedPlan;
     if (plan == null) throw Exception('Select a membership plan.');
+    final country = _selectedCountryPrice;
+    final planPayload = <String, dynamic>{
+      'plan_id': plan.id,
+      'country_code': country.code,
+      'currency': country.currencyCode,
+      if (country.amountPaise > 0) 'amount_paise': country.amountPaise,
+    };
 
     if (_draft == null) {
-      final draft = await _registration.createDraft(planId: plan.id);
+      final draft = await _registration.createDraft(
+        planId: plan.id,
+        countryCode: country.code,
+        currency: country.currencyCode,
+        amountPaise: country.amountPaise > 0 ? country.amountPaise : null,
+      );
       await AuthSession.instance.saveDraftId(draft.id);
       setState(() {
         _draft = draft;
@@ -244,7 +266,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
       final draft = await _registration.updateDraft(
         draftId: _draft!.id,
         step: 1,
-        payload: {'plan_id': plan.id},
+        payload: planPayload,
       );
       setState(() {
         _draft = draft;
@@ -294,6 +316,9 @@ class _MembershipScreenState extends State<MembershipScreen> {
       _profilePhoto = null;
       _profilePhotoBytes = null;
       _selectedPlan = _plans.isNotEmpty ? _plans.first : null;
+      _selectedCountryPrice = MembershipCountryPrice.resolve(
+        plan: _selectedPlan,
+      );
     });
   }
 
@@ -492,7 +517,11 @@ class _MembershipScreenState extends State<MembershipScreen> {
     final draft = _draft;
     if (draft == null) return;
 
-    final checkout = await _membershipApi.createCheckout(draft.id);
+    final checkout = await _membershipApi.createCheckout(
+      draft.id,
+      countryCode: _selectedCountryPrice.code,
+      currency: _selectedCountryPrice.currencyCode,
+    );
     final email = _emailController.text.trim();
     final keyId = checkout.keyId;
 
@@ -716,7 +745,18 @@ class _MembershipScreenState extends State<MembershipScreen> {
       0 => _PlanStep(
           plans: _plans,
           selected: _selectedPlan,
-          onSelect: (plan) => setState(() => _selectedPlan = plan),
+          selectedCountry: _selectedCountryPrice,
+          countryOptions: MembershipCountryPrice.fromPlan(_selectedPlan),
+          onCountryChanged: (country) =>
+              setState(() => _selectedCountryPrice = country),
+          onSelect: (plan) => setState(() {
+            _selectedPlan = plan;
+            _selectedCountryPrice = MembershipCountryPrice.resolve(
+              plan: plan,
+              countryCode: _selectedCountryPrice.code,
+              currency: _selectedCountryPrice.currencyCode,
+            );
+          }),
           onContinue: () => _runStep(_savePlanStep),
         ),
       1 => _DetailsStep(
@@ -750,6 +790,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
         ),
       3 => _PaymentStep(
           plan: _selectedPlan,
+          countryPrice: _selectedCountryPrice,
           onBack: () => setState(() => _step = 2),
           onPay: () => _runStep(_startPayment),
         ),
@@ -878,16 +919,328 @@ class _PlanStepSkeleton extends StatelessWidget {
   }
 }
 
+/// Display pricing by country/currency on the plan + payment steps.
+class MembershipCountryPrice {
+  const MembershipCountryPrice({
+    required this.code,
+    required this.country,
+    required this.currencyCode,
+    required this.displayPrice,
+    required this.flag,
+    this.amountPaise = 0,
+  });
+
+  final String code;
+  final String country;
+  final String currencyCode;
+  final String displayPrice;
+  final String flag;
+  final int amountPaise;
+
+  String get dropdownLabel => '$country ($currencyCode)';
+
+  static const _flags = <String, String>{
+    'IN': '🇮🇳',
+    'US': '🇺🇸',
+    'UK': '🇬🇧',
+    'AU': '🇦🇺',
+  };
+
+  static const options = <MembershipCountryPrice>[
+    MembershipCountryPrice(
+      code: 'IN',
+      country: 'India',
+      currencyCode: 'INR',
+      displayPrice: '₹1000',
+      flag: '🇮🇳',
+      amountPaise: 100000,
+    ),
+    MembershipCountryPrice(
+      code: 'US',
+      country: 'United States',
+      currencyCode: 'USD',
+      displayPrice: '\$100',
+      flag: '🇺🇸',
+      amountPaise: 10000,
+    ),
+    MembershipCountryPrice(
+      code: 'UK',
+      country: 'United Kingdom',
+      currencyCode: 'GBP',
+      displayPrice: '£150',
+      flag: '🇬🇧',
+      amountPaise: 15000,
+    ),
+    MembershipCountryPrice(
+      code: 'AU',
+      country: 'Australia',
+      currencyCode: 'AUD',
+      displayPrice: 'A\$100',
+      flag: '🇦🇺',
+      amountPaise: 10000,
+    ),
+  ];
+
+  static List<MembershipCountryPrice> fromPlan(MembershipPlan? plan) {
+    final prices = plan?.prices ?? const <MembershipPlanPrice>[];
+    if (prices.isEmpty) return options;
+    return [
+      for (final price in prices)
+        MembershipCountryPrice(
+          code: price.countryCode,
+          country: price.countryName.isNotEmpty
+              ? price.countryName
+              : price.countryCode,
+          currencyCode: price.currency,
+          displayPrice: price.displayPrice,
+          flag: _flags[price.countryCode] ?? '🌐',
+          amountPaise: price.amountPaise,
+        ),
+    ];
+  }
+
+  static MembershipCountryPrice resolve({
+    required MembershipPlan? plan,
+    String? countryCode,
+    String? currency,
+  }) {
+    final list = fromPlan(plan);
+    if (countryCode != null && countryCode.isNotEmpty) {
+      final byCountry = list
+          .where((o) => o.code.toUpperCase() == countryCode.toUpperCase())
+          .firstOrNull;
+      if (byCountry != null) return byCountry;
+    }
+    if (currency != null && currency.isNotEmpty) {
+      final byCurrency = list
+          .where(
+            (o) => o.currencyCode.toUpperCase() == currency.toUpperCase(),
+          )
+          .firstOrNull;
+      if (byCurrency != null) return byCurrency;
+    }
+    return list.first;
+  }
+}
+
+class _CountryCurrencySelector extends StatelessWidget {
+  const _CountryCurrencySelector({
+    required this.selected,
+    required this.options,
+    required this.onChanged,
+  });
+
+  final MembershipCountryPrice selected;
+  final List<MembershipCountryPrice> options;
+  final ValueChanged<MembershipCountryPrice> onChanged;
+
+  static const double _menuWidth = 260;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: SizedBox(
+        width: _menuWidth,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () => _openMenu(context),
+            borderRadius: BorderRadius.circular(12),
+            child: Ink(
+              decoration: BoxDecoration(
+                color: AppColors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.border),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.04),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
+                child: Row(
+                  children: [
+                    Text(selected.flag, style: const TextStyle(fontSize: 17)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        selected.country,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.heading,
+                        ),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 7,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.muted,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        selected.currencyCode,
+                        style: GoogleFonts.inter(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.3,
+                          color: AppColors.heading,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 2),
+                    Icon(
+                      Icons.expand_more_rounded,
+                      size: 18,
+                      color: AppColors.heading.withValues(alpha: 0.45),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openMenu(BuildContext context) async {
+    final box = context.findRenderObject() as RenderBox?;
+    if (box == null) return;
+    final overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox?;
+    if (overlay == null) return;
+
+    final topLeft = box.localToGlobal(Offset.zero, ancestor: overlay);
+    final triggerWidth = box.size.width;
+    final menuWidth = triggerWidth.clamp(220.0, _menuWidth);
+
+    final chosen = await showGeneralDialog<MembershipCountryPrice>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Close currency menu',
+      barrierColor: Colors.black.withValues(alpha: 0.08),
+      transitionDuration: const Duration(milliseconds: 140),
+      pageBuilder: (dialogContext, animation, secondaryAnimation) {
+        return Stack(
+          children: [
+            Positioned(
+              left: topLeft.dx + (triggerWidth - menuWidth) / 2,
+              top: topLeft.dy + box.size.height + 6,
+              width: menuWidth,
+              child: Material(
+                color: AppColors.white,
+                elevation: 10,
+                shadowColor: AppColors.shadow,
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (final option in options)
+                        InkWell(
+                          onTap: () => Navigator.of(dialogContext).pop(option),
+                          borderRadius: BorderRadius.circular(8),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 9,
+                            ),
+                            child: _CountryMenuRow(
+                              option: option,
+                              selected: option.code == selected.code,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        return FadeTransition(opacity: animation, child: child);
+      },
+    );
+
+    if (chosen != null) onChanged(chosen);
+  }
+}
+
+class _CountryMenuRow extends StatelessWidget {
+  const _CountryMenuRow({
+    required this.option,
+    required this.selected,
+  });
+
+  final MembershipCountryPrice option;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Text(option.flag, style: const TextStyle(fontSize: 15)),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            option.country,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.inter(
+              fontSize: 13,
+              fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+              color: AppColors.heading,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          option.displayPrice,
+          style: GoogleFonts.inter(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: selected ? AppColors.secondary : AppColors.mutedText,
+          ),
+        ),
+        if (selected) ...[
+          const SizedBox(width: 4),
+          const Icon(Icons.check, size: 14, color: AppColors.secondary),
+        ],
+      ],
+    );
+  }
+}
+
 class _PlanStep extends StatelessWidget {
   const _PlanStep({
     required this.plans,
     required this.selected,
+    required this.selectedCountry,
+    required this.countryOptions,
+    required this.onCountryChanged,
     required this.onSelect,
     required this.onContinue,
   });
 
   final List<MembershipPlan> plans;
   final MembershipPlan? selected;
+  final MembershipCountryPrice selectedCountry;
+  final List<MembershipCountryPrice> countryOptions;
+  final ValueChanged<MembershipCountryPrice> onCountryChanged;
   final ValueChanged<MembershipPlan> onSelect;
   final VoidCallback onContinue;
 
@@ -911,54 +1264,73 @@ class _PlanStep extends StatelessWidget {
             plan.name,
             textAlign: TextAlign.center,
             style: GoogleFonts.fraunces(
-              fontSize: 32,
+              fontSize: 28,
               fontWeight: FontWeight.w600,
               color: AppColors.heading,
             ),
           ),
-          const SizedBox(height: 28),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              Text(
-                plan.displayPrice,
-                style: GoogleFonts.fraunces(
-                  fontSize: 48,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.heading,
-                ),
+          const SizedBox(height: 20),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 180),
+            child: Text(
+              selectedCountry.displayPrice,
+              key: ValueKey(selectedCountry.code),
+              textAlign: TextAlign.center,
+              style: GoogleFonts.fraunces(
+                fontSize: 40,
+                fontWeight: FontWeight.w600,
+                height: 1.05,
+                color: AppColors.heading,
               ),
-              const SizedBox(width: 8),
-              Text(
-                'one-time',
-                style: GoogleFonts.inter(
-                  fontSize: 16,
-                  color: AppColors.bodyText,
-                ),
-              ),
-            ],
+            ),
           ),
-          const SizedBox(height: 28),
+          const SizedBox(height: 4),
+          Text(
+            'one-time membership',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(
+              fontSize: 13,
+              color: AppColors.mutedText,
+            ),
+          ),
+          const SizedBox(height: 18),
+          Text(
+            'Currency',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              letterSpacing: 0.6,
+              color: AppColors.mutedText,
+            ),
+          ),
+          const SizedBox(height: 8),
+          _CountryCurrencySelector(
+            selected: selectedCountry,
+            options: countryOptions.isNotEmpty
+                ? countryOptions
+                : MembershipCountryPrice.options,
+            onChanged: onCountryChanged,
+          ),
+          const SizedBox(height: 24),
           for (final benefit in plan.benefits)
             Padding(
-              padding: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.only(bottom: 10),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Icon(
                     Icons.check,
-                    size: 20,
+                    size: 18,
                     color: AppColors.secondary,
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       benefit,
                       style: GoogleFonts.inter(
-                        fontSize: 15,
-                        height: 1.5,
+                        fontSize: 14,
+                        height: 1.45,
                         color: AppColors.heading,
                       ),
                     ),
@@ -966,7 +1338,7 @@ class _PlanStep extends StatelessWidget {
                 ],
               ),
             ),
-          const SizedBox(height: 28),
+          const SizedBox(height: 22),
           _PrimaryButton(
             label: 'Please Join',
             onPressed: () {
@@ -1611,11 +1983,13 @@ class _VerifyStep extends StatelessWidget {
 class _PaymentStep extends StatefulWidget {
   const _PaymentStep({
     required this.plan,
+    required this.countryPrice,
     required this.onBack,
     required this.onPay,
   });
 
   final MembershipPlan? plan;
+  final MembershipCountryPrice countryPrice;
   final VoidCallback onBack;
   final VoidCallback onPay;
 
@@ -1644,7 +2018,7 @@ class _PaymentStepState extends State<_PaymentStep> {
   bool get _isDemo =>
       AppConfig.razorpayKeyId.isEmpty || AppConfig.env == 'development';
 
-  String get _price => widget.plan?.displayPrice ?? '₹1,000';
+  String get _price => widget.countryPrice.displayPrice;
 
   String get _planLabel =>
       'MY KMC — ${widget.plan?.name ?? 'Life Membership'}';

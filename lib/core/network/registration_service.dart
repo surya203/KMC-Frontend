@@ -61,13 +61,21 @@ class RegistrationService {
 
   Future<RegistrationDraft> createDraft({
     required String planId,
+    String? countryCode,
+    String? currency,
+    int? amountPaise,
   }) async {
     return _draftRequest(
       'POST',
       '${AppConfig.apiPrefix}/auth/register/draft',
       data: {
         'step': 1,
-        'payload': {'plan_id': planId},
+        'payload': {
+          'plan_id': planId,
+          if (countryCode != null) 'country_code': countryCode,
+          if (currency != null) 'currency': currency,
+          if (amountPaise != null) 'amount_paise': amountPaise,
+        },
       },
     );
   }

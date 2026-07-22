@@ -4,6 +4,53 @@ import '../config/app_config.dart';
 import 'auth_service.dart';
 import 'api_client.dart';
 
+class MembershipPlanPrice {
+  const MembershipPlanPrice({
+    required this.countryCode,
+    required this.countryName,
+    required this.currency,
+    required this.amountPaise,
+    required this.displayPrice,
+  });
+
+  final String countryCode;
+  final String countryName;
+  final String currency;
+  final int amountPaise;
+  final String displayPrice;
+
+  factory MembershipPlanPrice.fromJson(Map<String, dynamic> json) {
+    final currency = '${json['currency'] ?? 'INR'}'.toUpperCase();
+    final amount = json['amount_paise'] is int
+        ? json['amount_paise'] as int
+        : int.tryParse('${json['amount_paise']}') ?? 0;
+    final display = '${json['display_price'] ?? ''}'.trim();
+    return MembershipPlanPrice(
+      countryCode: '${json['country_code'] ?? 'IN'}'.toUpperCase(),
+      countryName: '${json['country_name'] ?? ''}',
+      currency: currency,
+      amountPaise: amount,
+      displayPrice: display.isNotEmpty
+          ? display
+          : _formatCurrencyAmount(amount, currency),
+    );
+  }
+}
+
+String _formatCurrencyAmount(int amountPaise, String currency) {
+  final major = amountPaise / 100;
+  final whole = major == major.roundToDouble()
+      ? '${major.toInt()}'
+      : major.toStringAsFixed(2);
+  return switch (currency.toUpperCase()) {
+    'INR' => '₹$whole',
+    'USD' => '\$$whole',
+    'GBP' => '£$whole',
+    'AUD' => 'A\$$whole',
+    _ => '$currency $whole',
+  };
+}
+
 class MembershipPlan {
   const MembershipPlan({
     required this.id,
@@ -13,6 +60,7 @@ class MembershipPlan {
     required this.currency,
     required this.benefits,
     this.description,
+    this.prices = const [],
   });
 
   final String id;
@@ -22,11 +70,13 @@ class MembershipPlan {
   final String currency;
   final List<String> benefits;
   final String? description;
+  final List<MembershipPlanPrice> prices;
 
-  String get displayPrice => '₹${(pricePaise / 100).round()}';
+  String get displayPrice => _formatCurrencyAmount(pricePaise, currency);
 
   factory MembershipPlan.fromJson(Map<String, dynamic> json) {
     final rawBenefits = json['benefits'];
+    final rawPrices = json['prices'];
     return MembershipPlan(
       id: '${json['id']}',
       slug: '${json['slug']}',
@@ -38,6 +88,16 @@ class MembershipPlan {
       description: json['description'] as String?,
       benefits: rawBenefits is List
           ? rawBenefits.map((e) => '$e').toList()
+          : const [],
+      prices: rawPrices is List
+          ? rawPrices
+              .whereType<Map>()
+              .map(
+                (e) => MembershipPlanPrice.fromJson(
+                  Map<String, dynamic>.from(e),
+                ),
+              )
+              .toList()
           : const [],
     );
   }
@@ -335,11 +395,20 @@ class MembershipApiService {
     }
   }
 
-  Future<CheckoutSession> createCheckout(String draftId) async {
+  Future<CheckoutSession> createCheckout(
+    String draftId, {
+    String? countryCode,
+    String? currency,
+  }) async {
     try {
       final response = await _apiClient.post<Map<String, dynamic>>(
         '${AppConfig.apiPrefix}/membership/checkout',
-        data: {'draft_id': draftId},
+        data: {
+          'draft_id': draftId,
+          if (countryCode != null && countryCode.isNotEmpty)
+            'country_code': countryCode,
+          if (currency != null && currency.isNotEmpty) 'currency': currency,
+        },
       );
       if (response.data == null) throw Exception('Checkout failed.');
       return CheckoutSession.fromJson(response.data!);
