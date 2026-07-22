@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:crop_your_image/crop_your_image.dart';
@@ -19,7 +20,9 @@ Future<Uint8List?> showProfilePhotoCropper(
     return null;
   }
 
-  return Navigator.of(context).push<Uint8List>(
+  // Use the root navigator so the crop UI covers the dashboard shell chrome
+  // (otherwise MediaQuery size ≠ visible Crop area and the circle clips).
+  return Navigator.of(context, rootNavigator: true).push<Uint8List>(
     MaterialPageRoute(
       fullscreenDialog: true,
       builder: (_) => ProfilePhotoCropScreen(
@@ -114,6 +117,19 @@ class _ProfilePhotoCropScreenState extends State<ProfilePhotoCropScreen> {
     }
   }
 
+  /// Build a square crop rect that always fits inside the visible viewport.
+  ///
+  /// `crop_your_image` sizes its viewport from [MediaQuery.size]. Without an
+  /// accurate size (and with the package's default initialSize=1), the circle
+  /// often exceeds the visible width on tall phone layouts and looks clipped.
+  Rect _initialCropRect(Rect viewportRect, Rect imageRect) {
+    final maxSide = math.min(viewportRect.width, viewportRect.height);
+    final side = maxSide * 0.86;
+    final left = viewportRect.left + (viewportRect.width - side) / 2;
+    final top = viewportRect.top + (viewportRect.height - side) / 2;
+    return Rect.fromLTWH(left, top, side, side);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -139,6 +155,7 @@ class _ProfilePhotoCropScreenState extends State<ProfilePhotoCropScreen> {
                 ? null
                 : () {
                     setState(() => _cropping = true);
+                    // Square crop for DP upload (circle is UI-only).
                     _controller.crop();
                   },
             child: _cropping
@@ -163,26 +180,45 @@ class _ProfilePhotoCropScreenState extends State<ProfilePhotoCropScreen> {
       body: Column(
         children: [
           Expanded(
-            child: Crop(
-              image: widget.imageBytes,
-              controller: _controller,
-              withCircleUi: true,
-              interactive: true,
-              fixCropRect: true,
-              baseColor: Colors.black,
-              maskColor: Colors.black.withValues(alpha: 0.55),
-              progressIndicator: const Center(
-                child: CircularProgressIndicator(color: Colors.white),
-              ),
-              onStatusChanged: (status) {
-                final ready = status == CropStatus.ready;
-                if (ready != _ready && mounted) {
-                  setState(() => _ready = ready);
-                }
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                // Override MediaQuery so crop_your_image's viewport matches
+                // the actual Expanded area (not the full screen / shell).
+                final cropSize = Size(
+                  constraints.maxWidth,
+                  constraints.maxHeight,
+                );
+                return MediaQuery(
+                  data: MediaQuery.of(context).copyWith(size: cropSize),
+                  child: Crop(
+                    image: widget.imageBytes,
+                    controller: _controller,
+                    withCircleUi: true,
+                    interactive: true,
+                    fixCropRect: true,
+                    baseColor: Colors.black,
+                    maskColor: Colors.black.withValues(alpha: 0.55),
+                    clipBehavior: Clip.hardEdge,
+                    progressIndicator: const Center(
+                      child: CircularProgressIndicator(color: Colors.white),
+                    ),
+                    initialRectBuilder: InitialRectBuilder.withBuilder(
+                      _initialCropRect,
+                    ),
+                    // Fixed crop frame — hide resize dots.
+                    cornerDotBuilder: (_, _) => const SizedBox.shrink(),
+                    onStatusChanged: (status) {
+                      final ready = status == CropStatus.ready;
+                      if (ready != _ready && mounted) {
+                        setState(() => _ready = ready);
+                      }
+                    },
+                    onCropped: _finish,
+                    scrollZoomSensitivity: 0.05,
+                    willUpdateScale: (scale) => scale >= 1 && scale <= 8,
+                  ),
+                );
               },
-              onCropped: _finish,
-              scrollZoomSensitivity: 0.05,
-              willUpdateScale: (scale) => scale >= 1 && scale <= 5,
             ),
           ),
           SafeArea(
