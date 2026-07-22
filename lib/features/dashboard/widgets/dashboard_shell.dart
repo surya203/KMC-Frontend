@@ -235,8 +235,12 @@ class _SidebarNavTile extends StatelessWidget {
             if (scaffold?.isDrawerOpen ?? false) {
               Navigator.of(context).pop();
             }
-            if (targetPath == currentPath) return;
-            context.go(targetPath);
+            // All roles (including admin) use member Events at /my-events.
+            // Admin create/edit stays under Admin → Events only.
+            final path =
+                item.label == 'Events' ? '/my-events' : targetPath;
+            if (path == currentPath) return;
+            context.go(path);
           },
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),

@@ -107,10 +107,6 @@ final GoRouter appRouter = GoRouter(
       }
     }
 
-    if (location.startsWith('/my-events') && canManageEvents(role)) {
-      return '/admin/events';
-    }
-
     if (location == '/admin' &&
         isAuthenticated &&
         !canViewAdminAnalytics(role) &&

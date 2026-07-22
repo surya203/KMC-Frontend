@@ -91,7 +91,7 @@ class _DashboardEventsScreenState extends State<DashboardEventsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 28),
-              if (!_loading && _error == null && !isAdmin && _myRegistrations.isNotEmpty) ...[
+              if (!_loading && _error == null && _myRegistrations.isNotEmpty) ...[
                 Text(
                   'My registrations',
                   style: GoogleFonts.fraunces(
