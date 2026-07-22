@@ -6,10 +6,11 @@ Future<Uint8List> compressProfilePhoto(Uint8List bytes) async {
   if (bytes.isEmpty) return bytes;
 
   try {
+    // Only set targetWidth so aspect ratio is preserved (crop already outputs
+    // a square; forcing both axes can distort if bytes aren't perfectly square).
     final codec = await ui.instantiateImageCodec(
       bytes,
       targetWidth: 320,
-      targetHeight: 320,
     );
     final frame = await codec.getNextFrame();
     final image = frame.image;
