@@ -4,13 +4,12 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../auth/role_utils.dart';
 import '../constants/app_colors.dart';
 import 'drug_header_store.dart';
 
 /// Header drug card sized to match the profile avatar row (~36px tall).
-/// Admin → staff console drugs page.
-/// Members → open link URL if set, otherwise drug details image page.
+/// All roles (including admin): open link URL if set, otherwise drug details.
+/// Admin create/edit stays under Admin → Drugs only.
 class DrugsHeaderCard extends StatefulWidget {
   const DrugsHeaderCard({super.key});
 
@@ -43,11 +42,6 @@ class _DrugsHeaderCardState extends State<DrugsHeaderCard> {
   }
 
   Future<void> _onTap() async {
-    if (canManageDrugs(currentUserRole)) {
-      context.go('/admin/drugs');
-      return;
-    }
-
     // Always re-fetch so we use the latest admin link / image settings.
     await _store.refresh(force: true);
     if (!mounted) return;
@@ -82,7 +76,8 @@ class _DrugsHeaderCardState extends State<DrugsHeaderCard> {
         location.startsWith('/announcements') ||
         location.startsWith('/connect') ||
         location.startsWith('/settings') ||
-        location.startsWith('/member/');
+        location.startsWith('/member/') ||
+        location.startsWith('/admin');
     final target = inMemberShell
         ? '/dashboard/drugs/${card.id}'
         : '/drugs/${card.id}';
@@ -98,7 +93,7 @@ class _DrugsHeaderCardState extends State<DrugsHeaderCard> {
   Widget build(BuildContext context) {
     final imageUrl = _store.headerImageUrl;
     final card = _store.card;
-    final canTap = canManageDrugs(currentUserRole) || card != null;
+    final canTap = card != null;
 
     return Material(
       color: Colors.transparent,

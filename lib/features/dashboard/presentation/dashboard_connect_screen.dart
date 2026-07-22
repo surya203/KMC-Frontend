@@ -140,7 +140,6 @@ String _formatChatDayLabel(DateTime value) {
 
 /// Build WhatsApp-style list for a reverse [ListView]: newest near bottom.
 List<Widget> _buildWhatsAppChatChildren(List<_ChatMessage> newestFirst) {
-  // Chronological: oldest -> newest
   final chronological = newestFirst.reversed.toList();
   final chronologicalItems = <Widget>[];
   DateTime? lastDay;
@@ -160,6 +159,27 @@ List<Widget> _buildWhatsAppChatChildren(List<_ChatMessage> newestFirst) {
   return chronologicalItems.reversed.toList();
 }
 
+/// Scrollable message area (parent must give a bounded height, e.g. [Expanded]).
+Widget _buildChatMessageList({
+  required BuildContext context,
+  required List<_ChatMessage> messages,
+  required bool compact,
+}) {
+  return ScrollConfiguration(
+    behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+    child: ListView(
+      reverse: true,
+      padding: EdgeInsets.fromLTRB(
+        compact ? 10 : 14,
+        8,
+        compact ? 10 : 14,
+        8,
+      ),
+      children: _buildWhatsAppChatChildren(messages),
+    ),
+  );
+}
+
 class _ChatDaySeparator extends StatelessWidget {
   const _ChatDaySeparator({required this.label});
 
@@ -168,7 +188,7 @@ class _ChatDaySeparator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Center(
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -535,19 +555,24 @@ class _DashboardConnectScreenState extends State<DashboardConnectScreen> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    return SingleChildScrollView(
+    // WhatsApp-style: tabs stay fixed; only the chat body scrolls.
+    // Avoid Center+Column+Expanded (shrinks width → vertical "Message" text).
+    return Padding(
       padding: EdgeInsets.fromLTRB(
         horizontalPadding,
         isMobile ? 12 : 20,
         horizontalPadding,
-        isMobile ? 24 : 32,
+        isMobile ? 12 : 16,
       ),
-      child: Center(
+      child: Align(
+        alignment: Alignment.topCenter,
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 1100),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+          child: SizedBox(
+            width: double.infinity,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
               if (!isMobile) ...[
                 Text(
                   'Connect',
@@ -596,28 +621,25 @@ class _DashboardConnectScreenState extends State<DashboardConnectScreen> {
                   onRetry: _load,
                 ),
               ],
-              SizedBox(height: isMobile ? 16 : 20),
+              SizedBox(height: isMobile ? 12 : 16),
               _ModeToggle(
                 activeTab: _activeTab,
-                onAlumniChat: () => setState(() => _activeTab = _ConnectTab.alumniChat),
+                onAlumniChat: () =>
+                    setState(() => _activeTab = _ConnectTab.alumniChat),
                 onFinanceCouncil: showFinanceCouncilTab
-                    ? () => setState(() => _activeTab = _ConnectTab.financeCouncil)
+                    ? () => setState(
+                          () => _activeTab = _ConnectTab.financeCouncil,
+                        )
                     : null,
-                onCommittee: () => setState(() => _activeTab = _ConnectTab.executiveCommittee),
+                onCommittee: () => setState(
+                  () => _activeTab = _ConnectTab.executiveCommittee,
+                ),
                 fullWidth: isMobile,
               ),
-              SizedBox(height: isMobile ? 16 : 20),
-              if (_activeTab == _ConnectTab.alumniChat)
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final chatHeight = isMobile
-                        ? (MediaQuery.sizeOf(context).height * 0.58)
-                            .clamp(340.0, 620.0)
-                        : 620.0;
-
-                    return SizedBox(
-                      height: chatHeight,
-                      child: _AlumniChatPanel(
+              SizedBox(height: isMobile ? 12 : 16),
+              Expanded(
+                child: _activeTab == _ConnectTab.alumniChat
+                    ? _AlumniChatPanel(
                         messages: _alumniChatMessages,
                         messageController: _messageController,
                         onSend: (targets, {fileBytes, fileName}) =>
@@ -633,55 +655,50 @@ class _DashboardConnectScreenState extends State<DashboardConnectScreen> {
                         isAdminViewer: isStaffRole(
                           AuthSession.instance.currentUser?.role,
                         ),
-                      ),
-                    );
-                  },
-                )
-              else if (_activeTab == _ConnectTab.financeCouncil)
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final chatHeight = isMobile
-                        ? (MediaQuery.sizeOf(context).height * 0.58)
-                            .clamp(340.0, 620.0)
-                        : 620.0;
-
-                    return SizedBox(
-                      height: chatHeight,
-                      child: _FinanceCouncilPanel(
-                        messages: _financeCouncilMessages,
-                        messageController: _messageController,
-                        onSend: ({fileBytes, fileName}) =>
-                            _sendFinanceCouncilMessage(fileBytes, fileName),
-                        canPost: canPostFinance,
-                        posting: _posting,
-                        setupError: _financeCouncilError != null &&
-                            _isFinanceCouncilSetupError(_financeCouncilError!),
-                        compact: isMobile,
-                      ),
-                    );
-                  },
-                )
-              else
-                _ExecutiveCommitteeHub(
-                  officers: _officers,
-                  isEcMember: canAccessExecutiveCommittee,
-                  groupChatOpen: _ecGroupChatOpen,
-                  onGroupChatOpenChanged: (open) {
-                    setState(() => _ecGroupChatOpen = open);
-                  },
-                  groupMessages: _executiveCommitteeMessages,
-                  groupMessageController: _messageController,
-                  onSendGroup: ({fileBytes, fileName}) =>
-                      _sendExecutiveCommitteeMessage(fileBytes, fileName),
-                  groupPosting: _posting,
-                  groupSetupError: _executiveCommitteeError != null &&
-                      _isExecutiveCommitteeSetupError(
-                        _executiveCommitteeError!,
-                      ),
-                  onRefreshGroup: () => _load(silent: true),
-                  compact: isMobile,
-                ),
+                      )
+                    : _activeTab == _ConnectTab.financeCouncil
+                        ? _FinanceCouncilPanel(
+                            messages: _financeCouncilMessages,
+                            messageController: _messageController,
+                            onSend: ({fileBytes, fileName}) =>
+                                _sendFinanceCouncilMessage(
+                                  fileBytes,
+                                  fileName,
+                                ),
+                            canPost: canPostFinance,
+                            posting: _posting,
+                            setupError: _financeCouncilError != null &&
+                                _isFinanceCouncilSetupError(
+                                  _financeCouncilError!,
+                                ),
+                            compact: isMobile,
+                          )
+                        : _ExecutiveCommitteeHub(
+                            officers: _officers,
+                            isEcMember: canAccessExecutiveCommittee,
+                            groupChatOpen: _ecGroupChatOpen,
+                            onGroupChatOpenChanged: (open) {
+                              setState(() => _ecGroupChatOpen = open);
+                            },
+                            groupMessages: _executiveCommitteeMessages,
+                            groupMessageController: _messageController,
+                            onSendGroup: ({fileBytes, fileName}) =>
+                                _sendExecutiveCommitteeMessage(
+                                  fileBytes,
+                                  fileName,
+                                ),
+                            groupPosting: _posting,
+                            groupSetupError:
+                                _executiveCommitteeError != null &&
+                                    _isExecutiveCommitteeSetupError(
+                                      _executiveCommitteeError!,
+                                    ),
+                            onRefreshGroup: () => _load(silent: true),
+                            compact: isMobile,
+                          ),
+              ),
             ],
+          ),
           ),
         ),
       ),
@@ -1116,21 +1133,17 @@ class _AlumniChatPanelState extends State<_AlumniChatPanel> {
                           padding: const EdgeInsets.all(24),
                           child: Text(
                             'No messages yet. Say hello - or Target an alert to one batch.',
-                            style: GoogleFonts.inter(color: AppColors.mutedText),
+                            style: GoogleFonts.inter(
+                              color: AppColors.mutedText,
+                            ),
                             textAlign: TextAlign.center,
                           ),
                         ),
                       )
-                    : ScrollConfiguration(
-                        behavior: ScrollConfiguration.of(context).copyWith(
-                          scrollbars: false,
-                        ),
-                        child: ListView(
-                          // WhatsApp-style: oldest at top, newest at bottom
-                          reverse: true,
-                          padding: EdgeInsets.all(compact ? 14 : 20),
-                          children: _buildWhatsAppChatChildren(messages),
-                        ),
+                    : _buildChatMessageList(
+                        context: context,
+                        messages: messages,
+                        compact: compact,
                       ),
           ),
           const Divider(height: 1),
@@ -1386,17 +1399,20 @@ class _AlumniChatPanelState extends State<_AlumniChatPanel> {
                           ),
                           decoration: InputDecoration(
                             hintText: _hasActiveTargets
-                                ? 'Write an alert for this audience...'
-                                : 'Message optional — attach a file to send',
+                                ? 'Write an alert…'
+                                : (compact
+                                    ? 'Message or attach a file'
+                                    : 'Message optional — attach a file to send'),
                             hintStyle: GoogleFonts.inter(
                               color: AppColors.mutedText,
                               fontSize: 14,
                             ),
+                            isDense: true,
                             filled: true,
                             fillColor: const Color(0xFFF9F8F5),
                             contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 12,
+                              horizontal: 12,
+                              vertical: 10,
                             ),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10),
@@ -1732,20 +1748,17 @@ class _FinanceCouncilPanelState extends State<_FinanceCouncilPanel> {
                           padding: const EdgeInsets.all(24),
                           child: Text(
                             'No messages yet. Discuss Alumni building, budgets and financial approvals here.',
-                            style: GoogleFonts.inter(color: AppColors.mutedText),
+                            style: GoogleFonts.inter(
+                              color: AppColors.mutedText,
+                            ),
                             textAlign: TextAlign.center,
                           ),
                         ),
                       )
-                    : ScrollConfiguration(
-                        behavior: ScrollConfiguration.of(context).copyWith(
-                          scrollbars: false,
-                        ),
-                        child: ListView(
-                          reverse: true,
-                          padding: EdgeInsets.all(compact ? 14 : 20),
-                          children: _buildWhatsAppChatChildren(messages),
-                        ),
+                    : _buildChatMessageList(
+                        context: context,
+                        messages: messages,
+                        compact: compact,
                       ),
           ),
           if (canPost) ...[
@@ -1960,9 +1973,6 @@ class _ExecutiveCommitteeHubState extends State<_ExecutiveCommitteeHub> {
   @override
   Widget build(BuildContext context) {
     final compact = widget.compact;
-    final chatHeight = compact
-        ? (MediaQuery.sizeOf(context).height * 0.58).clamp(340.0, 620.0)
-        : 620.0;
 
     if (widget.groupChatOpen && widget.isEcMember) {
       return Column(
@@ -1977,8 +1987,7 @@ class _ExecutiveCommitteeHubState extends State<_ExecutiveCommitteeHub> {
             ),
           ),
           const SizedBox(height: 8),
-          SizedBox(
-            height: chatHeight,
+          Expanded(
             child: _ExecutiveCommitteeChatPanel(
               messages: widget.groupMessages,
               messageController: widget.groupMessageController,
@@ -2031,7 +2040,6 @@ class _EcMemberDirectory extends StatelessWidget {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
         children: [
           Padding(
             padding: EdgeInsets.fromLTRB(
@@ -2105,24 +2113,26 @@ class _EcMemberDirectory extends StatelessWidget {
           ),
           const Divider(height: 1),
           if (officers.isEmpty)
-            Padding(
-              padding: const EdgeInsets.all(28),
-              child: Text(
-                'No Executive Committee members are listed yet. Ask Admin to assign EC roles.',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.inter(color: AppColors.mutedText),
+            Expanded(
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(28),
+                  child: Text(
+                    'No Executive Committee members are listed yet. Ask Admin to assign EC roles.',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.inter(color: AppColors.mutedText),
+                  ),
+                ),
               ),
             )
           else
-            ConstrainedBox(
-              constraints: BoxConstraints(
-                maxHeight: compact ? 420.0 : 520.0,
-              ),
+            Expanded(
               child: ListView.separated(
-                shrinkWrap: true,
-                padding: EdgeInsets.symmetric(
-                  horizontal: compact ? 10 : 14,
-                  vertical: 8,
+                padding: EdgeInsets.fromLTRB(
+                  compact ? 10 : 14,
+                  4,
+                  compact ? 10 : 14,
+                  compact ? 8 : 10,
                 ),
                 itemCount: officers.length,
                 separatorBuilder: (_, _) => const Divider(height: 1),
@@ -2394,20 +2404,17 @@ class _ExecutiveCommitteeChatPanelState
                           padding: const EdgeInsets.all(24),
                           child: Text(
                             'No messages yet. Open this chat to message all EC members and share documents.',
-                            style: GoogleFonts.inter(color: AppColors.mutedText),
+                            style: GoogleFonts.inter(
+                              color: AppColors.mutedText,
+                            ),
                             textAlign: TextAlign.center,
                           ),
                         ),
                       )
-                    : ScrollConfiguration(
-                        behavior: ScrollConfiguration.of(context).copyWith(
-                          scrollbars: false,
-                        ),
-                        child: ListView(
-                          reverse: true,
-                          padding: EdgeInsets.all(compact ? 14 : 20),
-                          children: _buildWhatsAppChatChildren(messages),
-                        ),
+                    : _buildChatMessageList(
+                        context: context,
+                        messages: messages,
+                        compact: compact,
                       ),
           ),
           const Divider(height: 1),
@@ -2589,8 +2596,8 @@ class _MessageBubble extends StatelessWidget {
           maxWidth: MediaQuery.sizeOf(context).width * 0.78,
         ),
         child: Container(
-          margin: const EdgeInsets.only(bottom: 8),
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
+          margin: const EdgeInsets.only(bottom: 4),
+          padding: const EdgeInsets.fromLTRB(10, 6, 10, 5),
           decoration: BoxDecoration(
             color: bubbleColor,
             borderRadius: BorderRadius.only(
@@ -2613,14 +2620,17 @@ class _MessageBubble extends StatelessWidget {
             children: [
               if (!mine) ...[
                 Row(
-                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      message.author,
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.primary,
+                    Flexible(
+                      child: Text(
+                        message.author,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.primary,
+                        ),
                       ),
                     ),
                     if (message.badge != null) ...[
@@ -2636,6 +2646,8 @@ class _MessageBubble extends StatelessWidget {
                         ),
                         child: Text(
                           message.badge!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.inter(
                             fontSize: 9,
                             fontWeight: FontWeight.w700,

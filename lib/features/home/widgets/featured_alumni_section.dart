@@ -139,7 +139,7 @@ class _FeaturedAlumniSectionState extends State<FeaturedAlumniSection> {
               ),
               const SizedBox(height: 40),
               SizedBox(
-                height: 280,
+                height: 300,
                 child: PageView.builder(
                   controller: _pageController,
                   itemCount: _profiles.length,
@@ -262,20 +262,21 @@ class _AlumniCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                '“${data.quote}”',
-                style: GoogleFonts.fraunces(
-                  fontSize: 18,
-                  height: 1.6,
-                  fontStyle: FontStyle.italic,
-                  color: AppColors.heading,
+              Expanded(
+                child: Text(
+                  '“${data.quote}”',
+                  style: GoogleFonts.fraunces(
+                    fontSize: 18,
+                    height: 1.6,
+                    fontStyle: FontStyle.italic,
+                    color: AppColors.heading,
+                  ),
+                  maxLines: 4,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                maxLines: 4,
-                overflow: TextOverflow.ellipsis,
               ),
-              const Spacer(),
               const Divider(color: AppColors.border, height: 1),
-              const SizedBox(height: 20),
+              const SizedBox(height: 16),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -308,6 +309,8 @@ class _AlumniCard extends StatelessWidget {
                             fontWeight: FontWeight.w700,
                             color: AppColors.heading,
                           ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 4),
                         Text(
@@ -317,6 +320,8 @@ class _AlumniCard extends StatelessWidget {
                             height: 1.5,
                             color: AppColors.bodyText,
                           ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),

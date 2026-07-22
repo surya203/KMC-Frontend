@@ -190,107 +190,146 @@ class _AdminEventsScreenState extends State<AdminEventsScreen> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.border),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: InkWell(
-              borderRadius: BorderRadius.circular(8),
-              onTap: () => _openRegistrationsPage(event),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: SizedBox(
-                      width: 96,
-                      height: 72,
-                      child: event.coverImageUrl != null &&
-                              event.coverImageUrl!.trim().isNotEmpty
-                          ? CachedNetworkImage(
-                              imageUrl: event.coverImageUrl!,
-                              fit: BoxFit.cover,
-                              errorWidget: (_, _, _) => _coverPlaceholder(),
-                            )
-                          : _coverPlaceholder(),
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          event.title,
-                          style: GoogleFonts.inter(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.heading,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          [
-                            _formatDate(event.startsAt),
-                            if (venue.isNotEmpty) venue,
-                            event.isPublished ? 'Published' : 'Draft',
-                            if (event.registrationOpen) 'Registration open',
-                          ].join(' · '),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final narrow = constraints.maxWidth < 560;
+          final cover = ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: SizedBox(
+              width: narrow ? 72 : 96,
+              height: narrow ? 56 : 72,
+              child: event.coverImageUrl != null &&
+                      event.coverImageUrl!.trim().isNotEmpty
+                  ? CachedNetworkImage(
+                      imageUrl: event.coverImageUrl!,
+                      fit: BoxFit.cover,
+                      errorWidget: (_, _, _) => _coverPlaceholder(),
+                    )
+                  : _coverPlaceholder(),
+            ),
+          );
+
+          final details = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                event.title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.inter(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.heading,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                [
+                  _formatDate(event.startsAt),
+                  if (venue.isNotEmpty) venue,
+                  event.isPublished ? 'Published' : 'Draft',
+                  if (event.registrationOpen) 'Registration open',
+                ].join(' · '),
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  color: AppColors.bodyText,
+                ),
+              ),
+              const SizedBox(height: 8),
+              InkWell(
+                onTap: () => _openRegistrationsPage(event),
+                borderRadius: BorderRadius.circular(6),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.people_outline,
+                        size: 18,
+                        color: AppColors.primary,
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          '${event.registeredCount} registered — view details',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.inter(
                             fontSize: 13,
-                            color: AppColors.bodyText,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.primary,
                           ),
                         ),
-                        const SizedBox(height: 8),
-                        TextButton.icon(
-                          onPressed: () => _openRegistrationsPage(event),
-                          icon: const Icon(Icons.people_outline, size: 18),
-                          label: Text(
-                            '${event.registeredCount} registered — view details',
-                          ),
-                          style: TextButton.styleFrom(
-                            foregroundColor: AppColors.primary,
-                            padding: EdgeInsets.zero,
-                            minimumSize: Size.zero,
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          ),
-                        ),
-                        if (event.description != null &&
-                            event.description!.trim().isNotEmpty) ...[
-                          const SizedBox(height: 8),
-                          Text(
-                            event.description!,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.inter(
-                              fontSize: 13,
-                              color: AppColors.mutedText,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
-            ),
-          ),
-          IconButton(
-            tooltip: 'View registrations',
-            onPressed: () => _openRegistrationsPage(event),
-            icon: const Icon(Icons.people_outline),
-          ),
-          IconButton(
-            tooltip: 'Edit',
-            onPressed: () => _openEditor(event: event),
-            icon: const Icon(Icons.edit_outlined),
-          ),
-          IconButton(
-            tooltip: 'Delete',
-            onPressed: () => _deleteEvent(event),
-            icon: Icon(Icons.delete_outline, color: AppColors.error),
-          ),
-        ],
+              if (event.description != null &&
+                  event.description!.trim().isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  event.description!,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    color: AppColors.mutedText,
+                  ),
+                ),
+              ],
+            ],
+          );
+
+          final actions = Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                tooltip: 'View registrations',
+                onPressed: () => _openRegistrationsPage(event),
+                icon: const Icon(Icons.people_outline),
+              ),
+              IconButton(
+                tooltip: 'Edit',
+                onPressed: () => _openEditor(event: event),
+                icon: const Icon(Icons.edit_outlined),
+              ),
+              IconButton(
+                tooltip: 'Delete',
+                onPressed: () => _deleteEvent(event),
+                icon: Icon(Icons.delete_outline, color: AppColors.error),
+              ),
+            ],
+          );
+
+          if (narrow) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    cover,
+                    const SizedBox(width: 12),
+                    Expanded(child: details),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Align(alignment: Alignment.centerRight, child: actions),
+              ],
+            );
+          }
+
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              cover,
+              const SizedBox(width: 14),
+              Expanded(child: details),
+              actions,
+            ],
+          );
+        },
       ),
     );
   }

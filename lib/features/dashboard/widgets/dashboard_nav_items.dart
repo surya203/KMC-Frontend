@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/auth/role_utils.dart';
-
 class DashboardNavItem {
   const DashboardNavItem(this.label, this.icon, this.path);
 
@@ -24,8 +22,9 @@ const dashboardNavItems = <DashboardNavItem>[
 ];
 
 String dashboardNavPath(DashboardNavItem item, String? role) {
-  if (item.path == '/my-events' && canManageEvents(role)) {
-    return '/admin/events';
+  // Sidebar Events is always the member page for every role (admin included).
+  if (item.path == '/my-events' || item.label == 'Events') {
+    return '/my-events';
   }
   return item.path;
 }
@@ -58,9 +57,5 @@ bool dashboardNavItemIsActive(
 }) {
   final itemPath = dashboardNavPath(item, role);
   if (itemPath == currentPath) return true;
-  if (itemPath == '/admin/events' &&
-      currentPath.startsWith('/admin/events/')) {
-    return true;
-  }
   return currentPath.startsWith('$itemPath/');
 }
