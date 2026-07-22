@@ -303,7 +303,8 @@ class _AdminTopBar extends StatelessWidget {
           child: ListenableBuilder(
             listenable: AuthSession.instance,
             builder: (context, _) {
-              final showDrugs = canManageDrugs(null);
+              final role = AuthSession.instance.currentUser?.role;
+              final showDrugs = canManageDrugs(role);
 
               return Row(
                 children: [
