@@ -1,7 +1,7 @@
 // Local/dev defaults. Docker overwrites this via docker/docker-entrypoint.sh.
 // Each developer sets API_BASE_URL in `.env` (see `.env.example`).
 window.__ENV__ = window.__ENV__ || {
-  ENV: 'development',
+  ENV: 'production',
   API_BASE_URL: 'http://200.141.2.90:8001',
   API_PREFIX: '/api/v1',
   SUPABASE_URL: '',
