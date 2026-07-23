@@ -2089,8 +2089,12 @@ class _PaymentStepState extends State<_PaymentStep> {
     super.dispose();
   }
 
-  bool get _isDemo =>
-      AppConfig.razorpayKeyId.isEmpty || AppConfig.env == 'development';
+  bool get _isDemo {
+    final key = AppConfig.razorpayKeyId.trim();
+    return key.isEmpty ||
+        AppConfig.env == 'development' ||
+        key.startsWith('rzp_test_');
+  }
 
   String get _price => widget.countryPrice.displayPrice;
 

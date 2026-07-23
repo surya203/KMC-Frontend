@@ -137,6 +137,7 @@ class AlumniChatTargets {
     this.name,
     this.membershipNumber,
     this.batchYear,
+    this.batchYears,
     this.location,
     this.specialization,
     this.phone,
@@ -145,25 +146,39 @@ class AlumniChatTargets {
   final String? name;
   final String? membershipNumber;
   final int? batchYear;
+  /// When multiple batch years are selected for an alert.
+  final List<int>? batchYears;
   final String? location;
   final String? specialization;
   final String? phone;
 
+  List<int> get resolvedBatchYears {
+    if (batchYears != null && batchYears!.isNotEmpty) {
+      return List<int>.from(batchYears!);
+    }
+    if (batchYear != null) return [batchYear!];
+    return const [];
+  }
+
   bool get hasAny {
     return (name != null && name!.trim().isNotEmpty) ||
         (membershipNumber != null && membershipNumber!.trim().isNotEmpty) ||
-        batchYear != null ||
+        resolvedBatchYears.isNotEmpty ||
         (location != null && location!.trim().isNotEmpty) ||
         (specialization != null && specialization!.trim().isNotEmpty) ||
         (phone != null && phone!.trim().isNotEmpty);
   }
 
   Map<String, dynamic> toJson() {
+    final years = resolvedBatchYears;
     return {
       if (name != null && name!.trim().isNotEmpty) 'target_name': name!.trim(),
       if (membershipNumber != null && membershipNumber!.trim().isNotEmpty)
         'target_membership_number': membershipNumber!.trim(),
-      if (batchYear != null) 'target_batch_year': batchYear,
+      if (years.length == 1) 'target_batch_year': years.first,
+      if (years.length > 1) 'target_batch_years': years,
+      // Keep singular for older backends when multiple years are set.
+      if (years.length > 1) 'target_batch_year': years.first,
       if (location != null && location!.trim().isNotEmpty)
         'target_location': location!.trim(),
       if (specialization != null && specialization!.trim().isNotEmpty)

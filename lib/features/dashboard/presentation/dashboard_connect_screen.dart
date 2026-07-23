@@ -15,17 +15,25 @@ import '../widgets/dashboard_layout.dart';
 /// KMC founded 1959 — batch years outside this range are not accepted.
 const int _kMinBatchYear = 1959;
 
+/// Audience pickers show only this many rows; the rest scroll inside the box.
+const int _kCompactVisibleOptions = 3;
+const double _kCompactOptionHeight = 44;
+const double _kCompactListMaxHeight =
+    _kCompactOptionHeight * _kCompactVisibleOptions;
+
 List<int> _alumniBatchYears() {
   final now = DateTime.now().year;
   return [for (var year = now; year >= _kMinBatchYear; year--) year];
 }
 
-int? _parseValidBatchYear(String raw) {
-  final year = int.tryParse(raw.trim());
-  if (year == null) return null;
+List<int> _parseValidBatchYears(Iterable<int> years) {
   final now = DateTime.now().year;
-  if (year < _kMinBatchYear || year > now) return null;
-  return year;
+  final out = <int>{};
+  for (final year in years) {
+    if (year >= _kMinBatchYear && year <= now) out.add(year);
+  }
+  final sorted = out.toList()..sort((a, b) => b.compareTo(a));
+  return sorted;
 }
 
 enum _ConnectTab { alumniChat, financeCouncil, executiveCommittee }
@@ -920,9 +928,9 @@ class _AlumniChatPanel extends StatefulWidget {
 
 class _AlumniChatPanelState extends State<_AlumniChatPanel> {
   final _nameController = TextEditingController();
-  final _batchController = TextEditingController();
   final _locationController = TextEditingController();
   final _specialtyController = TextEditingController();
+  final Set<int> _selectedBatchYears = <int>{};
   bool _targetOpen = false;
   List<int>? _pendingFileBytes;
   String? _pendingFileName;
@@ -930,16 +938,17 @@ class _AlumniChatPanelState extends State<_AlumniChatPanel> {
   @override
   void dispose() {
     _nameController.dispose();
-    _batchController.dispose();
     _locationController.dispose();
     _specialtyController.dispose();
     super.dispose();
   }
 
   AlumniChatTargets _currentTargets() {
+    final years = _parseValidBatchYears(_selectedBatchYears);
     return AlumniChatTargets(
       name: _emptyToNull(_nameController.text),
-      batchYear: _parseValidBatchYear(_batchController.text),
+      batchYear: years.isEmpty ? null : years.first,
+      batchYears: years.isEmpty ? null : years,
       location: _emptyToNull(_locationController.text),
       specialization: _emptyToNull(_specialtyController.text),
     );
@@ -1021,7 +1030,7 @@ class _AlumniChatPanelState extends State<_AlumniChatPanel> {
   void _clearTargets() {
     setState(() {
       _nameController.clear();
-      _batchController.clear();
+      _selectedBatchYears.clear();
       _locationController.clear();
       _specialtyController.clear();
     });
@@ -1036,7 +1045,12 @@ class _AlumniChatPanelState extends State<_AlumniChatPanel> {
     final t = _currentTargets();
     final parts = <String>[];
     if (t.name != null) parts.add(t.name!);
-    if (t.batchYear != null) parts.add('Batch ${t.batchYear}');
+    final years = t.resolvedBatchYears;
+    if (years.length == 1) {
+      parts.add('Batch ${years.first}');
+    } else if (years.length > 1) {
+      parts.add('Batch ${years.join(', ')}');
+    }
     if (t.specialization != null) parts.add(t.specialization!);
     if (t.location != null) parts.add(t.location!);
     if (parts.isEmpty) return 'To: everyone';
@@ -1293,9 +1307,15 @@ class _AlumniChatPanelState extends State<_AlumniChatPanel> {
                               onChanged: () => setState(() {}),
                             ),
                             _ChatTargetBatchYearField(
-                              controller: _batchController,
+                              selectedYears: _selectedBatchYears,
                               enabled: !posting,
-                              onChanged: () => setState(() {}),
+                              onChanged: (years) {
+                                setState(() {
+                                  _selectedBatchYears
+                                    ..clear()
+                                    ..addAll(years);
+                                });
+                              },
                             ),
                             _ChatTargetChipField(
                               controller: _specialtyController,
@@ -1516,32 +1536,106 @@ class _ChatTargetNameAutocompleteState
     extends State<_ChatTargetNameAutocomplete> {
   final _profilesApi = ProfilesApiService();
   final _focusNode = FocusNode();
+  final _scrollController = ScrollController();
+
+  List<DirectoryProfile> _results = const [];
+  bool _loading = false;
+  bool _pickedFromList = false;
+  int _searchToken = 0;
 
   bool get _active => widget.controller.text.trim().isNotEmpty;
+  bool get _showResults =>
+      _focusNode.hasFocus &&
+      widget.controller.text.trim().length >= 2 &&
+      !_pickedFromList;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode.addListener(() {
+      if (_focusNode.hasFocus) {
+        _pickedFromList = false;
+        _scheduleSearch();
+      }
+      if (mounted) setState(() {});
+    });
+    widget.controller.addListener(_onTextChanged);
+  }
+
+  @override
+  void didUpdateWidget(covariant _ChatTargetNameAutocomplete oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.removeListener(_onTextChanged);
+      widget.controller.addListener(_onTextChanged);
+    }
+  }
 
   @override
   void dispose() {
+    widget.controller.removeListener(_onTextChanged);
     _focusNode.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
-  Future<Iterable<DirectoryProfile>> _optionsFor(TextEditingValue value) async {
-    final query = value.text.trim();
-    if (query.length < 2) return const Iterable<DirectoryProfile>.empty();
-    try {
-      final page = await _profilesApi.fetchDirectory(
-        search: query,
-        pageSize: 12,
-      );
-      final seen = <String>{};
-      return page.profiles.where((profile) {
-        final name = profile.fullName.trim();
-        if (name.isEmpty) return false;
-        return seen.add(name.toLowerCase());
+  void _onTextChanged() {
+    _pickedFromList = false;
+    widget.onChanged();
+    _scheduleSearch();
+    if (mounted) setState(() {});
+  }
+
+  void _scheduleSearch() {
+    final query = widget.controller.text.trim();
+    final token = ++_searchToken;
+    if (query.length < 2) {
+      setState(() {
+        _results = const [];
+        _loading = false;
       });
-    } catch (_) {
-      return const Iterable<DirectoryProfile>.empty();
+      return;
     }
+    setState(() => _loading = true);
+    Future<void>.delayed(const Duration(milliseconds: 220), () async {
+      if (!mounted || token != _searchToken) return;
+      try {
+        final page = await _profilesApi.fetchDirectory(
+          search: query,
+          pageSize: 24,
+        );
+        if (!mounted || token != _searchToken) return;
+        final seen = <String>{};
+        final profiles = page.profiles.where((profile) {
+          final name = profile.fullName.trim();
+          if (name.isEmpty) return false;
+          return seen.add(name.toLowerCase());
+        }).toList(growable: false);
+        setState(() {
+          _results = profiles;
+          _loading = false;
+        });
+      } catch (_) {
+        if (!mounted || token != _searchToken) return;
+        setState(() {
+          _results = const [];
+          _loading = false;
+        });
+      }
+    });
+  }
+
+  void _selectProfile(DirectoryProfile profile) {
+    _pickedFromList = true;
+    widget.controller.text = profile.fullName;
+    widget.controller.selection = TextSelection.collapsed(
+      offset: profile.fullName.length,
+    );
+    widget.onChanged();
+    setState(() {
+      _results = const [];
+    });
+    _focusNode.unfocus();
   }
 
   InputDecoration _decoration() {
@@ -1578,171 +1672,353 @@ class _ChatTargetNameAutocompleteState
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 150,
-      child: RawAutocomplete<DirectoryProfile>(
-        textEditingController: widget.controller,
-        focusNode: _focusNode,
-        displayStringForOption: (profile) => profile.fullName,
-        optionsBuilder: _optionsFor,
-        onSelected: (profile) {
-          widget.controller.text = profile.fullName;
-          widget.controller.selection = TextSelection.collapsed(
-            offset: profile.fullName.length,
-          );
-          widget.onChanged();
-          setState(() {});
-        },
-        fieldViewBuilder: (context, textController, focusNode, onFieldSubmitted) {
-          return TextField(
-            controller: textController,
-            focusNode: focusNode,
+      width: 220,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: widget.controller,
+            focusNode: _focusNode,
             enabled: widget.enabled,
-            onChanged: (_) {
-              widget.onChanged();
-              setState(() {});
-            },
-            onSubmitted: (_) => onFieldSubmitted(),
             style: GoogleFonts.inter(
               fontSize: 12.5,
               fontWeight: FontWeight.w500,
               color: AppColors.heading,
             ),
             decoration: _decoration(),
-          );
-        },
-        optionsViewBuilder: (context, onSelected, options) {
-          final list = options.toList(growable: false);
-          if (list.isEmpty) {
-            return const SizedBox.shrink();
-          }
-          return Align(
-            alignment: Alignment.topLeft,
-            child: Material(
-              elevation: 6,
-              borderRadius: BorderRadius.circular(12),
-              color: Colors.white,
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 220, minWidth: 220),
-                child: ListView.separated(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  shrinkWrap: true,
-                  itemCount: list.length,
-                  separatorBuilder: (_, _) => const Divider(height: 1),
-                  itemBuilder: (context, index) {
-                    final profile = list[index];
-                    return ListTile(
-                      dense: true,
-                      title: Text(
-                        profile.fullName,
-                        style: GoogleFonts.inter(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.heading,
+          ),
+          if (_showResults) ...[
+            const SizedBox(height: 6),
+            _CompactScrollPanel(
+              scrollController: _scrollController,
+              child: _loading
+                  ? const SizedBox(
+                      height: _kCompactOptionHeight,
+                      child: Center(
+                        child: SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
                         ),
                       ),
-                      subtitle: Text(
-                        'Batch ${profile.batchYear}',
-                        style: GoogleFonts.inter(
-                          fontSize: 11.5,
-                          color: AppColors.mutedText,
+                    )
+                  : _results.isEmpty
+                      ? SizedBox(
+                          height: _kCompactOptionHeight,
+                          child: Center(
+                            child: Text(
+                              'No members found',
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                color: AppColors.mutedText,
+                              ),
+                            ),
+                          ),
+                        )
+                      : ListView.separated(
+                          controller: _scrollController,
+                          padding: EdgeInsets.zero,
+                          itemCount: _results.length,
+                          separatorBuilder: (_, _) => const Divider(height: 1),
+                          itemBuilder: (context, index) {
+                            final profile = _results[index];
+                            return SizedBox(
+                              height: _kCompactOptionHeight,
+                              child: InkWell(
+                                onTap: () => _selectProfile(profile),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 6,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          profile.fullName,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: GoogleFonts.inter(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w700,
+                                            color: AppColors.primary,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 6,
+                                          vertical: 1,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.secondary,
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                        ),
+                                        child: Text(
+                                          'Batch ${profile.batchYear}',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: GoogleFonts.inter(
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.w700,
+                                            color: AppColors.primary,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
                         ),
-                      ),
-                      onTap: () => onSelected(profile),
-                    );
-                  },
-                ),
-              ),
             ),
-          );
-        },
+          ],
+        ],
       ),
     );
   }
 }
 
-class _ChatTargetBatchYearField extends StatelessWidget {
+class _ChatTargetBatchYearField extends StatefulWidget {
   const _ChatTargetBatchYearField({
-    required this.controller,
+    required this.selectedYears,
     required this.enabled,
     required this.onChanged,
   });
 
-  final TextEditingController controller;
+  final Set<int> selectedYears;
   final bool enabled;
-  final VoidCallback onChanged;
+  final ValueChanged<Set<int>> onChanged;
+
+  @override
+  State<_ChatTargetBatchYearField> createState() =>
+      _ChatTargetBatchYearFieldState();
+}
+
+class _ChatTargetBatchYearFieldState extends State<_ChatTargetBatchYearField> {
+  final _scrollController = ScrollController();
+  bool _open = false;
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  bool get _active => widget.selectedYears.isNotEmpty;
+
+  String get _label {
+    final years = _parseValidBatchYears(widget.selectedYears);
+    if (years.isEmpty) return 'Batch';
+    if (years.length == 1) return '${years.first}';
+    return '${years.first} +${years.length - 1}';
+  }
+
+  void _toggleYear(int year) {
+    final next = Set<int>.from(widget.selectedYears);
+    if (!next.add(year)) {
+      next.remove(year);
+    }
+    widget.onChanged(next);
+  }
 
   @override
   Widget build(BuildContext context) {
-    final selected = _parseValidBatchYear(controller.text);
-    final active = selected != null;
+    final years = _alumniBatchYears();
 
     return SizedBox(
-      width: 108,
-      child: DropdownButtonFormField<int?>(
-        key: ValueKey('batch-$selected'),
-        initialValue: selected,
-        isExpanded: true,
-        isDense: true,
-        icon: Icon(
-          Icons.expand_more,
-          size: 16,
-          color: active ? AppColors.primary : AppColors.mutedText,
-        ),
-        decoration: InputDecoration(
-          isDense: true,
-          prefixIcon: Icon(
-            Icons.calendar_today_outlined,
-            size: 15,
-            color: active ? AppColors.primary : AppColors.mutedText,
-          ),
-          prefixIconConstraints: const BoxConstraints(minWidth: 34, minHeight: 32),
-          filled: true,
-          fillColor: active ? const Color(0xFFEAF0FA) : Colors.white,
-          contentPadding: const EdgeInsets.fromLTRB(0, 8, 8, 8),
-          enabledBorder: OutlineInputBorder(
+      width: 148,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Material(
+            color: _active ? const Color(0xFFEAF0FA) : Colors.white,
             borderRadius: BorderRadius.circular(999),
-            borderSide: BorderSide(
-              color: active ? const Color(0xFFB7C5DB) : AppColors.border,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(999),
+              onTap: widget.enabled
+                  ? () => setState(() => _open = !_open)
+                  : null,
+              child: InputDecorator(
+                isFocused: _open,
+                decoration: InputDecoration(
+                  isDense: true,
+                  prefixIcon: Icon(
+                    Icons.calendar_today_outlined,
+                    size: 15,
+                    color: _active ? AppColors.primary : AppColors.mutedText,
+                  ),
+                  prefixIconConstraints:
+                      const BoxConstraints(minWidth: 34, minHeight: 32),
+                  suffixIcon: Icon(
+                    _open ? Icons.expand_less : Icons.expand_more,
+                    size: 16,
+                    color: _active ? AppColors.primary : AppColors.mutedText,
+                  ),
+                  suffixIconConstraints:
+                      const BoxConstraints(minWidth: 28, minHeight: 32),
+                  filled: true,
+                  fillColor: Colors.transparent,
+                  contentPadding: const EdgeInsets.fromLTRB(0, 8, 4, 8),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(999),
+                    borderSide: BorderSide(
+                      color:
+                          _active ? const Color(0xFFB7C5DB) : AppColors.border,
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(999),
+                    borderSide: const BorderSide(
+                      color: AppColors.primary,
+                      width: 1.2,
+                    ),
+                  ),
+                  disabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(999),
+                    borderSide: const BorderSide(color: AppColors.border),
+                  ),
+                ),
+                child: Text(
+                  _label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.inter(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w500,
+                    color: _active ? AppColors.heading : AppColors.mutedText,
+                  ),
+                ),
+              ),
             ),
           ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(999),
-            borderSide: const BorderSide(color: AppColors.primary, width: 1.2),
-          ),
-          disabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(999),
-            borderSide: const BorderSide(color: AppColors.border),
-          ),
-        ),
-        hint: Text(
-          'Batch',
-          style: GoogleFonts.inter(fontSize: 12, color: AppColors.mutedText),
-        ),
-        style: GoogleFonts.inter(
-          fontSize: 12.5,
-          fontWeight: FontWeight.w500,
-          color: AppColors.heading,
-        ),
-        items: [
-          DropdownMenuItem<int?>(
-            value: null,
-            child: Text(
-              'Any',
-              style: GoogleFonts.inter(fontSize: 12.5, color: AppColors.mutedText),
+          if (_open) ...[
+            const SizedBox(height: 6),
+            _CompactScrollPanel(
+              scrollController: _scrollController,
+              child: ListView.separated(
+                controller: _scrollController,
+                padding: EdgeInsets.zero,
+                itemCount: years.length + 1,
+                separatorBuilder: (_, _) => const Divider(height: 1),
+                itemBuilder: (context, index) {
+                  if (index == 0) {
+                    final anySelected = widget.selectedYears.isEmpty;
+                    return SizedBox(
+                      height: _kCompactOptionHeight,
+                      child: InkWell(
+                        onTap: () {
+                          widget.onChanged(<int>{});
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          child: Row(
+                            children: [
+                              Icon(
+                                anySelected
+                                    ? Icons.check_box_rounded
+                                    : Icons.check_box_outline_blank_rounded,
+                                size: 18,
+                                color: anySelected
+                                    ? AppColors.primary
+                                    : AppColors.mutedText,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Any',
+                                style: GoogleFonts.inter(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w500,
+                                  color: AppColors.mutedText,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }
+                  final year = years[index - 1];
+                  final selected = widget.selectedYears.contains(year);
+                  return SizedBox(
+                    height: _kCompactOptionHeight,
+                    child: InkWell(
+                      onTap: () => _toggleYear(year),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        child: Row(
+                          children: [
+                            Icon(
+                              selected
+                                  ? Icons.check_box_rounded
+                                  : Icons.check_box_outline_blank_rounded,
+                              size: 18,
+                              color: selected
+                                  ? AppColors.primary
+                                  : AppColors.mutedText,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '$year',
+                              style: GoogleFonts.inter(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.heading,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
             ),
-          ),
-          for (final year in _alumniBatchYears())
-            DropdownMenuItem<int?>(
-              value: year,
-              child: Text('$year'),
-            ),
+          ],
         ],
-        onChanged: enabled
-            ? (year) {
-                controller.text = year?.toString() ?? '';
-                onChanged();
-              }
-            : null,
+      ),
+    );
+  }
+}
+
+/// Small fixed-height box (3 rows) with a visible scrollbar.
+class _CompactScrollPanel extends StatelessWidget {
+  const _CompactScrollPanel({
+    required this.scrollController,
+    required this.child,
+  });
+
+  final ScrollController scrollController;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      elevation: 4,
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        height: _kCompactListMaxHeight,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: const Color(0xFF1A2744).withValues(alpha: 0.12),
+          ),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Scrollbar(
+          controller: scrollController,
+          thumbVisibility: true,
+          trackVisibility: true,
+          thickness: 5,
+          radius: const Radius.circular(8),
+          child: child,
+        ),
       ),
     );
   }
