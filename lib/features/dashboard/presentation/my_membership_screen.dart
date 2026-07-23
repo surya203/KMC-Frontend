@@ -4,7 +4,6 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/auth/auth_session.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../../core/constants/business_info.dart';
 import '../../../core/constants/donation_info.dart';
 import '../../../core/network/api_errors.dart';
 import '../../../core/network/membership_api_service.dart';
@@ -81,6 +80,33 @@ class _MyMembershipScreenState extends State<MyMembershipScreen> {
   }
 
   Future<void> _openDonateDialog() async {
+    if (!DonationInfo.paymentsEnabled) {
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(
+            'Payments unavailable',
+            style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+          ),
+          content: Text(
+            DonationInfo.paymentUnavailableMessage,
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              height: 1.45,
+              color: AppColors.bodyText,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
     final amountController = TextEditingController();
     var donationType = 'general';
     String? projectCategory = DonationInfo.projectCategories.first.slug;
@@ -108,25 +134,6 @@ class _MyMembershipScreenState extends State<MyMembershipScreen> {
                           color: AppColors.bodyText,
                         ),
                       ),
-                      if (!DonationInfo.paymentsEnabled) ...[
-                        const SizedBox(height: 10),
-                        Text(
-                          DonationInfo.paymentUnavailableMessage,
-                          style: GoogleFonts.inter(
-                            fontSize: 12,
-                            height: 1.45,
-                            color: AppColors.mutedText,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${BusinessInfo.email} · ${BusinessInfo.phone}',
-                          style: GoogleFonts.inter(
-                            fontSize: 12,
-                            color: AppColors.mutedText,
-                          ),
-                        ),
-                      ],
                       const SizedBox(height: 12),
                       TextField(
                         controller: amountController,
@@ -196,11 +203,7 @@ class _MyMembershipScreenState extends State<MyMembershipScreen> {
               ),
               ElevatedButton(
                 onPressed: () => Navigator.pop(context, true),
-                child: Text(
-                  DonationInfo.paymentsEnabled
-                      ? 'Continue to pay'
-                      : 'Continue',
-                ),
+                child: const Text('Continue to pay'),
               ),
             ],
           );
@@ -221,19 +224,6 @@ class _MyMembershipScreenState extends State<MyMembershipScreen> {
         (projectCategory == null || projectCategory!.isEmpty)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Choose exactly one project category.')),
-      );
-      return;
-    }
-
-    // Payment wiring comes later. Keep UI + validation ready.
-    if (!DonationInfo.paymentsEnabled) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '${DonationInfo.paymentUnavailableMessage} '
-            '${BusinessInfo.email}',
-          ),
-        ),
       );
       return;
     }
