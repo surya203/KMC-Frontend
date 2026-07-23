@@ -11,8 +11,8 @@ class DonationInfo {
       'Donate as a general donation, or to exactly one project.';
 
   static const paymentUnavailableMessage =
-      'Online donation payment is not available yet. '
-      'Please contact the alumni office to donate.';
+      'We are currently not accepting any payments. '
+      'Please check back later or contact the alumni office.';
 
   /// Static project categories (slug + label). Ready for payment wiring later.
   static const projectCategories = <({String slug, String label})>[
