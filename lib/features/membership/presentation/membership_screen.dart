@@ -1999,6 +1999,62 @@ class _PaymentStep extends StatefulWidget {
 
 enum _PaymentMethod { upi, card, bank }
 
+class _PaymentLegalNotice extends StatelessWidget {
+  const _PaymentLegalNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    final baseStyle = GoogleFonts.inter(
+      fontSize: 13,
+      height: 1.55,
+      color: AppColors.mutedText,
+    );
+    final linkStyle = baseStyle.copyWith(
+      color: AppColors.primary,
+      decoration: TextDecoration.underline,
+      decorationColor: AppColors.primary.withValues(alpha: 0.35),
+    );
+
+    return RichText(
+      text: TextSpan(
+        style: baseStyle,
+        children: [
+          const TextSpan(
+            text: 'By proceeding with payment, you agree to our ',
+          ),
+          WidgetSpan(
+            alignment: PlaceholderAlignment.baseline,
+            baseline: TextBaseline.alphabetic,
+            child: GestureDetector(
+              onTap: () => context.go('/terms'),
+              child: Text('Terms & Conditions', style: linkStyle),
+            ),
+          ),
+          const TextSpan(text: ', '),
+          WidgetSpan(
+            alignment: PlaceholderAlignment.baseline,
+            baseline: TextBaseline.alphabetic,
+            child: GestureDetector(
+              onTap: () => context.go('/privacy'),
+              child: Text('Privacy Policy', style: linkStyle),
+            ),
+          ),
+          const TextSpan(text: ', and '),
+          WidgetSpan(
+            alignment: PlaceholderAlignment.baseline,
+            baseline: TextBaseline.alphabetic,
+            child: GestureDetector(
+              onTap: () => context.go('/refund-policy'),
+              child: Text('Refund Policy', style: linkStyle),
+            ),
+          ),
+          const TextSpan(text: '.'),
+        ],
+      ),
+    );
+  }
+}
+
 class _PaymentStepState extends State<_PaymentStep> {
   _PaymentMethod _method = _PaymentMethod.upi;
   final _upiController = TextEditingController();
@@ -2120,6 +2176,8 @@ class _PaymentStepState extends State<_PaymentStep> {
             },
           ),
           const SizedBox(height: 28),
+          const _PaymentLegalNotice(),
+          const SizedBox(height: 12),
           _PrimaryButton(label: _payLabel, onPressed: widget.onPay),
           const SizedBox(height: 8),
           TextButton(

@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_assets.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/business_info.dart';
 import '../../../core/widgets/hover_link.dart';
 import '../../../core/widgets/safe_asset_image.dart';
 
@@ -26,6 +27,22 @@ class FooterSection extends StatelessWidget {
                 child: LayoutBuilder(
                   builder: (context, constraints) {
                     final isWide = constraints.maxWidth > 1000;
+                    final isExtraWide = constraints.maxWidth > 1280;
+
+                    if (isExtraWide) {
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(flex: 3, child: _brandColumn()),
+                          const SizedBox(width: 24),
+                          Expanded(child: _exploreColumn(context)),
+                          const SizedBox(width: 24),
+                          Expanded(child: _policiesColumn(context)),
+                          const SizedBox(width: 24),
+                          Expanded(child: _officeColumn()),
+                        ],
+                      );
+                    }
 
                     if (isWide) {
                       return Row(
@@ -46,6 +63,8 @@ class FooterSection extends StatelessWidget {
                         _brandColumn(),
                         const SizedBox(height: 20),
                         _exploreColumn(context),
+                        const SizedBox(height: 20),
+                        _policiesColumn(context),
                         const SizedBox(height: 20),
                         _officeColumn(),
                       ],
@@ -149,6 +168,32 @@ class FooterSection extends StatelessWidget {
     );
   }
 
+  Widget _policiesColumn(BuildContext context) {
+    final currentPath = GoRouterState.of(context).uri.path;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'POLICIES',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            fontFamily: 'Georgia',
+          ),
+        ),
+        const SizedBox(height: 12),
+        _FooterLink(label: 'Terms & Conditions', path: '/terms', currentPath: currentPath),
+        _FooterLink(label: 'Privacy Policy', path: '/privacy', currentPath: currentPath),
+        _FooterLink(label: 'Refund Policy', path: '/refund-policy', currentPath: currentPath),
+        _FooterLink(label: 'Shipping Policy', path: '/shipping-policy', currentPath: currentPath),
+        _FooterLink(label: 'Pricing', path: '/pricing', currentPath: currentPath),
+        _FooterLink(label: 'Contact Us', path: '/contact', currentPath: currentPath),
+      ],
+    );
+  }
+
   Widget _officeColumn() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -166,6 +211,8 @@ class FooterSection extends StatelessWidget {
         FooterInfo('Kakatiya Medical College'),
         SizedBox(height: 6),
         FooterInfo('Rangampet, Warangal — 506007'),
+        SizedBox(height: 6),
+        FooterInfo(BusinessInfo.email),
         SizedBox(height: 6),
         FooterInfo('Admin WhatsApp'),
         SizedBox(height: 6),
