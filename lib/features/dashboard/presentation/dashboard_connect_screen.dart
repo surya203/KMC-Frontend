@@ -6,10 +6,27 @@ import '../../../core/auth/auth_session.dart';
 import '../../../core/auth/role_utils.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/connect_api_service.dart';
+import '../../../core/network/profiles_api_service.dart';
 import '../../../core/utils/download_file.dart';
 import '../../../core/utils/file_download.dart';
 import '../../../core/widgets/profile_avatar.dart';
 import '../widgets/dashboard_layout.dart';
+
+/// KMC founded 1959 — batch years outside this range are not accepted.
+const int _kMinBatchYear = 1959;
+
+List<int> _alumniBatchYears() {
+  final now = DateTime.now().year;
+  return [for (var year = now; year >= _kMinBatchYear; year--) year];
+}
+
+int? _parseValidBatchYear(String raw) {
+  final year = int.tryParse(raw.trim());
+  if (year == null) return null;
+  final now = DateTime.now().year;
+  if (year < _kMinBatchYear || year > now) return null;
+  return year;
+}
 
 enum _ConnectTab { alumniChat, financeCouncil, executiveCommittee }
 
@@ -920,10 +937,9 @@ class _AlumniChatPanelState extends State<_AlumniChatPanel> {
   }
 
   AlumniChatTargets _currentTargets() {
-    final batchText = _batchController.text.trim();
     return AlumniChatTargets(
       name: _emptyToNull(_nameController.text),
-      batchYear: batchText.isEmpty ? null : int.tryParse(batchText),
+      batchYear: _parseValidBatchYear(_batchController.text),
       location: _emptyToNull(_locationController.text),
       specialization: _emptyToNull(_specialtyController.text),
     );
@@ -1024,7 +1040,7 @@ class _AlumniChatPanelState extends State<_AlumniChatPanel> {
     if (t.specialization != null) parts.add(t.specialization!);
     if (t.location != null) parts.add(t.location!);
     if (parts.isEmpty) return 'To: everyone';
-    return 'To: ${parts.join(' Â· ')}';
+    return 'To: ${parts.join(' · ')}';
   }
 
   bool get _hasActiveTargets => _currentTargets().hasAny;
@@ -1271,23 +1287,15 @@ class _AlumniChatPanelState extends State<_AlumniChatPanel> {
                           spacing: 8,
                           runSpacing: 8,
                           children: [
-                            _ChatTargetChipField(
+                            _ChatTargetNameAutocomplete(
                               controller: _nameController,
-                              label: 'Name',
-                              hint: 'Name',
-                              icon: Icons.person_outline,
                               enabled: !posting,
-                              onChanged: (_) => setState(() {}),
+                              onChanged: () => setState(() {}),
                             ),
-                            _ChatTargetChipField(
+                            _ChatTargetBatchYearField(
                               controller: _batchController,
-                              label: 'Batch',
-                              hint: 'Batch',
-                              icon: Icons.calendar_today_outlined,
-                              keyboardType: TextInputType.number,
                               enabled: !posting,
-                              width: 96,
-                              onChanged: (_) => setState(() {}),
+                              onChanged: () => setState(() {}),
                             ),
                             _ChatTargetChipField(
                               controller: _specialtyController,
@@ -1488,6 +1496,258 @@ class _AlumniChatPanelState extends State<_AlumniChatPanel> {
   }
 }
 
+class _ChatTargetNameAutocomplete extends StatefulWidget {
+  const _ChatTargetNameAutocomplete({
+    required this.controller,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  final TextEditingController controller;
+  final bool enabled;
+  final VoidCallback onChanged;
+
+  @override
+  State<_ChatTargetNameAutocomplete> createState() =>
+      _ChatTargetNameAutocompleteState();
+}
+
+class _ChatTargetNameAutocompleteState
+    extends State<_ChatTargetNameAutocomplete> {
+  final _profilesApi = ProfilesApiService();
+  final _focusNode = FocusNode();
+
+  bool get _active => widget.controller.text.trim().isNotEmpty;
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  Future<Iterable<DirectoryProfile>> _optionsFor(TextEditingValue value) async {
+    final query = value.text.trim();
+    if (query.length < 2) return const Iterable<DirectoryProfile>.empty();
+    try {
+      final page = await _profilesApi.fetchDirectory(
+        search: query,
+        pageSize: 12,
+      );
+      final seen = <String>{};
+      return page.profiles.where((profile) {
+        final name = profile.fullName.trim();
+        if (name.isEmpty) return false;
+        return seen.add(name.toLowerCase());
+      });
+    } catch (_) {
+      return const Iterable<DirectoryProfile>.empty();
+    }
+  }
+
+  InputDecoration _decoration() {
+    return InputDecoration(
+      isDense: true,
+      hintText: 'Name',
+      prefixIcon: Icon(
+        Icons.person_outline,
+        size: 15,
+        color: _active ? AppColors.primary : AppColors.mutedText,
+      ),
+      prefixIconConstraints: const BoxConstraints(minWidth: 34, minHeight: 32),
+      filled: true,
+      fillColor: _active ? const Color(0xFFEAF0FA) : Colors.white,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+      hintStyle: GoogleFonts.inter(fontSize: 12, color: AppColors.mutedText),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(999),
+        borderSide: BorderSide(
+          color: _active ? const Color(0xFFB7C5DB) : AppColors.border,
+        ),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(999),
+        borderSide: const BorderSide(color: AppColors.primary, width: 1.2),
+      ),
+      disabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(999),
+        borderSide: const BorderSide(color: AppColors.border),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 150,
+      child: RawAutocomplete<DirectoryProfile>(
+        textEditingController: widget.controller,
+        focusNode: _focusNode,
+        displayStringForOption: (profile) => profile.fullName,
+        optionsBuilder: _optionsFor,
+        onSelected: (profile) {
+          widget.controller.text = profile.fullName;
+          widget.controller.selection = TextSelection.collapsed(
+            offset: profile.fullName.length,
+          );
+          widget.onChanged();
+          setState(() {});
+        },
+        fieldViewBuilder: (context, textController, focusNode, onFieldSubmitted) {
+          return TextField(
+            controller: textController,
+            focusNode: focusNode,
+            enabled: widget.enabled,
+            onChanged: (_) {
+              widget.onChanged();
+              setState(() {});
+            },
+            onSubmitted: (_) => onFieldSubmitted(),
+            style: GoogleFonts.inter(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w500,
+              color: AppColors.heading,
+            ),
+            decoration: _decoration(),
+          );
+        },
+        optionsViewBuilder: (context, onSelected, options) {
+          final list = options.toList(growable: false);
+          if (list.isEmpty) {
+            return const SizedBox.shrink();
+          }
+          return Align(
+            alignment: Alignment.topLeft,
+            child: Material(
+              elevation: 6,
+              borderRadius: BorderRadius.circular(12),
+              color: Colors.white,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 220, minWidth: 220),
+                child: ListView.separated(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  shrinkWrap: true,
+                  itemCount: list.length,
+                  separatorBuilder: (_, _) => const Divider(height: 1),
+                  itemBuilder: (context, index) {
+                    final profile = list[index];
+                    return ListTile(
+                      dense: true,
+                      title: Text(
+                        profile.fullName,
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.heading,
+                        ),
+                      ),
+                      subtitle: Text(
+                        'Batch ${profile.batchYear}',
+                        style: GoogleFonts.inter(
+                          fontSize: 11.5,
+                          color: AppColors.mutedText,
+                        ),
+                      ),
+                      onTap: () => onSelected(profile),
+                    );
+                  },
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _ChatTargetBatchYearField extends StatelessWidget {
+  const _ChatTargetBatchYearField({
+    required this.controller,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  final TextEditingController controller;
+  final bool enabled;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = _parseValidBatchYear(controller.text);
+    final active = selected != null;
+
+    return SizedBox(
+      width: 108,
+      child: DropdownButtonFormField<int?>(
+        key: ValueKey('batch-$selected'),
+        initialValue: selected,
+        isExpanded: true,
+        isDense: true,
+        icon: Icon(
+          Icons.expand_more,
+          size: 16,
+          color: active ? AppColors.primary : AppColors.mutedText,
+        ),
+        decoration: InputDecoration(
+          isDense: true,
+          prefixIcon: Icon(
+            Icons.calendar_today_outlined,
+            size: 15,
+            color: active ? AppColors.primary : AppColors.mutedText,
+          ),
+          prefixIconConstraints: const BoxConstraints(minWidth: 34, minHeight: 32),
+          filled: true,
+          fillColor: active ? const Color(0xFFEAF0FA) : Colors.white,
+          contentPadding: const EdgeInsets.fromLTRB(0, 8, 8, 8),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(999),
+            borderSide: BorderSide(
+              color: active ? const Color(0xFFB7C5DB) : AppColors.border,
+            ),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(999),
+            borderSide: const BorderSide(color: AppColors.primary, width: 1.2),
+          ),
+          disabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(999),
+            borderSide: const BorderSide(color: AppColors.border),
+          ),
+        ),
+        hint: Text(
+          'Batch',
+          style: GoogleFonts.inter(fontSize: 12, color: AppColors.mutedText),
+        ),
+        style: GoogleFonts.inter(
+          fontSize: 12.5,
+          fontWeight: FontWeight.w500,
+          color: AppColors.heading,
+        ),
+        items: [
+          DropdownMenuItem<int?>(
+            value: null,
+            child: Text(
+              'Any',
+              style: GoogleFonts.inter(fontSize: 12.5, color: AppColors.mutedText),
+            ),
+          ),
+          for (final year in _alumniBatchYears())
+            DropdownMenuItem<int?>(
+              value: year,
+              child: Text('$year'),
+            ),
+        ],
+        onChanged: enabled
+            ? (year) {
+                controller.text = year?.toString() ?? '';
+                onChanged();
+              }
+            : null,
+      ),
+    );
+  }
+}
+
 class _ChatTargetChipField extends StatelessWidget {
   const _ChatTargetChipField({
     required this.controller,
@@ -1496,7 +1756,6 @@ class _ChatTargetChipField extends StatelessWidget {
     required this.icon,
     required this.enabled,
     required this.onChanged,
-    this.keyboardType,
     this.width = 118,
   });
 
@@ -1506,7 +1765,6 @@ class _ChatTargetChipField extends StatelessWidget {
   final IconData icon;
   final bool enabled;
   final ValueChanged<String> onChanged;
-  final TextInputType? keyboardType;
   final double width;
 
   bool get _active => controller.text.trim().isNotEmpty;
@@ -1518,7 +1776,6 @@ class _ChatTargetChipField extends StatelessWidget {
       child: TextField(
         controller: controller,
         enabled: enabled,
-        keyboardType: keyboardType,
         onChanged: onChanged,
         style: GoogleFonts.inter(
           fontSize: 12.5,
