@@ -84,9 +84,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   int get _profileCompletion => _profileCompletionPercent(_profile);
 
-  /// Count registrations that represent attendance (exclude interest-only).
-  static int _attendedEventCount(List<MyEventRegistration> registrations) {
-    return registrations.where((r) => r.registrationKind != 'interest').length;
+  /// Only this member's real attendance submissions (not RSVP / interest).
+  static bool _isAttendanceRecord(MyEventRegistration registration) {
+    if (registration.registrationKind != 'attendance') return false;
+    if (registration.status == 'cancelled') return false;
+    return true;
+  }
+
+  /// One count per event for the logged-in member.
+  static List<MyEventRegistration> _attendedEvents(
+    List<MyEventRegistration> registrations,
+  ) {
+    final seen = <String>{};
+    final attended = <MyEventRegistration>[];
+    for (final registration in registrations) {
+      if (!_isAttendanceRecord(registration)) continue;
+      if (!seen.add(registration.eventId)) continue;
+      attended.add(registration);
+    }
+    return attended;
   }
 
   @override
@@ -96,8 +112,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
 
     final isCompact = MediaQuery.sizeOf(context).width < 700;
+    final attendedEvents = _attendedEvents(_myEvents);
 
-    return SingleChildScrollView(
+    return RefreshIndicator(
+      onRefresh: _loadDashboard,
+      child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
               padding: EdgeInsets.fromLTRB(
                 isCompact ? 16 : 24,
                 isCompact ? 16 : 20,
@@ -118,7 +138,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       _StatsGrid(
                         membership: _membership,
                         profile: _profile,
-                        eventsAttended: _attendedEventCount(_myEvents),
+                        eventsAttended: attendedEvents.length,
                         profileCompletion: _profileCompletion,
                         batchYear:
                             _profile?.batchYear ??
@@ -136,7 +156,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   completion: _profileCompletion,
                                 ),
                                 const SizedBox(height: 18),
-                                _EventsChartCard(registrations: _myEvents),
+                                _EventsChartCard(registrations: attendedEvents),
                               ],
                             );
                           }
@@ -154,7 +174,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               Expanded(
                                 flex: 3,
                                 child: _EventsChartCard(
-                                  registrations: _myEvents,
+                                  registrations: attendedEvents,
                                 ),
                               ),
                             ],
@@ -204,7 +224,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                 ),
               ),
-            );
+            ),
+    );
   }
 }
 
@@ -541,7 +562,7 @@ class _EventsChartCard extends StatelessWidget {
 
   final List<MyEventRegistration> registrations;
 
-  /// Count this member's attendance-style registrations per calendar year.
+  /// Count this member's attendance submissions per calendar year.
   static ({List<int> years, List<double> counts}) yearlyAttendance(
     List<MyEventRegistration> registrations, {
     int yearCount = 6,
@@ -550,11 +571,8 @@ class _EventsChartCard extends StatelessWidget {
     final years = List<int>.generate(yearCount, (i) => nowYear - (yearCount - 1 - i));
     final countsByYear = {for (final y in years) y: 0};
 
-    // Prefer real attendance; also count RSVP ("registered") as attended intent.
-    // Skip pure "interest" so the chart matches "Events Attended".
+    // Caller already passes attendance-only, unique-by-event rows for this user.
     for (final reg in registrations) {
-      final kind = reg.registrationKind;
-      if (kind == 'interest') continue;
       final year = reg.startsAt.toLocal().year;
       if (!countsByYear.containsKey(year)) continue;
       countsByYear[year] = countsByYear[year]! + 1;

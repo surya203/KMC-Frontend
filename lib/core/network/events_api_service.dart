@@ -479,9 +479,16 @@ class EventsApiService {
         options: options,
       );
       final items = response.data?['registrations'] as List<dynamic>? ?? [];
-      return items
-          .map((e) => MyEventRegistration.fromJson(e as Map<String, dynamic>))
-          .toList();
+      final registrations = <MyEventRegistration>[];
+      for (final item in items) {
+        if (item is! Map<String, dynamic>) continue;
+        try {
+          registrations.add(MyEventRegistration.fromJson(item));
+        } catch (_) {
+          // Skip malformed rows so one bad record does not hide the rest.
+        }
+      }
+      return registrations;
     } on DioException catch (e) {
       throw Exception(_readDetail(e));
     }
