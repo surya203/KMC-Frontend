@@ -55,4 +55,4 @@ Nav: `member-admin-link` when user has admin access.
 
 ## Payment
 
-Razorpay checkout on membership step 4 (web): `checkout.js` in `web/index.html`, order from `POST /api/v1/membership/checkout`.
+Razorpay checkout on membership step 4 (web): `checkout.js` in `web/index.html`, order from `POST /api/v1/membership/checkout`, signature verify via `POST /api/v1/membership/verify-payment`.
