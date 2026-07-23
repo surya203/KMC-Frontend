@@ -16,16 +16,21 @@ Future<void> main() async {
   if (AuthSession.instance.isAuthenticated) {
     await ProfileSession.instance.ensureLoaded(force: true);
   }
-  await GoogleFonts.pendingFonts([
-    GoogleFonts.fraunces(fontWeight: FontWeight.w600),
-    GoogleFonts.fraunces(
-      fontWeight: FontWeight.w500,
-      fontStyle: FontStyle.italic,
-    ),
-    GoogleFonts.inter(),
-    GoogleFonts.inter(fontWeight: FontWeight.w600),
-    GoogleFonts.inter(fontWeight: FontWeight.w700),
-  ]);
+  // Never block the native splash forever if font CDN / network is slow or blocked.
+  try {
+    await GoogleFonts.pendingFonts([
+      GoogleFonts.fraunces(fontWeight: FontWeight.w600),
+      GoogleFonts.fraunces(
+        fontWeight: FontWeight.w500,
+        fontStyle: FontStyle.italic,
+      ),
+      GoogleFonts.inter(),
+      GoogleFonts.inter(fontWeight: FontWeight.w600),
+      GoogleFonts.inter(fontWeight: FontWeight.w700),
+    ]).timeout(const Duration(seconds: 8));
+  } catch (_) {
+    // Fall back to platform fonts; UI still loads.
+  }
   runApp(const KMCApp());
 }
 

@@ -1,8 +1,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Required in main (release) — debug/profile manifests alone are not merged into release APK. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+
     <application
         android:label="KMC Alumni Connect"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:usesCleartextTraffic="true">
         <activity
             android:name=".MainActivity"
             android:exported="true"
