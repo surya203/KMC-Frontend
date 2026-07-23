@@ -29,8 +29,7 @@ class TermsScreen extends StatelessWidget {
           body: [
             '${BusinessInfo.brandName} provides alumni membership registration, '
             'event participation, and related digital services for graduates '
-            'and associates of Kakatiya Medical College, Warangal. Voluntary '
-            'donations, if any, are arranged offline through the alumni office.',
+            'and associates of Kakatiya Medical College, Warangal.',
             'Membership benefits, access levels, and platform features may be '
             'updated from time to time. We will communicate material changes '
             'through the platform or registered email.',
@@ -41,7 +40,7 @@ class TermsScreen extends StatelessWidget {
           body: [
             'Membership fees are displayed on the Pricing page and at checkout '
             'before payment. All prices are inclusive of applicable taxes '
-            'unless stated otherwise. Online donation checkout is not offered.',
+            'unless stated otherwise.',
             'Membership payments are processed securely through Razorpay. By '
             'completing a payment, you confirm that the information provided is '
             'accurate and that you are authorised to use the selected payment '

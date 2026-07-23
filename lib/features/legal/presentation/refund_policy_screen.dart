@@ -12,7 +12,7 @@ class RefundPolicyScreen extends StatelessWidget {
       eyebrow: 'Legal',
       title: 'Cancellation & Refund Policy',
       subtitle:
-          'Clear timelines and conditions for membership payments and donations.',
+          'Clear timelines and conditions for membership payments.',
       sections: [
         LegalSection(
           heading: 'Membership fees',
@@ -26,17 +26,6 @@ class RefundPolicyScreen extends StatelessWidget {
             'Approved refunds are processed to the original payment method '
             'within 5–7 business days. Bank or payment-provider processing '
             'times may vary.',
-          ],
-        ),
-        LegalSection(
-          heading: 'Donations',
-          body: [
-            'Voluntary donations to ${BusinessInfo.legalName} or designated '
-            'projects are arranged offline through the alumni office. The app '
-            'does not process online donation payments.',
-            'For donation queries or acknowledgements, contact '
-            '${BusinessInfo.email} or ${BusinessInfo.phone} during '
-            '${BusinessInfo.supportHours}.',
           ],
         ),
         LegalSection(

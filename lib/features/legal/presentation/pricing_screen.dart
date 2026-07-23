@@ -58,11 +58,11 @@ class _PricingScreenState extends State<PricingScreen> {
               title: HeadingStyles.pageHeroTitleWidget(
                 context,
                 dark: true,
-                regular: 'Membership fees and donations.',
+                regular: 'Membership fees.',
               ),
               subtitle:
                   'Membership fees are shown before checkout and processed '
-                  'securely via Razorpay. Donations are offline only.',
+                  'securely via Razorpay.',
             ),
             Container(
               width: double.infinity,
@@ -106,28 +106,6 @@ class _PricingScreenState extends State<PricingScreen> {
                         )
                       else
                         ..._plans.map((plan) => _PlanCard(plan: plan)),
-                      const SizedBox(height: 40),
-                      Text(
-                        'Donations',
-                        style: GoogleFonts.fraunces(
-                          fontSize: 28,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.heading,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        'Voluntary donations to ${BusinessInfo.legalName} or '
-                        'designated alumni projects are handled offline through '
-                        'the alumni office. Online donation checkout is not '
-                        'available in the app. For support, contact '
-                        '${BusinessInfo.email} or ${BusinessInfo.phone}.',
-                        style: GoogleFonts.inter(
-                          fontSize: 16,
-                          height: 1.75,
-                          color: AppColors.bodyText,
-                        ),
-                      ),
                       const SizedBox(height: 24),
                       OutlinedButton(
                         onPressed: () => context.go('/membership'),
