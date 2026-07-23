@@ -47,9 +47,9 @@ class ShippingPolicyScreen extends StatelessWidget {
         LegalSection(
           heading: 'Donations',
           body: [
-            'Donation acknowledgements and receipts are provided digitally '
-            'through the platform. No physical goods are associated with '
-            'donation transactions.',
+            'Donations are handled offline by the alumni office. '
+            'Acknowledgements, if any, are provided by the office directly. '
+            'No physical goods are associated with donations.',
           ],
         ),
         LegalSection(

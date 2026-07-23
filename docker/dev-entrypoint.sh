@@ -6,7 +6,7 @@ cd /app
 
 touch .env
 
-echo "[fe-dev] API_BASE_URL=${API_BASE_URL:-http://localhost:8001}"
+echo "[fe-dev] API_BASE_URL=${API_BASE_URL:-http://200.141.2.90:8001}"
 echo "[fe-dev] flutter pub get..."
 flutter pub get
 

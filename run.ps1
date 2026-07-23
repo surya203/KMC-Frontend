@@ -3,7 +3,7 @@
 
 $ErrorActionPreference = "Stop"
 $Port = if ($env:KMC_WEB_PORT) { $env:KMC_WEB_PORT } else { "5173" }
-$Url = "http://localhost:$Port"
+$Url = "http://200.141.2.90:$Port"
 
 # Ensure Flutter is on PATH (Cursor/old terminals may not have refreshed user PATH yet)
 $flutterCandidates = @(

@@ -7,7 +7,7 @@
 #   docker compose -f docker-compose.dev.yml up --build
 #
 # Edit lib/ (e.g. footer text) → container hot-restarts → refresh browser.
-# Backend should be on http://localhost:8001 (docker-compose.dev in KMC-Backend).
+# Backend should be on http://200.141.2.90:8001.
 
 services:
   web:
@@ -19,7 +19,7 @@ services:
       - "8080:8080"
     environment:
       ENV: development
-      API_BASE_URL: http://localhost:8001
+      API_BASE_URL: http://200.141.2.90:8001
       API_PREFIX: /api/v1
       STORAGE_BUCKET: ${STORAGE_BUCKET:-verification-documents}
       RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}

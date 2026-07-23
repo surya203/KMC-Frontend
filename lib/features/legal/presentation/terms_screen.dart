@@ -28,8 +28,9 @@ class TermsScreen extends StatelessWidget {
           heading: 'Services',
           body: [
             '${BusinessInfo.brandName} provides alumni membership registration, '
-            'event participation, donations, and related digital services for '
-            'graduates and associates of Kakatiya Medical College, Warangal.',
+            'event participation, and related digital services for graduates '
+            'and associates of Kakatiya Medical College, Warangal. Voluntary '
+            'donations, if any, are arranged offline through the alumni office.',
             'Membership benefits, access levels, and platform features may be '
             'updated from time to time. We will communicate material changes '
             'through the platform or registered email.',
@@ -38,12 +39,13 @@ class TermsScreen extends StatelessWidget {
         LegalSection(
           heading: 'Membership & payments',
           body: [
-            'Membership fees and donation amounts are displayed on the Pricing '
-            'page and at checkout before payment. All prices are inclusive of '
-            'applicable taxes unless stated otherwise.',
-            'Payments are processed securely through Razorpay. By completing a '
-            'payment, you confirm that the information provided is accurate and '
-            'that you are authorised to use the selected payment method.',
+            'Membership fees are displayed on the Pricing page and at checkout '
+            'before payment. All prices are inclusive of applicable taxes '
+            'unless stated otherwise. Online donation checkout is not offered.',
+            'Membership payments are processed securely through Razorpay. By '
+            'completing a payment, you confirm that the information provided is '
+            'accurate and that you are authorised to use the selected payment '
+            'method.',
             'Membership activation is subject to verification of your alumni '
             'credentials. We reserve the right to reject or revoke membership '
             'if submitted information is found to be false or misleading.',

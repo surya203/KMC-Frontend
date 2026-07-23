@@ -61,8 +61,8 @@ class _PricingScreenState extends State<PricingScreen> {
                 regular: 'Membership fees and donations.',
               ),
               subtitle:
-                  'All prices are displayed before checkout. Payments are '
-                  'processed securely via Razorpay.',
+                  'Membership fees are shown before checkout and processed '
+                  'securely via Razorpay. Donations are offline only.',
             ),
             Container(
               width: double.infinity,
@@ -117,11 +117,11 @@ class _PricingScreenState extends State<PricingScreen> {
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        'Verified members may make voluntary donations to '
-                        '${BusinessInfo.legalName} or designated alumni projects. '
-                        'Donation amounts are chosen by the member at checkout. '
-                        'All donations are non-refundable except in cases of '
-                        'duplicate or erroneous transactions — see our Refund Policy.',
+                        'Voluntary donations to ${BusinessInfo.legalName} or '
+                        'designated alumni projects are handled offline through '
+                        'the alumni office. Online donation checkout is not '
+                        'available in the app. For support, contact '
+                        '${BusinessInfo.email} or ${BusinessInfo.phone}.',
                         style: GoogleFonts.inter(
                           fontSize: 16,
                           height: 1.75,

@@ -32,11 +32,11 @@ class RefundPolicyScreen extends StatelessWidget {
           heading: 'Donations',
           body: [
             'Voluntary donations to ${BusinessInfo.legalName} or designated '
-            'projects are non-refundable once the payment is successfully '
-            'captured, except in cases of duplicate or erroneous transactions.',
-            'If you believe a donation was charged in error or duplicated, '
-            'contact us within 7 days of the transaction with your payment ID '
-            'and registered email.',
+            'projects are arranged offline through the alumni office. The app '
+            'does not process online donation payments.',
+            'For donation queries or acknowledgements, contact '
+            '${BusinessInfo.email} or ${BusinessInfo.phone} during '
+            '${BusinessInfo.supportHours}.',
           ],
         ),
         LegalSection(

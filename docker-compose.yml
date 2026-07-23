@@ -4,9 +4,9 @@ services:
     ports:
       - "8080:80"
     environment:
-      # Production: override API_BASE_URL to your public API (never ship localhost).
+      # Default API host.
       ENV: ${ENV:-production}
-      API_BASE_URL: ${API_BASE_URL:-http://localhost:8001}
+      API_BASE_URL: ${API_BASE_URL:-http://200.141.2.90:8001}
       API_PREFIX: ${API_PREFIX:-/api/v1}
       STORAGE_BUCKET: ${STORAGE_BUCKET:-verification-documents}
       RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
