@@ -129,28 +129,6 @@ class CheckoutSession {
   }
 }
 
-class ProjectDonationTotal {
-  const ProjectDonationTotal({
-    required this.category,
-    required this.label,
-    required this.totalPaise,
-  });
-
-  final String category;
-  final String label;
-  final int totalPaise;
-
-  factory ProjectDonationTotal.fromJson(Map<String, dynamic> json) {
-    return ProjectDonationTotal(
-      category: '${json['category']}',
-      label: '${json['label']}',
-      totalPaise: json['total_paise'] is int
-          ? json['total_paise'] as int
-          : int.tryParse('${json['total_paise']}') ?? 0,
-    );
-  }
-}
-
 class MemberMembership {
   const MemberMembership({
     required this.status,
@@ -158,9 +136,6 @@ class MemberMembership {
     required this.planSlug,
     required this.votingRights,
     required this.feePaise,
-    required this.generalDonationPaise,
-    required this.projectDonationPaise,
-    required this.projectDonations,
     this.planId,
     this.startedAt,
     this.expiresAt,
@@ -180,18 +155,12 @@ class MemberMembership {
   final String? registrationDate;
   final String? paymentDate;
   final int feePaise;
-  final int generalDonationPaise;
-  final int projectDonationPaise;
-  final List<ProjectDonationTotal> projectDonations;
 
   String get feeDisplay => _formatPaise(feePaise);
-  String get generalDonationDisplay => _formatPaise(generalDonationPaise);
-  String get projectDonationDisplay => _formatPaise(projectDonationPaise);
 
   factory MemberMembership.fromJson(Map<String, dynamic> json) {
     DateTime? parseDate(String? raw) =>
         raw == null ? null : DateTime.tryParse(raw);
-    final projects = json['project_donations'];
 
     return MemberMembership(
       status: '${json['status']}',
@@ -208,19 +177,6 @@ class MemberMembership {
       feePaise: json['fee_paise'] is int
           ? json['fee_paise'] as int
           : int.tryParse('${json['fee_paise']}') ?? 0,
-      generalDonationPaise: json['general_donation_paise'] is int
-          ? json['general_donation_paise'] as int
-          : int.tryParse('${json['general_donation_paise']}') ?? 0,
-      projectDonationPaise: json['project_donation_paise'] is int
-          ? json['project_donation_paise'] as int
-          : int.tryParse('${json['project_donation_paise']}') ?? 0,
-      projectDonations: projects is List
-          ? [
-              for (final item in projects)
-                if (item is Map<String, dynamic>)
-                  ProjectDonationTotal.fromJson(item),
-            ]
-          : const [],
     );
   }
 }

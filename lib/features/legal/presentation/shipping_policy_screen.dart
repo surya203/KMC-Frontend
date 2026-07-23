@@ -45,14 +45,6 @@ class ShippingPolicyScreen extends StatelessWidget {
           ],
         ),
         LegalSection(
-          heading: 'Donations',
-          body: [
-            'Donations are handled offline by the alumni office. '
-            'Acknowledgements, if any, are provided by the office directly. '
-            'No physical goods are associated with donations.',
-          ],
-        ),
-        LegalSection(
           heading: 'Support',
           body: [
             'For delivery or access issues, contact the alumni office at '

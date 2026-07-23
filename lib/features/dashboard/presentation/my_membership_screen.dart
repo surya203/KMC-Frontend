@@ -4,7 +4,6 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/auth/auth_session.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../../core/constants/donation_info.dart';
 import '../../../core/network/api_errors.dart';
 import '../../../core/network/membership_api_service.dart';
 import '../../../core/network/profiles_api_service.dart';
@@ -79,158 +78,6 @@ class _MyMembershipScreenState extends State<MyMembershipScreen> {
     }
   }
 
-  Future<void> _openDonateDialog() async {
-    if (!DonationInfo.paymentsEnabled) {
-      await showDialog<void>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text(
-            'Payments unavailable',
-            style: GoogleFonts.inter(fontWeight: FontWeight.w600),
-          ),
-          content: Text(
-            DonationInfo.paymentUnavailableMessage,
-            style: GoogleFonts.inter(
-              fontSize: 14,
-              height: 1.45,
-              color: AppColors.bodyText,
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('OK'),
-            ),
-          ],
-        ),
-      );
-      return;
-    }
-
-    final amountController = TextEditingController();
-    var donationType = 'general';
-    String? projectCategory = DonationInfo.projectCategories.first.slug;
-
-    final submitted = await showDialog<bool>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) {
-          final maxHeight = MediaQuery.of(context).size.height * 0.7;
-          return AlertDialog(
-            title: const Text(DonationInfo.title),
-            content: SizedBox(
-              width: 420,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(maxHeight: maxHeight),
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        DonationInfo.summary,
-                        style: GoogleFonts.inter(
-                          fontSize: 13,
-                          color: AppColors.bodyText,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: amountController,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        decoration: const InputDecoration(
-                          labelText: 'Amount (₹)',
-                          hintText: 'e.g. 500',
-                          isDense: true,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      RadioListTile<String>(
-                        dense: true,
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text('General Donation'),
-                        value: 'general',
-                        groupValue: donationType,
-                        onChanged: (value) => setDialogState(
-                          () => donationType = value ?? 'general',
-                        ),
-                      ),
-                      RadioListTile<String>(
-                        dense: true,
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text('Project Donation'),
-                        value: 'project',
-                        groupValue: donationType,
-                        onChanged: (value) => setDialogState(
-                          () => donationType = value ?? 'project',
-                        ),
-                      ),
-                      if (donationType == 'project') ...[
-                        const SizedBox(height: 4),
-                        DropdownButtonFormField<String>(
-                          initialValue: projectCategory,
-                          isExpanded: true,
-                          decoration: const InputDecoration(
-                            labelText: 'Project category (one only)',
-                            isDense: true,
-                          ),
-                          items: [
-                            for (final category in DonationInfo.projectCategories)
-                              DropdownMenuItem(
-                                value: category.slug,
-                                child: Text(
-                                  category.label,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                          ],
-                          onChanged: (value) => setDialogState(
-                            () => projectCategory = value,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('Continue to pay'),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-
-    if (submitted != true || !mounted) return;
-
-    final rupees = double.tryParse(amountController.text.trim());
-    if (rupees == null || rupees < 1) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter an amount of at least ₹1.')),
-      );
-      return;
-    }
-    if (donationType == 'project' &&
-        (projectCategory == null || projectCategory!.isEmpty)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Choose exactly one project category.')),
-      );
-      return;
-    }
-
-    // TODO: wire Razorpay donation checkout when paymentsEnabled is true.
-  }
-
   @override
   Widget build(BuildContext context) {
     if (_loading) {
@@ -248,44 +95,13 @@ class _MyMembershipScreenState extends State<MyMembershipScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (isCompact)
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      'Your lifetime KMC Alumni Association subscription.',
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
-                        color: AppColors.bodyText,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    ElevatedButton.icon(
-                      onPressed: _openDonateDialog,
-                      icon: const Icon(Icons.volunteer_activism_outlined),
-                      label: const Text('Donate'),
-                    ),
-                  ],
-                )
-              else
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Your lifetime KMC Alumni Association subscription.',
-                        style: GoogleFonts.inter(
-                          fontSize: 15,
-                          color: AppColors.bodyText,
-                        ),
-                      ),
-                    ),
-                    ElevatedButton.icon(
-                      onPressed: _openDonateDialog,
-                      icon: const Icon(Icons.volunteer_activism_outlined),
-                      label: const Text('Donate'),
-                    ),
-                  ],
+              Text(
+                'Your lifetime KMC Alumni Association subscription.',
+                style: GoogleFonts.inter(
+                  fontSize: isCompact ? 14 : 15,
+                  color: AppColors.bodyText,
                 ),
+              ),
               const SizedBox(height: 20),
               if (_error != null) ...[
                 _ErrorBanner(
