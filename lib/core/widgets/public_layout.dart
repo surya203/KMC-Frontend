@@ -97,8 +97,10 @@ class PublicAppBar extends StatelessWidget implements PreferredSizeWidget {
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
                 const DrugsHeaderCard(),
+                const SizedBox(width: 6),
+                const _HeaderSignInButton(),
               ],
             ),
           ),
@@ -192,6 +194,46 @@ class _MenuButton extends StatelessWidget {
       visualDensity: VisualDensity.standard,
       tooltip: 'Open menu',
       onPressed: onPressed,
+    );
+  }
+}
+
+/// Compact header Sign in control — same height as [DrugsHeaderCard].
+class _HeaderSignInButton extends StatelessWidget {
+  const _HeaderSignInButton();
+
+  static const double _height = 32;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => context.go('/auth'),
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          height: _height,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: AppColors.primary,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: AppColors.primary.withValues(alpha: 0.55),
+              width: 1.5,
+            ),
+          ),
+          child: Text(
+            'Sign in',
+            style: GoogleFonts.inter(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+              height: 1.1,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
