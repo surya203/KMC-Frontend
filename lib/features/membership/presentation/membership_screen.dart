@@ -537,10 +537,28 @@ class _MembershipScreenState extends State<MembershipScreen> {
       currency: checkout.currency,
       name: _fullName,
       email: email,
-      onSuccess: () async {
-        await _pollCompletion(draft.id);
+      onSuccess: (result) async {
+        try {
+          await _membershipApi.verifyPayment(
+            draftId: draft.id,
+            razorpayOrderId: result.orderId,
+            razorpayPaymentId: result.paymentId,
+            razorpaySignature: result.signature,
+          );
+          await _pollCompletion(draft.id);
+        } catch (e) {
+          if (mounted) {
+            setState(() {
+              _error = e.toString().replaceFirst('Exception: ', '');
+              _loading = false;
+            });
+          }
+        }
       },
       onDismiss: (message) {
+        if (mounted) setState(() => _error = message);
+      },
+      onFailed: (message) {
         if (mounted) setState(() => _error = message);
       },
     );

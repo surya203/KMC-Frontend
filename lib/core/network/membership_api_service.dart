@@ -278,6 +278,33 @@ class MembershipApiService {
     }
   }
 
+  Future<void> verifyPayment({
+    required String draftId,
+    required String razorpayOrderId,
+    required String razorpayPaymentId,
+    required String razorpaySignature,
+  }) async {
+    try {
+      final response = await _apiClient.post<Map<String, dynamic>>(
+        '${AppConfig.apiPrefix}/membership/verify-payment',
+        data: {
+          'draft_id': draftId,
+          'razorpay_order_id': razorpayOrderId,
+          'razorpay_payment_id': razorpayPaymentId,
+          'razorpay_signature': razorpaySignature,
+        },
+      );
+      final data = response.data;
+      if (data == null || data['success'] != true) {
+        throw Exception(
+          '${data?['message'] ?? 'Payment verification failed.'}',
+        );
+      }
+    } on DioException catch (e) {
+      throw Exception(_readDetail(e));
+    }
+  }
+
   Future<MembershipPlan> fetchPlanBySlug(String slug) async {
     try {
       final response = await _apiClient.get<Map<String, dynamic>>(
