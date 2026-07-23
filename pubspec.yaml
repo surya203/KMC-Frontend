@@ -36,12 +36,15 @@ flutter_launcher_icons:
   android: true
   ios: true
   image_path: assets/images/app_icon.png
-  adaptive_icon_background: "#FAF7E8"
+  # Full-bleed yellow (matches icon) — no cream/white frame like Rapido
+  adaptive_icon_background: "#FFDE59"
   adaptive_icon_foreground: assets/images/app_icon.png
+  adaptive_icon_foreground_inset: 0
+  remove_alpha_ios: true
   web:
     generate: true
     image_path: assets/images/app_icon.png
-    background_color: "#FAF7E8"
+    background_color: "#FFDE59"
     theme_color: "#1A2744"
   windows:
     generate: true
