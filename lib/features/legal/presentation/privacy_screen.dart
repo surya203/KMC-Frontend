@@ -35,7 +35,7 @@ class PrivacyScreen extends StatelessWidget {
           heading: 'How we use data',
           body: [
             'Your information is used to verify alumni membership, provide '
-            'platform access, process payments and donations, send service '
+            'platform access, process membership payments, send service '
             'notifications, and improve our services.',
             'Directory visibility settings allow you to control what profile '
             'information is shown to other verified members.',

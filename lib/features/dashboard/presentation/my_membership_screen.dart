@@ -4,10 +4,11 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/auth/auth_session.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/business_info.dart';
+import '../../../core/constants/donation_info.dart';
 import '../../../core/network/api_errors.dart';
 import '../../../core/network/membership_api_service.dart';
 import '../../../core/network/profiles_api_service.dart';
-import '../../../core/payment/razorpay_checkout.dart';
 import '../../../core/utils/membership_number_format.dart';
 import '../widgets/dashboard_layout.dart';
 import '../../../core/utils/membership_tenure.dart';
@@ -26,12 +27,9 @@ class _MyMembershipScreenState extends State<MyMembershipScreen> {
   MemberMembership? _membership;
   MyProfile? _profile;
   MembershipPlan? _plan;
-  List<DonationCategory> _categories = [];
-  List<DonationRecord> _donations = [];
   String? _error;
   bool _sessionExpired = false;
   bool _loading = true;
-  bool _donating = false;
 
   @override
   void initState() {
@@ -55,26 +53,16 @@ class _MyMembershipScreenState extends State<MyMembershipScreen> {
         profile = null;
       }
       MembershipPlan? plan;
-      var categories = <DonationCategory>[];
-      var donations = <DonationRecord>[];
       try {
         plan = await _api.fetchPlanBySlug(membership.planSlug);
       } catch (_) {
         plan = null;
-      }
-      try {
-        categories = await _api.fetchDonationCategories();
-        donations = await _api.fetchMyDonations();
-      } catch (_) {
-        // Record still shows if donations table is not migrated yet.
       }
       if (!mounted) return;
       setState(() {
         _membership = membership;
         _profile = profile;
         _plan = plan;
-        _categories = categories;
-        _donations = donations;
         _loading = false;
       });
     } catch (e) {
@@ -92,32 +80,10 @@ class _MyMembershipScreenState extends State<MyMembershipScreen> {
     }
   }
 
-  String _formatDate(String? iso) {
-    if (iso == null || iso.isEmpty) return '—';
-    final parsed = DateTime.tryParse(iso);
-    if (parsed == null) return iso;
-    final local = parsed.toLocal();
-    return '${local.day.toString().padLeft(2, '0')}/'
-        '${local.month.toString().padLeft(2, '0')}/'
-        '${local.year}';
-  }
-
   Future<void> _openDonateDialog() async {
-    try {
-      _categories = await _api.fetchDonationCategories();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
-      );
-      return;
-    }
-    if (!mounted) return;
-
     final amountController = TextEditingController();
     var donationType = 'general';
-    String? projectCategory =
-        _categories.isEmpty ? null : _categories.first.slug;
+    String? projectCategory = DonationInfo.projectCategories.first.slug;
 
     final submitted = await showDialog<bool>(
       context: context,
@@ -125,7 +91,7 @@ class _MyMembershipScreenState extends State<MyMembershipScreen> {
         builder: (context, setDialogState) {
           final maxHeight = MediaQuery.of(context).size.height * 0.7;
           return AlertDialog(
-            title: const Text('Make a donation'),
+            title: const Text(DonationInfo.title),
             content: SizedBox(
               width: 420,
               child: ConstrainedBox(
@@ -136,12 +102,31 @@ class _MyMembershipScreenState extends State<MyMembershipScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Donate as a general donation, or to exactly one project.',
+                        DonationInfo.summary,
                         style: GoogleFonts.inter(
                           fontSize: 13,
                           color: AppColors.bodyText,
                         ),
                       ),
+                      if (!DonationInfo.paymentsEnabled) ...[
+                        const SizedBox(height: 10),
+                        Text(
+                          DonationInfo.paymentUnavailableMessage,
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            height: 1.45,
+                            color: AppColors.mutedText,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${BusinessInfo.email} · ${BusinessInfo.phone}',
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            color: AppColors.mutedText,
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 12),
                       TextField(
                         controller: amountController,
@@ -185,7 +170,7 @@ class _MyMembershipScreenState extends State<MyMembershipScreen> {
                             isDense: true,
                           ),
                           items: [
-                            for (final category in _categories)
+                            for (final category in DonationInfo.projectCategories)
                               DropdownMenuItem(
                                 value: category.slug,
                                 child: Text(
@@ -211,7 +196,11 @@ class _MyMembershipScreenState extends State<MyMembershipScreen> {
               ),
               ElevatedButton(
                 onPressed: () => Navigator.pop(context, true),
-                child: const Text('Continue to pay'),
+                child: Text(
+                  DonationInfo.paymentsEnabled
+                      ? 'Continue to pay'
+                      : 'Continue',
+                ),
               ),
             ],
           );
@@ -236,64 +225,20 @@ class _MyMembershipScreenState extends State<MyMembershipScreen> {
       return;
     }
 
-    final amountPaise = (rupees * 100).round();
-    setState(() => _donating = true);
-
-    try {
-      final checkout = await _api.createDonationCheckout(
-        amountPaise: amountPaise,
-        donationType: donationType,
-        projectCategory:
-            donationType == 'project' ? projectCategory : null,
-      );
-
-      final user = AuthSession.instance.currentUser;
-      if (checkout.keyId.isNotEmpty) {
-        await openRazorpayCheckout(
-          keyId: checkout.keyId,
-          orderId: checkout.orderId,
-          amountPaise: checkout.amountPaise,
-          currency: checkout.currency,
-          name: user?.fullName ?? 'KMC Alumni',
-          email: user?.email ?? '',
-          onSuccess: () async {
-            try {
-              final message = await _api.completeDonation(checkout.orderId);
-              await _load();
-              if (!mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(message)),
-              );
-            } catch (e) {
-              if (!mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(e.toString())),
-              );
-            }
-          },
-          onDismiss: (message) {
-            if (!mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(message)),
-            );
-          },
-        );
-      } else {
-        final message = await _api.completeDonation(checkout.orderId);
-        await _load();
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(message)),
-        );
-      }
-    } catch (e) {
-      if (!mounted) return;
+    // Payment wiring comes later. Keep UI + validation ready.
+    if (!DonationInfo.paymentsEnabled) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
+        SnackBar(
+          content: Text(
+            '${DonationInfo.paymentUnavailableMessage} '
+            '${BusinessInfo.email}',
+          ),
+        ),
       );
-    } finally {
-      if (mounted) setState(() => _donating = false);
+      return;
     }
+
+    // TODO: wire Razorpay donation checkout when paymentsEnabled is true.
   }
 
   @override
@@ -326,15 +271,9 @@ class _MyMembershipScreenState extends State<MyMembershipScreen> {
                     ),
                     const SizedBox(height: 12),
                     ElevatedButton.icon(
-                      onPressed: _donating ? null : _openDonateDialog,
-                      icon: _donating
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.volunteer_activism_outlined),
-                      label: Text(_donating ? 'Processing…' : 'Donate'),
+                      onPressed: _openDonateDialog,
+                      icon: const Icon(Icons.volunteer_activism_outlined),
+                      label: const Text('Donate'),
                     ),
                   ],
                 )
@@ -351,15 +290,9 @@ class _MyMembershipScreenState extends State<MyMembershipScreen> {
                       ),
                     ),
                     ElevatedButton.icon(
-                      onPressed: _donating ? null : _openDonateDialog,
-                      icon: _donating
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.volunteer_activism_outlined),
-                      label: Text(_donating ? 'Processing…' : 'Donate'),
+                      onPressed: _openDonateDialog,
+                      icon: const Icon(Icons.volunteer_activism_outlined),
+                      label: const Text('Donate'),
                     ),
                   ],
                 ),
@@ -379,14 +312,6 @@ class _MyMembershipScreenState extends State<MyMembershipScreen> {
                 _RecordCard(membership: membership, profile: _profile),
                 const SizedBox(height: 16),
                 _PlanCard(membership: membership, plan: _plan),
-                if (membership.projectDonations.isNotEmpty) ...[
-                  const SizedBox(height: 16),
-                  _ProjectDonationsCard(membership: membership),
-                ],
-                if (_donations.isNotEmpty) ...[
-                  const SizedBox(height: 16),
-                  _DonationHistoryCard(donations: _donations, formatDate: _formatDate),
-                ],
                 const SizedBox(height: 16),
                 OutlinedButton(
                   onPressed: () => context.go('/my-payments'),
@@ -520,14 +445,6 @@ class _RecordCard extends StatelessWidget {
             value: _formatIso(membership.paymentDate),
           ),
           _Field(label: 'Fee', value: membership.feeDisplay),
-          _Field(
-            label: 'General Donation',
-            value: membership.generalDonationDisplay,
-          ),
-          _Field(
-            label: 'Project Donation',
-            value: membership.projectDonationDisplay,
-          ),
         ],
       ),
     );
@@ -541,119 +458,6 @@ class _RecordCard extends StatelessWidget {
     return '${local.day.toString().padLeft(2, '0')}/'
         '${local.month.toString().padLeft(2, '0')}/'
         '${local.year}';
-  }
-}
-
-class _ProjectDonationsCard extends StatelessWidget {
-  const _ProjectDonationsCard({required this.membership});
-
-  final MemberMembership membership;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Project donations by category',
-            style: GoogleFonts.inter(
-              fontWeight: FontWeight.w700,
-              color: AppColors.heading,
-            ),
-          ),
-          const SizedBox(height: 12),
-          for (final item in membership.projectDonations)
-            _Field(
-              label: item.label,
-              value: '₹${(item.totalPaise / 100).toStringAsFixed(
-                item.totalPaise % 100 == 0 ? 0 : 2,
-              )}',
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DonationHistoryCard extends StatelessWidget {
-  const _DonationHistoryCard({
-    required this.donations,
-    required this.formatDate,
-  });
-
-  final List<DonationRecord> donations;
-  final String Function(String?) formatDate;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Donation history',
-            style: GoogleFonts.inter(
-              fontWeight: FontWeight.w700,
-              color: AppColors.heading,
-            ),
-          ),
-          const SizedBox(height: 8),
-          for (final donation in donations) ...[
-            const SizedBox(height: 8),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        donation.title,
-                        style: GoogleFonts.inter(
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.heading,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${donation.status} · ${formatDate(donation.capturedAt ?? donation.createdAt)}',
-                        style: GoogleFonts.inter(
-                          fontSize: 13,
-                          color: AppColors.mutedText,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  donation.amountDisplay,
-                  style: GoogleFonts.inter(
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.heading,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ],
-      ),
-    );
   }
 }
 
