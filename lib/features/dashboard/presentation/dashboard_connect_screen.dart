@@ -274,6 +274,9 @@ class _DashboardConnectScreenState extends State<DashboardConnectScreen> {
   @override
   void initState() {
     super.initState();
+    if (!kAlumniChatEnabled) {
+      _activeTab = _ConnectTab.executiveCommittee;
+    }
     AuthSession.instance.addListener(_onSessionChanged);
     _load();
   }
@@ -326,7 +329,9 @@ class _DashboardConnectScreenState extends State<DashboardConnectScreen> {
       final showExecutiveCommitteeChat = canViewExecutiveCommittee(userRole);
 
       try {
-        communityMessages = await _api.fetchCommunityMessages();
+        if (kAlumniChatEnabled) {
+          communityMessages = await _api.fetchCommunityMessages();
+        }
       } catch (e) {
         communityError = e;
       }
@@ -399,7 +404,11 @@ class _DashboardConnectScreenState extends State<DashboardConnectScreen> {
                 : null;
         _officersError =
             officersError != null ? _formatError(officersError) : null;
-        _error = communityError != null
+        if (!kAlumniChatEnabled &&
+            _activeTab == _ConnectTab.alumniChat) {
+          _activeTab = _ConnectTab.executiveCommittee;
+        }
+        _error = kAlumniChatEnabled && communityError != null
             ? 'Alumni Chat unavailable. ${_formatError(communityError)}'
             : null;
       });
@@ -424,6 +433,8 @@ class _DashboardConnectScreenState extends State<DashboardConnectScreen> {
     List<int>? fileBytes,
     String? fileName,
   ]) async {
+    if (!kAlumniChatEnabled) return;
+
     final text = _messageController.text.trim();
     final hasFile = fileBytes != null && fileBytes.isNotEmpty && fileName != null;
     if ((text.isEmpty && !hasFile) || _posting) return;
@@ -668,7 +679,8 @@ class _DashboardConnectScreenState extends State<DashboardConnectScreen> {
               ),
               SizedBox(height: isMobile ? 12 : 16),
               Expanded(
-                child: _activeTab == _ConnectTab.alumniChat
+                child: kAlumniChatEnabled &&
+                        _activeTab == _ConnectTab.alumniChat
                     ? _AlumniChatPanel(
                         messages: _alumniChatMessages,
                         messageController: _messageController,
@@ -811,7 +823,7 @@ class _ModeToggle extends StatelessWidget {
               child: _ToggleChip(
                 label: tabs[i].$2,
                 icon: tabs[i].$3,
-                selected: activeTab == tabs[i].$1,
+                selected: activeTab == tabs[i].$1 && tabs[i].$4 != null,
                 onTap: tabs[i].$4,
                 expanded: true,
               ),
@@ -829,7 +841,7 @@ class _ModeToggle extends StatelessWidget {
           _ToggleChip(
             label: tab.$2,
             icon: tab.$3,
-            selected: activeTab == tab.$1,
+            selected: activeTab == tab.$1 && tab.$4 != null,
             onTap: tab.$4,
           ),
       ],
@@ -855,52 +867,57 @@ class _ToggleChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final enabled = onTap != null;
-    return Opacity(
-      opacity: enabled ? 1 : 0.45,
-      child: Material(
-        color: selected ? AppColors.primary : Colors.white,
+    final showSelected = selected && enabled;
+    final chip = Material(
+      color: showSelected ? AppColors.primary : Colors.white,
+      borderRadius: BorderRadius.circular(24),
+      child: InkWell(
         borderRadius: BorderRadius.circular(24),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(24),
-          onTap: onTap,
-          child: Container(
-            width: expanded ? double.infinity : null,
-            padding: EdgeInsets.symmetric(
-              horizontal: expanded ? 16 : 18,
-              vertical: expanded ? 12 : 10,
-            ),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(
-                color: selected ? AppColors.primary : AppColors.border,
-              ),
-            ),
-            child: Row(
-              mainAxisAlignment:
-                  expanded ? MainAxisAlignment.center : MainAxisAlignment.start,
-              mainAxisSize: expanded ? MainAxisSize.max : MainAxisSize.min,
-              children: [
-                Icon(
-                  icon,
-                  size: 18,
-                  color: selected ? Colors.white : AppColors.heading,
-                ),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.inter(
-                      fontWeight: FontWeight.w600,
-                      color: selected ? Colors.white : AppColors.heading,
-                    ),
-                  ),
-                ),
-              ],
+        onTap: enabled ? onTap : null,
+        child: Container(
+          width: expanded ? double.infinity : null,
+          padding: EdgeInsets.symmetric(
+            horizontal: expanded ? 16 : 18,
+            vertical: expanded ? 12 : 10,
+          ),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: showSelected ? AppColors.primary : AppColors.border,
             ),
           ),
+          child: Row(
+            mainAxisAlignment:
+                expanded ? MainAxisAlignment.center : MainAxisAlignment.start,
+            mainAxisSize: expanded ? MainAxisSize.max : MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 18,
+                color: showSelected ? Colors.white : AppColors.heading,
+              ),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.inter(
+                    fontWeight: FontWeight.w600,
+                    color: showSelected ? Colors.white : AppColors.heading,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
+      ),
+    );
+    return Opacity(
+      opacity: enabled ? 1 : 0.45,
+      child: IgnorePointer(
+        ignoring: !enabled,
+        child: chip,
       ),
     );
   }
