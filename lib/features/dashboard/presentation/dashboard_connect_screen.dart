@@ -38,6 +38,10 @@ List<int> _parseValidBatchYears(Iterable<int> years) {
 
 enum _ConnectTab { alumniChat, financeCouncil, executiveCommittee }
 
+/// Set to `true` to allow users to open Alumni Chat; `false` keeps the tab
+/// visible but not clickable.
+const bool kAlumniChatEnabled = false;
+
 enum _ChatRoom { alumni, finance, executive }
 
 class _ChatMessage {
@@ -649,8 +653,9 @@ class _DashboardConnectScreenState extends State<DashboardConnectScreen> {
               SizedBox(height: isMobile ? 12 : 16),
               _ModeToggle(
                 activeTab: _activeTab,
-                onAlumniChat: () =>
-                    setState(() => _activeTab = _ConnectTab.alumniChat),
+                onAlumniChat: kAlumniChatEnabled
+                    ? () => setState(() => _activeTab = _ConnectTab.alumniChat)
+                    : null,
                 onFinanceCouncil: showFinanceCouncilTab
                     ? () => setState(
                           () => _activeTab = _ConnectTab.financeCouncil,
@@ -767,14 +772,14 @@ class _ModeToggle extends StatelessWidget {
   });
 
   final _ConnectTab activeTab;
-  final VoidCallback onAlumniChat;
+  final VoidCallback? onAlumniChat;
   final VoidCallback? onFinanceCouncil;
   final VoidCallback onCommittee;
   final bool fullWidth;
 
   @override
   Widget build(BuildContext context) {
-    final tabs = <(_ConnectTab, String, IconData, VoidCallback)>[
+    final tabs = <(_ConnectTab, String, IconData, VoidCallback?)>[
       (
         _ConnectTab.alumniChat,
         'Alumni Chat',
@@ -844,52 +849,56 @@ class _ToggleChip extends StatelessWidget {
   final String label;
   final IconData icon;
   final bool selected;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final bool expanded;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: selected ? AppColors.primary : Colors.white,
-      borderRadius: BorderRadius.circular(24),
-      child: InkWell(
+    final enabled = onTap != null;
+    return Opacity(
+      opacity: enabled ? 1 : 0.45,
+      child: Material(
+        color: selected ? AppColors.primary : Colors.white,
         borderRadius: BorderRadius.circular(24),
-        onTap: onTap,
-        child: Container(
-          width: expanded ? double.infinity : null,
-          padding: EdgeInsets.symmetric(
-            horizontal: expanded ? 16 : 18,
-            vertical: expanded ? 12 : 10,
-          ),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: selected ? AppColors.primary : AppColors.border,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(24),
+          onTap: onTap,
+          child: Container(
+            width: expanded ? double.infinity : null,
+            padding: EdgeInsets.symmetric(
+              horizontal: expanded ? 16 : 18,
+              vertical: expanded ? 12 : 10,
             ),
-          ),
-          child: Row(
-            mainAxisAlignment:
-                expanded ? MainAxisAlignment.center : MainAxisAlignment.start,
-            mainAxisSize: expanded ? MainAxisSize.max : MainAxisSize.min,
-            children: [
-              Icon(
-                icon,
-                size: 18,
-                color: selected ? Colors.white : AppColors.heading,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: selected ? AppColors.primary : AppColors.border,
               ),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.inter(
-                    fontWeight: FontWeight.w600,
-                    color: selected ? Colors.white : AppColors.heading,
+            ),
+            child: Row(
+              mainAxisAlignment:
+                  expanded ? MainAxisAlignment.center : MainAxisAlignment.start,
+              mainAxisSize: expanded ? MainAxisSize.max : MainAxisSize.min,
+              children: [
+                Icon(
+                  icon,
+                  size: 18,
+                  color: selected ? Colors.white : AppColors.heading,
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.inter(
+                      fontWeight: FontWeight.w600,
+                      color: selected ? Colors.white : AppColors.heading,
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
