@@ -70,26 +70,28 @@ class DashboardShell extends StatelessWidget {
                 ),
               ),
             Expanded(
-              child: Column(
-                children: [
-                  DashboardTopBar(
-                    title: title,
-                    searchController: searchController,
-                    searchService: searchService,
-                    profileName: profileName,
-                    profilePhotoUrl: profilePhotoUrl,
-                    profilePhotoBytes: profilePhotoBytes,
-                    onMenuTap: isDesktop
-                        ? null
-                        : () => Scaffold.of(scaffoldContext).openDrawer(),
-                  ),
-                  Expanded(
-                    child: ColoredBox(
-                      color: const Color(0xFFF7F7F4),
-                      child: child,
+              child: SafeArea(
+                child: Column(
+                  children: [
+                    DashboardTopBar(
+                      title: title,
+                      searchController: searchController,
+                      searchService: searchService,
+                      profileName: profileName,
+                      profilePhotoUrl: profilePhotoUrl,
+                      profilePhotoBytes: profilePhotoBytes,
+                      onMenuTap: isDesktop
+                          ? null
+                          : () => Scaffold.of(scaffoldContext).openDrawer(),
                     ),
-                  ),
-                ],
+                    Expanded(
+                      child: ColoredBox(
+                        color: const Color(0xFFF7F7F4),
+                        child: child,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],

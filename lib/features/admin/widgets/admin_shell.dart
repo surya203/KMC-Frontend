@@ -100,21 +100,23 @@ class AdminShell extends StatelessWidget {
                 ),
               ),
             Expanded(
-              child: Column(
-                children: [
-                  _AdminTopBar(
-                    title: title,
-                    onMenuTap: isDesktop
-                        ? null
-                        : () => Scaffold.of(scaffoldContext).openDrawer(),
-                  ),
-                  Expanded(
-                    child: ColoredBox(
-                      color: const Color(0xFFF7F7F4),
-                      child: child,
+              child: SafeArea(
+                child: Column(
+                  children: [
+                    _AdminTopBar(
+                      title: title,
+                      onMenuTap: isDesktop
+                          ? null
+                          : () => Scaffold.of(scaffoldContext).openDrawer(),
                     ),
-                  ),
-                ],
+                    Expanded(
+                      child: ColoredBox(
+                        color: const Color(0xFFF7F7F4),
+                        child: child,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -292,62 +294,59 @@ class _AdminTopBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: Colors.white,
-      child: SafeArea(
-        bottom: false,
-        child: Container(
-          height: 64,
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          decoration: const BoxDecoration(
-            border: Border(bottom: BorderSide(color: AppColors.border)),
-          ),
-          child: ListenableBuilder(
-            listenable: AuthSession.instance,
-            builder: (context, _) {
-              final role = AuthSession.instance.currentUser?.role;
-              final showDrugs = canManageDrugs(role);
+      child: Container(
+        height: 64,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: AppColors.border)),
+        ),
+        child: ListenableBuilder(
+          listenable: AuthSession.instance,
+          builder: (context, _) {
+            final role = AuthSession.instance.currentUser?.role;
+            final showDrugs = canManageDrugs(role);
 
-              return Row(
-                children: [
-                  if (onMenuTap != null)
-                    Semantics(
-                      button: true,
-                      label: 'Open navigation menu',
-                      child: IconButton(
-                        onPressed: onMenuTap,
-                        icon: const Icon(Icons.menu),
-                        color: AppColors.primary,
-                      ),
-                    ),
-                  Expanded(
-                    child: Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.inter(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.heading,
-                      ),
-                    ),
-                  ),
-                  if (showDrugs) ...[
-                    const DrugsHeaderCard(),
-                    const SizedBox(width: 10),
-                  ],
+            return Row(
+              children: [
+                if (onMenuTap != null)
                   Semantics(
                     button: true,
-                    label: 'Notifications',
+                    label: 'Open navigation menu',
                     child: IconButton(
-                      onPressed: () => context.go('/announcements'),
-                      icon: const Icon(Icons.notifications_none_rounded),
+                      onPressed: onMenuTap,
+                      icon: const Icon(Icons.menu),
                       color: AppColors.primary,
-                      visualDensity: VisualDensity.compact,
                     ),
                   ),
+                Expanded(
+                  child: Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.inter(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.heading,
+                    ),
+                  ),
+                ),
+                if (showDrugs) ...[
+                  const DrugsHeaderCard(),
+                  const SizedBox(width: 10),
                 ],
-              );
-            },
-          ),
+                Semantics(
+                  button: true,
+                  label: 'Notifications',
+                  child: IconButton(
+                    onPressed: () => context.go('/announcements'),
+                    icon: const Icon(Icons.notifications_none_rounded),
+                    color: AppColors.primary,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );
