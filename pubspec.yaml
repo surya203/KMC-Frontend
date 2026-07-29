@@ -39,7 +39,8 @@ flutter_launcher_icons:
   # Full-bleed yellow (matches icon) — no cream/white frame like Rapido
   adaptive_icon_background: "#FFDE59"
   adaptive_icon_foreground: assets/images/app_icon.png
-  adaptive_icon_foreground_inset: 0
+  # Keep seal + text inside Android adaptive safe zone (avoids zoom/crop)
+  adaptive_icon_foreground_inset: 16
   remove_alpha_ios: true
   web:
     generate: true

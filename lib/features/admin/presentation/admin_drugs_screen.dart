@@ -91,8 +91,8 @@ class _AdminDrugsScreenState extends State<AdminDrugsScreen> {
     if (lower.contains('xmlhttprequest') ||
         lower.contains('connection errored') ||
         lower.contains('connection error')) {
-      return 'Could not reach the API. Check that the backend is running on '
-          'http://200.141.2.90:8000, then click Retry. If the backend is up, also '
+      return 'Could not reach the API. Check that the backend is running, '
+          'then click Retry. If the backend is up, also '
           'run docs/migration-018-drugs.sql in Supabase (drugs table is required).';
     }
     if (text.startsWith('Exception: ')) {

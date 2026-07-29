@@ -49,6 +49,7 @@ class _MyProfileScreenState extends State<MyProfileScreen>
   late final TextEditingController _bio;
   late final TextEditingController _linkedin;
   late final TextEditingController _phone;
+  late final TextEditingController _medicalCouncilNumber;
   bool _directoryVisible = true;
 
   @override
@@ -63,6 +64,7 @@ class _MyProfileScreenState extends State<MyProfileScreen>
     _bio = TextEditingController();
     _linkedin = TextEditingController();
     _phone = TextEditingController();
+    _medicalCouncilNumber = TextEditingController();
     ProfileSession.instance.addListener(_onProfileSessionChanged);
     AuthSession.instance.addListener(_onAuthSessionChanged);
     _syncPhotoFromSession();
@@ -97,6 +99,7 @@ class _MyProfileScreenState extends State<MyProfileScreen>
     _bio.dispose();
     _linkedin.dispose();
     _phone.dispose();
+    _medicalCouncilNumber.dispose();
     super.dispose();
   }
 
@@ -186,6 +189,7 @@ class _MyProfileScreenState extends State<MyProfileScreen>
     _bio.text = profile.bio ?? '';
     _linkedin.text = profile.linkedinUrl ?? '';
     _phone.text = _localPhoneNumber(profile.phone);
+    _medicalCouncilNumber.text = profile.medicalCouncilNumber ?? '';
     _directoryVisible = profile.isDirectoryVisible ?? true;
   }
 
@@ -265,6 +269,7 @@ class _MyProfileScreenState extends State<MyProfileScreen>
         'bio': textOrNull(bio),
         'linkedin_url': normalizedLinkedIn,
         'is_directory_visible': _directoryVisible,
+        'medical_council_number': textOrNull(_medicalCouncilNumber.text),
       });
       if (!mounted) return;
       _syncEditors(updated);
@@ -882,6 +887,15 @@ class _MyProfileScreenState extends State<MyProfileScreen>
                     value: _membershipId(profile),
                     readOnly: true,
                   ),
+                  if (profile.medicalCouncilNumber != null &&
+                      profile.medicalCouncilNumber!.isNotEmpty) ...[
+                    const SizedBox(height: 20),
+                    _formField(
+                      label: 'MEDICAL COUNCIL NUMBER',
+                      value: profile.medicalCouncilNumber,
+                      readOnly: true,
+                    ),
+                  ],
                   if (!_editing) ..._buildDirectoryViewFields(profile),
                   if (_editing) ...[
                     const SizedBox(height: 28),
@@ -922,6 +936,16 @@ class _MyProfileScreenState extends State<MyProfileScreen>
                       hintText:
                           'A short professional summary for the alumni directory.',
                       helperText: 'Maximum 500 characters',
+                    ),
+                    const SizedBox(height: 16),
+                    _formField(
+                      label: 'MEDICAL COUNCIL NUMBER',
+                      controller: _medicalCouncilNumber,
+                      hintText: 'e.g. KMC/12345',
+                      readOnly: profile.verificationStatus == 'approved',
+                      helperText: profile.verificationStatus == 'approved'
+                          ? 'Locked — approved by admin'
+                          : 'Your Medical Council Registration Number',
                     ),
                     const SizedBox(height: 16),
                     _formField(

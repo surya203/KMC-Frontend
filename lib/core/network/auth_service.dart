@@ -32,6 +32,7 @@ class AuthUser {
     this.fullName,
     this.batchYear,
     this.membershipNumber,
+    this.verificationStatus,
   });
 
   final String id;
@@ -42,6 +43,11 @@ class AuthUser {
   final String? fullName;
   final int? batchYear;
   final String? membershipNumber;
+  final String? verificationStatus;
+
+  bool get isPending => verificationStatus == 'pending';
+  bool get isApproved => verificationStatus == 'approved';
+  bool get isRejected => verificationStatus == 'rejected';
 
   factory AuthUser.fromJson(Map<String, dynamic> json) {
     final profile = json['profile'];
@@ -59,6 +65,9 @@ class AuthUser {
           : null,
       membershipNumber: membership is Map<String, dynamic>
           ? membership['membership_number'] as String?
+          : null,
+      verificationStatus: profile is Map<String, dynamic>
+          ? profile['verification_status'] as String?
           : null,
     );
   }
@@ -117,6 +126,7 @@ class AuthService {
     String? phone,
     String? phoneCountryCode,
     String? membershipNumber,
+    String? medicalCouncilNumber,
   }) async {
     final Map<String, dynamic> data;
     if (email != null && email.isNotEmpty) {
@@ -125,6 +135,11 @@ class AuthService {
       data = {
         'phone': phone,
         'phone_country_code': phoneCountryCode ?? '+91',
+        'password': password,
+      };
+    } else if (medicalCouncilNumber != null && medicalCouncilNumber.isNotEmpty) {
+      data = {
+        'medical_council_number': medicalCouncilNumber,
         'password': password,
       };
     } else {

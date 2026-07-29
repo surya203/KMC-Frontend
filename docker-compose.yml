@@ -4,12 +4,13 @@ services:
     ports:
       - "8080:80"
     environment:
-      # Default API host.
+      # Production defaults — override via .env / compose env for local/LAN.
       ENV: ${ENV:-production}
-      API_BASE_URL: ${API_BASE_URL:-http://200.141.2.90:8001}
+      API_BASE_URL: ${API_BASE_URL:-https://api.kmcalumni.net}
       API_PREFIX: ${API_PREFIX:-/api/v1}
       STORAGE_BUCKET: ${STORAGE_BUCKET:-verification-documents}
-      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
+      # Public Razorpay key only (secret stays on backend).
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-rzp_live_TGwiguT5HZKaNR}
       # Legacy optional — not required with Postgres media
       SUPABASE_URL: ${SUPABASE_URL:-}
       SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-}

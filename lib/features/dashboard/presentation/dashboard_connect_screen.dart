@@ -38,9 +38,11 @@ List<int> _parseValidBatchYears(Iterable<int> years) {
 
 enum _ConnectTab { alumniChat, financeCouncil, executiveCommittee }
 
-/// Set to `true` to allow users to open Alumni Chat; `false` keeps the tab
-/// visible but not clickable.
-const bool kAlumniChatEnabled = false;
+/// Keep Alumni Chat visible/openable.
+const bool kAlumniChatEnabled = true;
+
+/// Temporarily block sending in Alumni Chat and show "Coming soon".
+const bool kAlumniChatPostingEnabled = false;
 
 enum _ChatRoom { alumni, finance, executive }
 
@@ -679,6 +681,7 @@ class _DashboardConnectScreenState extends State<DashboardConnectScreen> {
                               fileName,
                             ),
                         posting: _posting,
+                        sendEnabled: kAlumniChatPostingEnabled,
                         setupError: _error != null &&
                             _isAlumniChatSetupError(_error!),
                         compact: isMobile,
@@ -918,6 +921,7 @@ class _AlumniChatPanel extends StatefulWidget {
     required this.messageController,
     required this.onSend,
     required this.posting,
+    required this.sendEnabled,
     this.setupError = false,
     this.compact = false,
     this.isAdminViewer = false,
@@ -927,6 +931,7 @@ class _AlumniChatPanel extends StatefulWidget {
   final TextEditingController messageController;
   final _AlumniChatSend onSend;
   final bool posting;
+  final bool sendEnabled;
   final bool setupError;
   final bool compact;
   final bool isAdminViewer;
@@ -964,6 +969,15 @@ class _AlumniChatPanelState extends State<_AlumniChatPanel> {
   }
 
   void _handleSend() {
+    if (!widget.sendEnabled) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Alumni Chat is coming soon. Sending is disabled for now.'),
+        ),
+      );
+      return;
+    }
     final pendingBytes = _pendingFileBytes;
     final pendingName = _pendingFileName;
     final hasFile =
@@ -989,7 +1003,7 @@ class _AlumniChatPanelState extends State<_AlumniChatPanel> {
   }
 
   Future<void> _pickDocument() async {
-    if (widget.posting) return;
+    if (widget.posting || !widget.sendEnabled) return;
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: const [
@@ -1073,6 +1087,7 @@ class _AlumniChatPanelState extends State<_AlumniChatPanel> {
     final compact = widget.compact;
     final messages = widget.messages;
     final posting = widget.posting;
+    final sendEnabled = widget.sendEnabled;
     final setupError = widget.setupError;
 
     return Container(
@@ -1118,8 +1133,8 @@ class _AlumniChatPanelState extends State<_AlumniChatPanel> {
                 const SizedBox(height: 4),
                 Text(
                   widget.isAdminViewer
-                      ? 'Members chat here. Messages older than 3 months are removed. Targeted alerts go only to matching alumni — Admin sees all alerts.'
-                      : 'Alumni chat will be deleted in 3 months',
+                      ? 'Alumni Chat is coming soon and will be enabled shortly.'
+                      : 'Alumni Chat is coming soon and will be enabled shortly.',
                   style: GoogleFonts.inter(
                     fontSize: 12,
                     color: AppColors.mutedText,
@@ -1249,7 +1264,7 @@ class _AlumniChatPanelState extends State<_AlumniChatPanel> {
                     ),
                     const Spacer(),
                     TextButton(
-                      onPressed: posting
+                      onPressed: (posting || !sendEnabled)
                           ? null
                           : () => setState(() => _targetOpen = !_targetOpen),
                       style: TextButton.styleFrom(
@@ -1270,7 +1285,9 @@ class _AlumniChatPanelState extends State<_AlumniChatPanel> {
                     if (_hasActiveTargets) ...[
                       const SizedBox(width: 4),
                       IconButton(
-                        onPressed: posting ? null : _clearTargets,
+                        onPressed: (posting || !sendEnabled)
+                            ? null
+                            : _clearTargets,
                         tooltip: 'Clear audience',
                         visualDensity: VisualDensity.compact,
                         padding: EdgeInsets.zero,
@@ -1312,12 +1329,12 @@ class _AlumniChatPanelState extends State<_AlumniChatPanel> {
                           children: [
                             _ChatTargetNameAutocomplete(
                               controller: _nameController,
-                              enabled: !posting,
+                              enabled: !posting && sendEnabled,
                               onChanged: () => setState(() {}),
                             ),
                             _ChatTargetBatchYearField(
                               selectedYears: _selectedBatchYears,
-                              enabled: !posting,
+                              enabled: !posting && sendEnabled,
                               onChanged: (years) {
                                 setState(() {
                                   _selectedBatchYears
@@ -1331,7 +1348,7 @@ class _AlumniChatPanelState extends State<_AlumniChatPanel> {
                               label: 'Specialty',
                               hint: 'Specialty',
                               icon: Icons.medical_services_outlined,
-                              enabled: !posting,
+                              enabled: !posting && sendEnabled,
                               width: 130,
                               onChanged: (_) => setState(() {}),
                             ),
@@ -1340,7 +1357,7 @@ class _AlumniChatPanelState extends State<_AlumniChatPanel> {
                               label: 'Location',
                               hint: 'Location',
                               icon: Icons.place_outlined,
-                              enabled: !posting,
+                              enabled: !posting && sendEnabled,
                               width: 120,
                               onChanged: (_) => setState(() {}),
                             ),
@@ -1351,6 +1368,41 @@ class _AlumniChatPanelState extends State<_AlumniChatPanel> {
                   ),
                 ],
                 const SizedBox(height: 8),
+                if (!sendEnabled) ...[
+                  Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF4E5),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFE8C48A)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.campaign_outlined,
+                          size: 18,
+                          color: AppColors.heading,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Alumni Chat coming soon — it will be enabled shortly.',
+                            style: GoogleFonts.inter(
+                              fontSize: 12.5,
+                              color: AppColors.heading,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 if (_pendingFileName != null) ...[
                   Container(
                     width: double.infinity,
@@ -1385,7 +1437,9 @@ class _AlumniChatPanelState extends State<_AlumniChatPanel> {
                           ),
                         ),
                         IconButton(
-                          onPressed: posting ? null : _clearPendingFile,
+                          onPressed: (posting || !sendEnabled)
+                              ? null
+                              : _clearPendingFile,
                           icon: const Icon(Icons.close, size: 18),
                           visualDensity: VisualDensity.compact,
                           tooltip: 'Remove file',
@@ -1416,7 +1470,7 @@ class _AlumniChatPanelState extends State<_AlumniChatPanel> {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       IconButton(
-                        onPressed: posting ? null : _pickDocument,
+                        onPressed: (posting || !sendEnabled) ? null : _pickDocument,
                         tooltip: 'Attach document',
                         icon: const Icon(
                           Icons.attach_file_rounded,
@@ -1426,7 +1480,7 @@ class _AlumniChatPanelState extends State<_AlumniChatPanel> {
                       Expanded(
                         child: TextField(
                           controller: widget.messageController,
-                          enabled: !posting,
+                          enabled: !posting && sendEnabled,
                           minLines: 1,
                           maxLines: 4,
                           onSubmitted: (_) => _handleSend(),
@@ -1438,8 +1492,12 @@ class _AlumniChatPanelState extends State<_AlumniChatPanel> {
                             hintText: _hasActiveTargets
                                 ? 'Write an alert…'
                                 : (compact
-                                    ? 'Message or attach a file'
-                                    : 'Message optional — attach a file to send'),
+                                    ? (sendEnabled
+                                        ? 'Message or attach a file'
+                                        : 'Coming soon')
+                                    : (sendEnabled
+                                        ? 'Message optional — attach a file to send'
+                                        : 'Coming soon — sending is disabled')),
                             hintStyle: GoogleFonts.inter(
                               color: AppColors.mutedText,
                               fontSize: 14,
@@ -1468,10 +1526,12 @@ class _AlumniChatPanelState extends State<_AlumniChatPanel> {
                       ),
                       const SizedBox(width: 6),
                       Material(
-                        color: AppColors.primary,
+                        color: sendEnabled
+                            ? AppColors.primary
+                            : AppColors.mutedText,
                         borderRadius: BorderRadius.circular(10),
                         child: InkWell(
-                          onTap: posting ? null : _handleSend,
+                          onTap: (posting || !sendEnabled) ? null : _handleSend,
                           borderRadius: BorderRadius.circular(10),
                           child: SizedBox(
                             width: compact ? 44 : (_hasActiveTargets ? 108 : 88),
@@ -1500,7 +1560,9 @@ class _AlumniChatPanelState extends State<_AlumniChatPanel> {
                                       if (!compact) ...[
                                         const SizedBox(width: 6),
                                         Text(
-                                          _hasActiveTargets ? 'Alert' : 'Send',
+                                          sendEnabled
+                                              ? (_hasActiveTargets ? 'Alert' : 'Send')
+                                              : 'Soon',
                                           style: GoogleFonts.inter(
                                             color: Colors.white,
                                             fontWeight: FontWeight.w600,

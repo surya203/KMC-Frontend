@@ -206,6 +206,7 @@ class MyProfile {
     this.phone,
     this.verificationStatus,
     this.isDirectoryVisible,
+    this.medicalCouncilNumber,
   });
 
   final String id;
@@ -223,6 +224,7 @@ class MyProfile {
   final String? phone;
   final String? verificationStatus;
   final bool? isDirectoryVisible;
+  final String? medicalCouncilNumber;
 
   factory MyProfile.fromJson(Map<String, dynamic> json) {
     return MyProfile(
@@ -241,6 +243,7 @@ class MyProfile {
       phone: json['phone'] as String?,
       verificationStatus: json['verification_status'] as String?,
       isDirectoryVisible: json['is_directory_visible'] as bool?,
+      medicalCouncilNumber: json['medical_council_number'] as String?,
     );
   }
 
@@ -270,6 +273,7 @@ class MyProfile {
       phone: phone ?? this.phone,
       verificationStatus: verificationStatus,
       isDirectoryVisible: isDirectoryVisible ?? this.isDirectoryVisible,
+      medicalCouncilNumber: medicalCouncilNumber ?? this.medicalCouncilNumber,
     );
   }
 }

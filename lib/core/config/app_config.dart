@@ -6,9 +6,24 @@ import 'runtime_env.dart';
 class AppConfig {
   AppConfig._();
 
+  /// Optional local override: `flutter run --dart-define=API_BASE_URL=...`
+  /// Does not require editing sir's `.env` / `.env.production`.
+  static String _define(String key) {
+    return switch (key) {
+      'API_BASE_URL' => const String.fromEnvironment('API_BASE_URL'),
+      'API_PREFIX' => const String.fromEnvironment('API_PREFIX'),
+      'ENV' => const String.fromEnvironment('ENV'),
+      'RAZORPAY_KEY_ID' => const String.fromEnvironment('RAZORPAY_KEY_ID'),
+      _ => '',
+    };
+  }
+
   static String _env(String key, String fallback) {
-    // Web: prefer window.__ENV__ (web/env-config.js) so API_BASE_URL updates
-    // without a full rebuild — .env is baked into assets and goes stale.
+    final fromDefine = _define(key).trim();
+    if (fromDefine.isNotEmpty) return fromDefine;
+
+    // Web: prefer window.__ENV__ (web/env-config.js) so Docker/runtime can
+    // update API_BASE_URL without a full rebuild — .env is baked into assets.
     // Mobile/desktop: prefer .env; Docker/prod sets window.__ENV__ at runtime.
     if (kIsWeb) {
       final fromRuntime = runtimeEnv(key);
@@ -34,7 +49,7 @@ class AppConfig {
   static bool get isDevelopment => env == 'development';
 
   static String get apiBaseUrl =>
-      _env('API_BASE_URL', 'http://200.141.2.90:8001');
+      _env('API_BASE_URL', 'https://api.kmcalumni.net');
 
   static String get apiPrefix => _env('API_PREFIX', '/api/v1');
 

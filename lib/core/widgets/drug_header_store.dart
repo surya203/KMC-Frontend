@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart';
 
 import '../network/drugs_api_service.dart';
 
@@ -30,7 +31,7 @@ class DrugHeaderStore extends ChangeNotifier {
   Future<void> refresh({bool force = false}) async {
     if (_loading && !force) return;
     _loading = true;
-    notifyListeners();
+    _notifySafely();
     try {
       _card = await _api.fetchHeaderCard();
       _loadedOnce = true;
@@ -41,7 +42,18 @@ class DrugHeaderStore extends ChangeNotifier {
       // Keep last known good card on transient failures.
     } finally {
       _loading = false;
-      notifyListeners();
+      _notifySafely();
     }
+  }
+
+  void _notifySafely() {
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        if (hasListeners) notifyListeners();
+      });
+      return;
+    }
+    if (hasListeners) notifyListeners();
   }
 }

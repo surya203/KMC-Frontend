@@ -5,7 +5,7 @@ import '../../../core/auth/auth_session.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/admin_api_service.dart';
 
-enum _VerificationTab { all, approved, rejected }
+enum _VerificationTab { all, pending, approved, rejected }
 
 class AdminVerificationsScreen extends StatefulWidget {
   const AdminVerificationsScreen({super.key});
@@ -28,6 +28,8 @@ class _AdminVerificationsScreenState extends State<AdminVerificationsScreen> {
     switch (_tab) {
       case _VerificationTab.all:
         return 'all';
+      case _VerificationTab.pending:
+        return 'pending';
       case _VerificationTab.approved:
         return 'approved';
       case _VerificationTab.rejected:
@@ -196,6 +198,8 @@ class _AdminVerificationsScreenState extends State<AdminVerificationsScreen> {
     switch (_tab) {
       case _VerificationTab.all:
         return 'No verification profiles found.';
+      case _VerificationTab.pending:
+        return 'No pending users.';
       case _VerificationTab.approved:
         return 'No approved users.';
       case _VerificationTab.rejected:
@@ -298,12 +302,17 @@ class _TabRow extends StatelessWidget {
           onTap: () => onSelect(_VerificationTab.all),
         ),
         _TabChip(
-          label: 'Approved users',
+          label: 'Pending',
+          selected: selected == _VerificationTab.pending,
+          onTap: () => onSelect(_VerificationTab.pending),
+        ),
+        _TabChip(
+          label: 'Approved',
           selected: selected == _VerificationTab.approved,
           onTap: () => onSelect(_VerificationTab.approved),
         ),
         _TabChip(
-          label: 'Rejected users',
+          label: 'Rejected',
           selected: selected == _VerificationTab.rejected,
           onTap: () => onSelect(_VerificationTab.rejected),
         ),
@@ -424,6 +433,41 @@ class _VerificationCard extends StatelessWidget {
               style: GoogleFonts.inter(color: AppColors.mutedText, fontSize: 13),
             ),
           ],
+          if (item.medicalCouncilNumber != null &&
+              item.medicalCouncilNumber!.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(Icons.badge_outlined, size: 16, color: Color(0xFF616161)),
+                const SizedBox(width: 6),
+                Text(
+                  'MC Number: ${item.medicalCouncilNumber}',
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.heading,
+                  ),
+                ),
+              ],
+            ),
+          ],
+          if (item.mcrCertificateUrl != null ||
+              item.kmcUgCertificateUrl != null ||
+              item.pgCertificateUrl != null) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                if (item.mcrCertificateUrl != null)
+                  _DocChip(label: 'MCR Certificate'),
+                if (item.kmcUgCertificateUrl != null)
+                  _DocChip(label: 'KMC UG Certificate'),
+                if (item.pgCertificateUrl != null)
+                  _DocChip(label: 'PG Certificate'),
+              ],
+            ),
+          ],
           if (canApprove || canReject) ...[
             const SizedBox(height: 16),
             if (stackActions)
@@ -527,6 +571,35 @@ class _StatusBadge extends StatelessWidget {
           fontWeight: FontWeight.w600,
           color: fg,
         ),
+      ),
+    );
+  }
+}
+
+class _DocChip extends StatelessWidget {
+  const _DocChip({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE8F5E9),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: const Color(0xFF81C784)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.check_circle_outline, size: 14, color: Color(0xFF388E3C)),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF2E7D32)),
+          ),
+        ],
       ),
     );
   }
