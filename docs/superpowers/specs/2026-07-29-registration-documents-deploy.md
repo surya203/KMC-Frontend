@@ -1,26 +1,29 @@
-# Registration documents (MCR / KMC UG / PG)
+# Registration documents — production deploy
 
-Mandatory Join Network uploads. Changes live on **Suresh** branches until merge → main → sir deploy.
+Mandatory Join Network uploads (MCR / KMC UG / PG) + MC number.  
+**Production only** — not local LAN / `docker-compose.dev.yml`.
 
-## What was added
+## Order
 
-| Layer | Change |
-|-------|--------|
-| **FE** | Details step: dropdown + upload for 3 required docs |
-| **BE** | `POST /api/v1/auth/register/draft/{id}/registration-document` (`document_type` = `mcr` \| `kmc_ug` \| `pg`) |
-| **DB** | `docs/migration-032-council-certificate.sql` → columns on `alumni_profiles` |
-| **Integration** | Checkout rejects drafts missing any of the 3 paths; profile stores URLs after payment |
+| Step | Where | Action |
+|------|--------|--------|
+| 1 **DB** | Production Postgres (`kmc-prod-postgres`) | `docs/migration-032-council-certificate.sql` |
+| 2 **BE** | KMC-Backend `main` | `docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build` |
+| 3 **FE** | KMC-Frontend `main` | `docker compose up -d --build` |
 
-## Local test (do not use prod Docker API)
+Full copy-paste: `KMC-Frontend/docs/PRODUCTION.md` and `KMC-Backend/docs/PRODUCTION.md`.
 
-- Postgres local: `kmc-postgres` on **5433** (compose `docker-compose.pgsql.yml`)
-- **Leave alone:** `kmc-prod-*` containers (production stack)
-- API with this branch code: local uvicorn on **8001**
-- FE: `flutter run -d chrome --web-port=8085 --dart-define=API_BASE_URL=http://localhost:8001`
+## DB command (PowerShell)
 
-## Production deploy (sir)
+```powershell
+cd C:\Users\user\Downloads\KMC-Backend
+git pull origin main
+Get-Content docs\migration-032-council-certificate.sql -Raw | docker exec -i kmc-prod-postgres psql -U kmc -d kmc
+```
 
-1. Run SQL in pgAdmin (production DB): `docs/migration-032-council-certificate.sql`
-2. Deploy **KMC-Backend** `suresh` → `main`
-3. Deploy **KMC-Frontend** `Suresh` → `main`
-4. Confirm Join Network → Details shows 3 required documents
+## Confirm after deploy
+
+- Join Network → Details shows 3 required documents  
+- MC number login works  
+- `https://api.kmcalumni.net/health` OK  
+- `https://kmcalumni.net/env-config.js` → `API_BASE_URL=https://api.kmcalumni.net`
