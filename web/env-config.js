@@ -6,6 +6,7 @@ window.__ENV__ = window.__ENV__ || {
   API_PREFIX: '/api/v1',
   SUPABASE_URL: '',
   SUPABASE_ANON_KEY: '',
-  RAZORPAY_KEY_ID: 'rzp_test_TGszsSr6SOtWXB',
+  // Public checkout key only — secret stays on backend.
+  RAZORPAY_KEY_ID: 'rzp_live_TGwiguT5HZKaNR',
   SUPABASE_STORAGE_BUCKET: 'verification-documents',
 };

@@ -2813,16 +2813,19 @@ class _PaymentStepState extends State<_PaymentStep> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _BankDetailRow(label: 'Account name', value: 'KMC Alumni Association'),
-          const SizedBox(height: 12),
-          _BankDetailRow(label: 'Bank', value: 'State Bank of India'),
-          const SizedBox(height: 12),
-          _BankDetailRow(label: 'Account no.', value: 'XXXX XXXX 1234'),
-          const SizedBox(height: 12),
-          _BankDetailRow(label: 'IFSC', value: 'SBIN0001234'),
-          const SizedBox(height: 14),
           Text(
-            'Use your registered email as payment reference. Membership activates after verification.',
+            'Bank transfer (NEFT / IMPS / RTGS)',
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: AppColors.heading,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Click Pay to open Razorpay and complete a secure bank transfer. '
+            'Account details are shown inside the Razorpay checkout — no manual deposit needed. '
+            'Membership activates after payment verification.',
             style: GoogleFonts.inter(
               fontSize: 13,
               height: 1.5,
@@ -2946,42 +2949,6 @@ class _PaymentInputLabel extends StatelessWidget {
         letterSpacing: 1.2,
         color: AppColors.mutedText,
       ),
-    );
-  }
-}
-
-class _BankDetailRow extends StatelessWidget {
-  const _BankDetailRow({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 110,
-          child: Text(
-            label,
-            style: GoogleFonts.inter(
-              fontSize: 13,
-              color: AppColors.mutedText,
-            ),
-          ),
-        ),
-        Expanded(
-          child: Text(
-            value,
-            style: GoogleFonts.inter(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: AppColors.heading,
-            ),
-          ),
-        ),
-      ],
     );
   }
 }
