@@ -2,7 +2,7 @@
 // Do not edit sir's `.env` / `.env.production`.
 window.__ENV__ = window.__ENV__ || {
   ENV: 'production',
-  API_BASE_URL: 'http://localhost:8001',
+  API_BASE_URL: 'https://api.kmcalumni.net',
   API_PREFIX: '/api/v1',
   SUPABASE_URL: '',
   SUPABASE_ANON_KEY: '',

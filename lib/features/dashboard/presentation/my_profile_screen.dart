@@ -887,6 +887,15 @@ class _MyProfileScreenState extends State<MyProfileScreen>
                     value: _membershipId(profile),
                     readOnly: true,
                   ),
+                  if (profile.medicalCouncilNumber != null &&
+                      profile.medicalCouncilNumber!.isNotEmpty) ...[
+                    const SizedBox(height: 20),
+                    _formField(
+                      label: 'MEDICAL COUNCIL NUMBER',
+                      value: profile.medicalCouncilNumber,
+                      readOnly: true,
+                    ),
+                  ],
                   if (!_editing) ..._buildDirectoryViewFields(profile),
                   if (_editing) ...[
                     const SizedBox(height: 28),
@@ -933,7 +942,10 @@ class _MyProfileScreenState extends State<MyProfileScreen>
                       label: 'MEDICAL COUNCIL NUMBER',
                       controller: _medicalCouncilNumber,
                       hintText: 'e.g. KMC/12345',
-                      helperText: 'Your Medical Council Registration Number',
+                      readOnly: profile.verificationStatus == 'approved',
+                      helperText: profile.verificationStatus == 'approved'
+                          ? 'Locked — approved by admin'
+                          : 'Your Medical Council Registration Number',
                     ),
                     const SizedBox(height: 16),
                     _formField(
@@ -978,7 +990,6 @@ class _MyProfileScreenState extends State<MyProfileScreen>
       items.add(_formField(label: label, value: value, readOnly: true));
     }
 
-    add('MEDICAL COUNCIL NUMBER', profile.medicalCouncilNumber);
     add('CURRENT TITLE', profile.currentTitle);
     add('ORGANIZATION', profile.organization);
     add('CITY', profile.city);

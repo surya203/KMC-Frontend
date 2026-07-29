@@ -126,6 +126,7 @@ class AuthService {
     String? phone,
     String? phoneCountryCode,
     String? membershipNumber,
+    String? medicalCouncilNumber,
   }) async {
     final Map<String, dynamic> data;
     if (email != null && email.isNotEmpty) {
@@ -134,6 +135,11 @@ class AuthService {
       data = {
         'phone': phone,
         'phone_country_code': phoneCountryCode ?? '+91',
+        'password': password,
+      };
+    } else if (medicalCouncilNumber != null && medicalCouncilNumber.isNotEmpty) {
+      data = {
+        'medical_council_number': medicalCouncilNumber,
         'password': password,
       };
     } else {

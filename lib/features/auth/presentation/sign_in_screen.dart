@@ -14,7 +14,7 @@ import '../../../core/widgets/mobile_number_field.dart';
 import '../../../core/widgets/public_layout.dart';
 import '../../home/widgets/footer_section.dart';
 
-enum _SignInMethod { email, membershipNumber, phone }
+enum _SignInMethod { email, medicalCouncilNumber, phone }
 
 class _LoginMethodOption {
   const _LoginMethodOption({
@@ -38,9 +38,9 @@ const _loginMethodOptions = [
     icon: Icons.mail_outline_rounded,
   ),
   _LoginMethodOption(
-    method: _SignInMethod.membershipNumber,
-    label: 'Membership No.',
-    shortLabel: 'Member ID',
+    method: _SignInMethod.medicalCouncilNumber,
+    label: 'MC Number',
+    shortLabel: 'MC No.',
     icon: Icons.badge_outlined,
   ),
   _LoginMethodOption(
@@ -64,7 +64,7 @@ class _SignInScreenState extends State<SignInScreen> {
   final _passwordController = TextEditingController();
   final _dialCodeController = TextEditingController(text: '+91');
   final _phoneController = TextEditingController();
-  final _membershipNumberController = TextEditingController();
+  final _mcNumberController = TextEditingController();
   _SignInMethod _signInMethod = _SignInMethod.email;
   bool _isLoading = false;
   String? _errorMessage;
@@ -89,7 +89,7 @@ class _SignInScreenState extends State<SignInScreen> {
     _passwordController.dispose();
     _dialCodeController.dispose();
     _phoneController.dispose();
-    _membershipNumberController.dispose();
+    _mcNumberController.dispose();
     super.dispose();
   }
 
@@ -113,17 +113,17 @@ class _SignInScreenState extends State<SignInScreen> {
       return;
     }
 
-    if (_signInMethod == _SignInMethod.membershipNumber) {
-      final membershipNumber = _membershipNumberController.text.trim();
-      if (membershipNumber.isEmpty) {
+    if (_signInMethod == _SignInMethod.medicalCouncilNumber) {
+      final mcNumber = _mcNumberController.text.trim();
+      if (mcNumber.isEmpty) {
         setState(
-          () => _errorMessage = 'Membership number and password are required.',
+          () => _errorMessage = 'Medical Council Number and password are required.',
         );
         return;
       }
       await _attemptLogin(
         () => _authService.login(
-          membershipNumber: membershipNumber,
+          medicalCouncilNumber: mcNumber,
           password: password,
         ),
       );
@@ -174,8 +174,8 @@ class _SignInScreenState extends State<SignInScreen> {
     switch (_signInMethod) {
       case _SignInMethod.email:
         return 'Use the email and password shown after membership registration.';
-      case _SignInMethod.membershipNumber:
-        return 'Enter your membership number from your dashboard or welcome email.';
+      case _SignInMethod.medicalCouncilNumber:
+        return 'Enter your Medical Council Registration Number and password.';
       case _SignInMethod.phone:
         return 'Use the mobile number you registered with, plus your password.';
     }
@@ -330,11 +330,11 @@ class _SignInScreenState extends State<SignInScreen> {
                                       required: true,
                                     )
                                   else if (_signInMethod ==
-                                      _SignInMethod.membershipNumber)
+                                      _SignInMethod.medicalCouncilNumber)
                                     _AuthField(
-                                      label: 'MEMBERSHIP NUMBER',
-                                      controller: _membershipNumberController,
-                                      hintText: 'e.g. 2022sooraj0007',
+                                      label: 'MEDICAL COUNCIL NUMBER',
+                                      controller: _mcNumberController,
+                                      hintText: 'e.g. KMC/12345',
                                       textCapitalization: TextCapitalization.none,
                                       required: true,
                                     )

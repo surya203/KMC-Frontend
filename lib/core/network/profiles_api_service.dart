@@ -273,6 +273,7 @@ class MyProfile {
       phone: phone ?? this.phone,
       verificationStatus: verificationStatus,
       isDirectoryVisible: isDirectoryVisible ?? this.isDirectoryVisible,
+      medicalCouncilNumber: medicalCouncilNumber ?? this.medicalCouncilNumber,
     );
   }
 }
