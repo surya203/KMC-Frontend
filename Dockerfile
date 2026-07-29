@@ -17,8 +17,12 @@ RUN flutter build web --release
 FROM nginx:1.27-alpine
 
 COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
-COPY docker/docker-entrypoint.sh /docker-entrypoint.sh
-RUN chmod +x /docker-entrypoint.sh
+COPY docker/docker-entrypoint.sh /tmp/docker-entrypoint.sh
+RUN sed -i 's/\r$//' /tmp/docker-entrypoint.sh \
+  && printf '%s\n' '#!/bin/sh' > /docker-entrypoint.sh \
+  && tail -n +2 /tmp/docker-entrypoint.sh >> /docker-entrypoint.sh \
+  && chmod +x /docker-entrypoint.sh \
+  && rm -f /tmp/docker-entrypoint.sh
 
 COPY --from=build /app/build/web /usr/share/nginx/html
 

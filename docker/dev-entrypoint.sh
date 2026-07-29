@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+﻿#!/usr/bin/env bash
 # Start Flutter web-server and auto hot-restart when FE source changes.
 set -euo pipefail
 
@@ -39,7 +39,7 @@ fingerprint() {
 }
 
 PREV="$(fingerprint || true)"
-echo "[fe-dev] watching lib/ web/ assets/ — edit code, then refresh the browser"
+echo "[fe-dev] watching lib/ web/ assets/ â€” edit code, then refresh the browser"
 
 while kill -0 "$FLUTTER_PID" 2>/dev/null; do
   sleep 2

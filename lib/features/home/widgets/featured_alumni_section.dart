@@ -65,7 +65,12 @@ class _FeaturedAlumniSectionState extends State<FeaturedAlumniSection> {
     _autoScrollTimer?.cancel();
     if (_autoScrollPaused || _profiles.length < 2) return;
     _autoScrollTimer = Timer.periodic(const Duration(seconds: 6), (_) {
-      if (!mounted || _autoScrollPaused || _profiles.length < 2) return;
+      if (!mounted ||
+          _autoScrollPaused ||
+          _profiles.length < 2 ||
+          !_pageController.hasClients) {
+        return;
+      }
       final next = (_currentPage + 1) % _profiles.length;
       _pageController.animateToPage(
         next,
@@ -169,6 +174,7 @@ class _FeaturedAlumniSectionState extends State<FeaturedAlumniSection> {
                         for (var i = 0; i < _profiles.length; i++)
                           GestureDetector(
                             onTap: () {
+                              if (!_pageController.hasClients) return;
                               _pageController.animateToPage(
                                 i,
                                 duration: const Duration(milliseconds: 350),
