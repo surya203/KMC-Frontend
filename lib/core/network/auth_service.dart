@@ -32,6 +32,7 @@ class AuthUser {
     this.fullName,
     this.batchYear,
     this.membershipNumber,
+    this.verificationStatus,
   });
 
   final String id;
@@ -42,6 +43,11 @@ class AuthUser {
   final String? fullName;
   final int? batchYear;
   final String? membershipNumber;
+  final String? verificationStatus;
+
+  bool get isPending => verificationStatus == 'pending';
+  bool get isApproved => verificationStatus == 'approved';
+  bool get isRejected => verificationStatus == 'rejected';
 
   factory AuthUser.fromJson(Map<String, dynamic> json) {
     final profile = json['profile'];
@@ -59,6 +65,9 @@ class AuthUser {
           : null,
       membershipNumber: membership is Map<String, dynamic>
           ? membership['membership_number'] as String?
+          : null,
+      verificationStatus: profile is Map<String, dynamic>
+          ? profile['verification_status'] as String?
           : null,
     );
   }

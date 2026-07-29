@@ -124,6 +124,21 @@ final GoRouter appRouter = GoRouter(
       return homeRouteForRole(role);
     }
 
+    // Restrict pending/rejected users from member-only features.
+    final user = AuthSession.instance.currentUser;
+    if (isAuthenticated &&
+        user != null &&
+        !user.isApproved &&
+        user.verificationStatus != null) {
+      const restricted = [
+        '/member/alumni-roll',
+        '/connect',
+      ];
+      final isRestricted = restricted.contains(location) ||
+          location.startsWith('/member/profiles/');
+      if (isRestricted) return '/dashboard';
+    }
+
     // Keep users on member URLs (never stay on legacy public paths).
     final original = state.matchedLocation;
     if (original == '/alumni-roll' || original == '/directory') {

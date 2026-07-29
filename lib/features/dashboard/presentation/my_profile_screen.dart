@@ -49,6 +49,7 @@ class _MyProfileScreenState extends State<MyProfileScreen>
   late final TextEditingController _bio;
   late final TextEditingController _linkedin;
   late final TextEditingController _phone;
+  late final TextEditingController _medicalCouncilNumber;
   bool _directoryVisible = true;
 
   @override
@@ -63,6 +64,7 @@ class _MyProfileScreenState extends State<MyProfileScreen>
     _bio = TextEditingController();
     _linkedin = TextEditingController();
     _phone = TextEditingController();
+    _medicalCouncilNumber = TextEditingController();
     ProfileSession.instance.addListener(_onProfileSessionChanged);
     AuthSession.instance.addListener(_onAuthSessionChanged);
     _syncPhotoFromSession();
@@ -97,6 +99,7 @@ class _MyProfileScreenState extends State<MyProfileScreen>
     _bio.dispose();
     _linkedin.dispose();
     _phone.dispose();
+    _medicalCouncilNumber.dispose();
     super.dispose();
   }
 
@@ -186,6 +189,7 @@ class _MyProfileScreenState extends State<MyProfileScreen>
     _bio.text = profile.bio ?? '';
     _linkedin.text = profile.linkedinUrl ?? '';
     _phone.text = _localPhoneNumber(profile.phone);
+    _medicalCouncilNumber.text = profile.medicalCouncilNumber ?? '';
     _directoryVisible = profile.isDirectoryVisible ?? true;
   }
 
@@ -265,6 +269,7 @@ class _MyProfileScreenState extends State<MyProfileScreen>
         'bio': textOrNull(bio),
         'linkedin_url': normalizedLinkedIn,
         'is_directory_visible': _directoryVisible,
+        'medical_council_number': textOrNull(_medicalCouncilNumber.text),
       });
       if (!mounted) return;
       _syncEditors(updated);
@@ -925,6 +930,13 @@ class _MyProfileScreenState extends State<MyProfileScreen>
                     ),
                     const SizedBox(height: 16),
                     _formField(
+                      label: 'MEDICAL COUNCIL NUMBER',
+                      controller: _medicalCouncilNumber,
+                      hintText: 'e.g. KMC/12345',
+                      helperText: 'Your Medical Council Registration Number',
+                    ),
+                    const SizedBox(height: 16),
+                    _formField(
                       label: 'LINKEDIN URL',
                       controller: _linkedin,
                       keyboardType: TextInputType.url,
@@ -966,6 +978,7 @@ class _MyProfileScreenState extends State<MyProfileScreen>
       items.add(_formField(label: label, value: value, readOnly: true));
     }
 
+    add('MEDICAL COUNCIL NUMBER', profile.medicalCouncilNumber);
     add('CURRENT TITLE', profile.currentTitle);
     add('ORGANIZATION', profile.organization);
     add('CITY', profile.city);
