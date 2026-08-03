@@ -1067,9 +1067,9 @@ class MembershipCountryPrice {
       code: 'UK',
       country: 'United Kingdom',
       currencyCode: 'GBP',
-      displayPrice: '£150',
+      displayPrice: '£75',
       flag: '🇬🇧',
-      amountPaise: 15000,
+      amountPaise: 7500,
     ),
     MembershipCountryPrice(
       code: 'AU',
