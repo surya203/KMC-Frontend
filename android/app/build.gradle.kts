@@ -14,7 +14,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.kmc_alumni_connect"
+    applicationId = "com.logiqgen.kmc"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
