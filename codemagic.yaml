@@ -1,0 +1,101 @@
+# Codemagic — iOS IPA for KMC Alumni Connect
+# Bundle ID: com.logiqgen.kmc
+#
+# 1. Push this file to GitHub.
+# 2. Sign up at https://codemagic.io and add this repository.
+# 3. Team settings → Integrations → App Store Connect: add API key
+#    (App Store Connect → Users and Access → Integrations → Team Keys).
+#    The key NAME in Codemagic must match integrations.app_store_connect below.
+# 4. Codemagic → this app → Environment variables (optional group kmc_env):
+#    API_BASE_URL, API_PREFIX, RAZORPAY_KEY_ID, STORAGE_BUCKET, ENV
+# 5. Start build → workflow "iOS IPA (App Store signed)" → download .ipa
+#    from Artifacts when the build succeeds.
+
+workflows:
+  ios-unsigned:
+    name: iOS compile check (no IPA)
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      # Optional: add group "kmc_env" in Codemagic with API_BASE_URL, etc.
+      # groups:
+      #   - kmc_env
+    scripts:
+      - name: Create .env
+        script: |
+          set -euo pipefail
+          if [ -n "${API_BASE_URL:-}" ]; then
+            printf '%s\n' \
+              "ENV=${ENV:-production}" \
+              "API_BASE_URL=${API_BASE_URL}" \
+              "API_PREFIX=${API_PREFIX:-/api/v1}" \
+              "RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID:-}" \
+              "STORAGE_BUCKET=${STORAGE_BUCKET:-verification-documents}" \
+              > "$CM_BUILD_DIR/.env"
+          else
+            cp "$CM_BUILD_DIR/.env.example" "$CM_BUILD_DIR/.env"
+          fi
+      - name: Get Flutter packages
+        script: flutter pub get
+      - name: Install CocoaPods dependencies
+        script: find . -name "Podfile" -execdir pod install \;
+      - name: Build iOS without code signing
+        script: flutter build ios --release --no-codesign
+    artifacts:
+      - /tmp/xcodebuild_logs/*.log
+
+  ios-ipa:
+    name: iOS IPA (App Store signed)
+    max_build_duration: 120
+    instance_type: mac_mini_m2
+    integrations:
+      # Must match the App Store Connect API key name in Codemagic Integrations
+      app_store_connect: codemagic
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.logiqgen.kmc
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      # Optional: add group "kmc_env" in Codemagic with API_BASE_URL, etc.
+      # groups:
+      #   - kmc_env
+      vars:
+        BUNDLE_ID: com.logiqgen.kmc
+    scripts:
+      - name: Create .env
+        script: |
+          set -euo pipefail
+          if [ -n "${API_BASE_URL:-}" ]; then
+            printf '%s\n' \
+              "ENV=${ENV:-production}" \
+              "API_BASE_URL=${API_BASE_URL}" \
+              "API_PREFIX=${API_PREFIX:-/api/v1}" \
+              "RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID:-}" \
+              "STORAGE_BUCKET=${STORAGE_BUCKET:-verification-documents}" \
+              > "$CM_BUILD_DIR/.env"
+          else
+            cp "$CM_BUILD_DIR/.env.example" "$CM_BUILD_DIR/.env"
+          fi
+      - name: Set up code signing
+        script: xcode-project use-profiles
+      - name: Get Flutter packages
+        script: flutter pub get
+      - name: Install CocoaPods dependencies
+        script: find . -name "Podfile" -execdir pod install \;
+      - name: Build signed IPA
+        script: |
+          flutter build ipa --release \
+            --export-options-plist=/Users/builder/export_options.plist
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    # Uncomment after the first IPA succeeds and you want TestFlight upload:
+    # publishing:
+    #   app_store_connect:
+    #     auth: integration
+    #     submit_to_testflight: true
