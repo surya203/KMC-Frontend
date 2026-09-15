@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../constants/app_assets.dart';
 import '../constants/app_colors.dart';
+import '../router/app_back_navigation.dart';
 import 'drugs_header_card.dart';
 import 'hover_link.dart';
 import 'safe_asset_image.dart';
@@ -17,19 +18,8 @@ void navigatePublicBack(BuildContext context) {
   }
 
   final path = GoRouterState.of(context).uri.path;
-  if (path.startsWith('/events/') && path.length > '/events/'.length) {
-    context.go('/events');
-    return;
-  }
-  if (path.startsWith('/gallery/') && path.length > '/gallery/'.length) {
-    context.go('/gallery');
-    return;
-  }
-  if (path.startsWith('/profiles/') || path.startsWith('/member/profiles/')) {
-    context.go('/member/alumni-roll');
-    return;
-  }
-  context.go('/');
+  final parent = parentRouteForPath(path);
+  context.go(parent ?? '/');
 }
 
 class PublicBackIcon extends StatelessWidget {
