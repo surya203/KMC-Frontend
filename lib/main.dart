@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'core/auth/auth_session.dart';
 import 'core/auth/profile_session.dart';
+import 'core/router/app_back_navigation.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/kmc_scroll_behavior.dart';
@@ -45,6 +46,13 @@ class KMCApp extends StatelessWidget {
       theme: AppTheme.light,
       scrollBehavior: const KmcScrollBehavior(),
       routerConfig: appRouter,
+      // Mobile system Back was exiting the app because routes use go() with no
+      // stack. Web keeps browser history, so this wrapper is mobile-only.
+      builder: (context, child) {
+        return AppSystemBackScope(
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
     );
   }
 }
