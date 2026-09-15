@@ -102,6 +102,10 @@ class AuthSession extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> deleteAccount({required String password}) async {
+    await _authService.deleteAccount(password: password);
+  }
+
   /// Loads `/auth/me` into memory and notifies listeners (role-gated UI).
   Future<AuthUser?> refreshCurrentUser() async {
     if (!AuthService.isAuthenticated) return null;

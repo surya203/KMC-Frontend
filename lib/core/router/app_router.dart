@@ -21,6 +21,7 @@ import '../../features/dashboard/presentation/dashboard_events_screen.dart';
 import '../../features/dashboard/presentation/my_payments_screen.dart';
 import '../../features/dashboard/presentation/my_membership_screen.dart';
 import '../../features/dashboard/presentation/settings_screen.dart';
+import '../../features/dashboard/presentation/delete_account_screen.dart';
 import '../../features/dashboard/presentation/my_profile_screen.dart';
 import '../../features/dashboard/widgets/dashboard_shell_host.dart';
 import '../../features/directory/presentation/directory_screen.dart';
@@ -35,6 +36,7 @@ import '../../features/home/presentation/home_screen.dart';
 import '../../features/legal/presentation/contact_screen.dart';
 import '../../features/legal/presentation/pricing_screen.dart';
 import '../../features/legal/presentation/privacy_screen.dart';
+import '../../features/legal/presentation/delete_account_info_screen.dart';
 import '../../features/legal/presentation/refund_policy_screen.dart';
 import '../../features/legal/presentation/shipping_policy_screen.dart';
 import '../../features/legal/presentation/terms_screen.dart';
@@ -57,7 +59,8 @@ bool _requiresAuth(String location) {
       location == '/alumni-roll' ||
       location == '/directory' ||
       location.startsWith('/profiles/') ||
-      location == '/settings';
+      location == '/settings' ||
+      location.startsWith('/settings/');
 }
 
 bool _canAccessAdminPath(String location, String? role) {
@@ -217,6 +220,10 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: '/privacy',
       builder: (context, state) => const PrivacyScreen(),
+    ),
+    GoRoute(
+      path: '/delete-account',
+      builder: (context, state) => const DeleteAccountInfoScreen(),
     ),
     GoRoute(
       path: '/refund-policy',
@@ -437,6 +444,15 @@ final GoRouter appRouter = GoRouter(
             key: state.pageKey,
             child: const SettingsScreen(),
           ),
+          routes: [
+            GoRoute(
+              path: 'delete-account',
+              pageBuilder: (context, state) => dashboardPage(
+                key: state.pageKey,
+                child: const DeleteAccountScreen(),
+              ),
+            ),
+          ],
         ),
         GoRoute(
           path: '/dashboard/drugs/:id',

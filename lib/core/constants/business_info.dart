@@ -21,5 +21,5 @@ class BusinessInfo {
   static const fullAddress =
       '$addressLine1, $addressLine2, $addressLine3';
 
-  static const lastPolicyUpdate = '22 July 2026';
+  static const lastPolicyUpdate = '15 September 2026';
 }

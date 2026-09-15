@@ -254,6 +254,59 @@ class AuthService {
     }
   }
 
+  Future<void> deleteAccount({
+    required String password,
+    bool allowRefresh = true,
+  }) async {
+    final header = authorizationHeader;
+    if (header == null) {
+      throw AuthException('Not signed in.');
+    }
+
+    try {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '${AppConfig.apiPrefix}/auth/delete-account',
+        data: {'password': password},
+        options: Options(
+          headers: {'Authorization': header},
+          receiveTimeout: const Duration(seconds: 30),
+        ),
+      );
+      final status = response.statusCode ?? 0;
+      if (status < 200 || status >= 300) {
+        throw AuthException(
+          'Could not delete account (${response.statusCode}).',
+        );
+      }
+    } on DioException catch (e) {
+      final status = e.response?.statusCode;
+      if (status == 401 && allowRefresh) {
+        try {
+          await refresh();
+        } on AuthException {
+          rethrow;
+        }
+        return deleteAccount(password: password, allowRefresh: false);
+      }
+      throw AuthException(_detailFromDio(e, 'Unable to delete account.'));
+    }
+  }
+
+  static String _detailFromDio(DioException e, String fallback) {
+    final detail = e.response?.data;
+    if (detail is Map && detail['detail'] != null) {
+      final nested = detail['detail'];
+      if (nested is String && nested.trim().isNotEmpty) return nested;
+      if (nested is List && nested.isNotEmpty) {
+        final first = nested.first;
+        if (first is Map && first['msg'] != null) return '${first['msg']}';
+        return '$first';
+      }
+      return '$nested';
+    }
+    return e.response?.statusMessage ?? fallback;
+  }
+
   Future<void> resetPassword({
     required String email,
     required String code,
