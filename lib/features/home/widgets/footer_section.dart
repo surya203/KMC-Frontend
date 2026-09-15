@@ -186,6 +186,7 @@ class FooterSection extends StatelessWidget {
         const SizedBox(height: 12),
         _FooterLink(label: 'Terms & Conditions', path: '/terms', currentPath: currentPath),
         _FooterLink(label: 'Privacy Policy', path: '/privacy', currentPath: currentPath),
+        _FooterLink(label: 'Delete Account', path: '/delete-account', currentPath: currentPath),
         _FooterLink(label: 'Refund Policy', path: '/refund-policy', currentPath: currentPath),
         _FooterLink(label: 'Shipping Policy', path: '/shipping-policy', currentPath: currentPath),
         _FooterLink(label: 'Pricing', path: '/pricing', currentPath: currentPath),

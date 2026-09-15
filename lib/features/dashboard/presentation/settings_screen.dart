@@ -121,6 +121,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () => context.go('/my-profile'),
                   ),
+                  ListTile(
+                    key: const Key('settings-delete-account'),
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(
+                      'Delete account',
+                      style: GoogleFonts.inter(
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.error,
+                      ),
+                    ),
+                    subtitle: Text(
+                      'Permanently delete your account and personal data',
+                      style: GoogleFonts.inter(fontSize: 13),
+                    ),
+                    trailing: const Icon(
+                      Icons.chevron_right,
+                      color: AppColors.error,
+                    ),
+                    onTap: () => context.go('/settings/delete-account'),
+                  ),
                 ],
               ),
               const SizedBox(height: 16),

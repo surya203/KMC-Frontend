@@ -171,6 +171,15 @@ class ProfileSession extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Removes cached photos after the user permanently deletes their account.
+  Future<void> clearForAccountDeletion() async {
+    for (final id in _storageIds) {
+      ProfilePhotoLoader.instance.forget(photoUrl, userId: id);
+      await ProfilePhotoStorage.instance.clear(id);
+    }
+    await clear();
+  }
+
   String? _normalizeUrl(String? url) {
     if (url == null || url.trim().isEmpty) return null;
     final trimmed = url.trim().split('?').first;
