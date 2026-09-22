@@ -5,20 +5,13 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/constants/app_assets.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/cms_service.dart';
+import '../../../core/widgets/public_nav_pills.dart';
 import '../../../core/widgets/safe_asset_image.dart';
 
 class HeroSection extends StatelessWidget {
   const HeroSection({super.key, this.stats});
 
   final CommunityStats? stats;
-
-  static const _heroNavItems = [
-    ('Home', '/'),
-    ('About', '/about'),
-    ('MY KMC', '/membership'),
-    ('Events', '/events'),
-    ('Gallery', '/gallery'),
-  ];
 
   @override
   Widget build(BuildContext context) {
@@ -109,8 +102,9 @@ class HeroSection extends StatelessWidget {
                   ),
                 ),
                 SizedBox(height: isCompact ? 12 : 14),
-                _HeroNavRow(
-                  items: _heroNavItems,
+                PublicNavPills(
+                  currentPath: GoRouterState.of(context).uri.path,
+                  dark: true,
                   compact: isCompact,
                 ),
                 SizedBox(height: isDesktop ? 20 : isCompact ? 18 : 28),
@@ -237,83 +231,6 @@ class HeroSection extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _HeroNavRow extends StatelessWidget {
-  const _HeroNavRow({
-    required this.items,
-    required this.compact,
-  });
-
-  final List<(String, String)> items;
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    // Hide the overlay scrollbar so it never covers the tab buttons.
-    return ScrollConfiguration(
-      behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            for (var i = 0; i < items.length; i++) ...[
-              if (i > 0) SizedBox(width: compact ? 8 : 10),
-              _HeroNavLink(
-                label: items[i].$1,
-                path: items[i].$2,
-                compact: compact,
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _HeroNavLink extends StatelessWidget {
-  const _HeroNavLink({
-    required this.label,
-    required this.path,
-    required this.compact,
-  });
-
-  final String label;
-  final String path;
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () => context.go(path),
-        borderRadius: BorderRadius.circular(24),
-        child: Ink(
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.14),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.45)),
-          ),
-          child: Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: compact ? 12 : 16,
-              vertical: compact ? 8 : 10,
-            ),
-            child: Text(
-              label,
-              style: GoogleFonts.inter(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-                fontSize: compact ? 12 : 14,
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }

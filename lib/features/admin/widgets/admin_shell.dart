@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/auth/auth_session.dart';
 import '../../../core/auth/role_utils.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/router/app_back_navigation.dart';
 import '../../../core/widgets/drugs_header_card.dart';
 import '../../../core/widgets/drugs_sidebar_banner.dart';
 
@@ -248,14 +249,7 @@ class _AdminNavTile extends StatelessWidget {
           child: InkWell(
             borderRadius: BorderRadius.circular(10),
             splashFactory: NoSplash.splashFactory,
-            onTap: () {
-              final scaffold = Scaffold.maybeOf(context);
-              if (scaffold?.isDrawerOpen ?? false) {
-                Navigator.of(context).pop();
-              }
-              if (selected) return;
-              context.go(item.path);
-            },
+            onTap: () => navigateAppPath(context, item.path),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
               child: Row(

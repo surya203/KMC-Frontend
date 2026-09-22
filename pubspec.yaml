@@ -2,7 +2,7 @@ name: kmc_alumni_connect
 description: "A new Flutter project."
 publish_to: 'none'
 
-version: 1.0.0+6
+version: 1.0.0+7
 
 environment:
   sdk: '>=3.7.0 <4.0.0'
@@ -24,6 +24,7 @@ dependencies:
   web: ^1.1.0
   http_parser: ^4.1.2
   crop_your_image: ^2.0.0
+  image_picker: ^1.2.3
 
 dev_dependencies:
   flutter_test:

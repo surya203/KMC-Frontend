@@ -17,6 +17,7 @@ import '../../../core/widgets/drugs_sidebar_banner.dart';
 import '../../../core/utils/membership_number_format.dart';
 import '../../../core/widgets/profile_avatar.dart';
 import '../../../core/widgets/safe_asset_image.dart';
+import '../../../core/router/app_back_navigation.dart';
 import 'dashboard_nav_items.dart';
 
 class DashboardShell extends StatelessWidget {
@@ -175,7 +176,6 @@ class DashboardSidebar extends StatelessWidget {
                           currentPath,
                           role: role,
                         ),
-                        currentPath: currentPath,
                         role: role,
                       ),
                   ],
@@ -207,13 +207,11 @@ class _SidebarNavTile extends StatelessWidget {
   const _SidebarNavTile({
     required this.item,
     required this.active,
-    required this.currentPath,
     required this.role,
   });
 
   final DashboardNavItem item;
   final bool active;
-  final String currentPath;
   final String? role;
 
   @override
@@ -233,16 +231,11 @@ class _SidebarNavTile extends StatelessWidget {
           highlightColor: Colors.white.withValues(alpha: 0.08),
           hoverColor: Colors.white.withValues(alpha: 0.06),
           onTap: () {
-            final scaffold = Scaffold.maybeOf(context);
-            if (scaffold?.isDrawerOpen ?? false) {
-              Navigator.of(context).pop();
-            }
             // All roles (including admin) use member Events at /my-events.
             // Admin create/edit stays under Admin → Events only.
             final path =
                 item.label == 'Events' ? '/my-events' : targetPath;
-            if (path == currentPath) return;
-            context.go(path);
+            navigateAppPath(context, path);
           },
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
