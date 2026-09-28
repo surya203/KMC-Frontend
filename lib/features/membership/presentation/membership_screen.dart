@@ -412,12 +412,25 @@ class _MembershipScreenState extends State<MembershipScreen> {
       throw Exception('Confirm password must match the password.');
     }
     const maxCertBytes = 5 * 1024 * 1024;
-    for (final type in _RegDocType.values) {
+    final mcrBytes = _regDocBytes[_RegDocType.mcr];
+    if (mcrBytes == null) {
+      throw Exception(
+        'Upload your Medical Council Registration certificate.',
+      );
+    }
+    if (mcrBytes.length > maxCertBytes) {
+      throw Exception('${_RegDocType.mcr.label} must be 5 MB or smaller.');
+    }
+    final hasUg = _regDocBytes.containsKey(_RegDocType.kmcUg);
+    final hasPg = _regDocBytes.containsKey(_RegDocType.pg);
+    if (!hasUg && !hasPg) {
+      throw Exception(
+        'Upload either your KMC UG certificate or your PG certificate.',
+      );
+    }
+    for (final type in const [_RegDocType.kmcUg, _RegDocType.pg]) {
       final bytes = _regDocBytes[type];
-      if (bytes == null) {
-        throw Exception('Upload all required documents: ${type.label}.');
-      }
-      if (bytes.length > maxCertBytes) {
+      if (bytes != null && bytes.length > maxCertBytes) {
         throw Exception('${type.label} must be 5 MB or smaller.');
       }
     }
@@ -1872,12 +1885,12 @@ enum _RegDocType {
   kmcUg(
     'kmc_ug',
     'KMC UG Certificate',
-    'Undergraduate degree certificate',
+    'Undergraduate degree certificate. Upload this or a PG certificate.',
   ),
   pg(
     'pg',
     'PG Certificate',
-    'Postgraduate degree certificate',
+    'Postgraduate degree certificate. Upload this or a UG certificate.',
   );
 
   const _RegDocType(this.apiValue, this.shortLabel, this.subtitle);
@@ -1887,6 +1900,25 @@ enum _RegDocType {
   final String subtitle;
 
   String get label => '$shortLabel — $subtitle';
+
+  static const requiredSlotCount = 2;
+
+  /// Medical Council Registration plus one degree certificate (UG or PG).
+  static int requiredSlotsFilled(bool Function(_RegDocType type) hasFile) {
+    final hasMcr = hasFile(mcr);
+    final hasDegree = hasFile(kmcUg) || hasFile(pg);
+    return (hasMcr ? 1 : 0) + (hasDegree ? 1 : 0);
+  }
+
+  String rowStatus({
+    required bool done,
+    required bool otherDegreeUploaded,
+  }) {
+    if (done) return 'Done';
+    if (this == mcr) return 'Required';
+    if (otherDegreeUploaded) return 'Optional';
+    return 'One required';
+  }
 }
 
 class _RequiredRegistrationDocumentsField extends StatefulWidget {
@@ -1912,11 +1944,12 @@ class _RequiredRegistrationDocumentsFieldState
   @override
   Widget build(BuildContext context) {
     final selectedDoc = widget.documents[_selected];
-    final uploadedCount = _RegDocType.values
-        .where((type) => widget.documents[type]?.hasFile == true)
-        .length;
-    final allDone = uploadedCount == _RegDocType.values.length;
+    bool hasFile(_RegDocType type) => widget.documents[type]?.hasFile == true;
+    final requiredFilled = _RegDocType.requiredSlotsFilled(hasFile);
+    final allDone = requiredFilled == _RegDocType.requiredSlotCount;
     final hasSelected = selectedDoc?.hasFile == true;
+    final hasUg = hasFile(_RegDocType.kmcUg);
+    final hasPg = hasFile(_RegDocType.pg);
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -1951,7 +1984,7 @@ class _RequiredRegistrationDocumentsFieldState
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  '$uploadedCount / 3',
+                  '$requiredFilled / ${_RegDocType.requiredSlotCount}',
                   style: GoogleFonts.inter(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
@@ -1963,7 +1996,7 @@ class _RequiredRegistrationDocumentsFieldState
           ),
           const SizedBox(height: 6),
           Text(
-            'All three uploads are mandatory. PDF, JPG, or PNG · max 5 MB each.',
+            'Medical Council Registration is required. Also upload either your KMC UG certificate or your PG certificate. PDF, JPG, or PNG · max 5 MB each.',
             style: GoogleFonts.inter(
               fontSize: 12,
               color: AppColors.mutedText,
@@ -2130,6 +2163,16 @@ class _RequiredRegistrationDocumentsFieldState
             final doc = widget.documents[type];
             final done = doc?.hasFile == true;
             final isActive = type == _selected;
+            final otherDegreeUploaded = type == _RegDocType.kmcUg
+                ? hasPg
+                : type == _RegDocType.pg
+                    ? hasUg
+                    : false;
+            final status = type.rowStatus(
+              done: done,
+              otherDegreeUploaded: otherDegreeUploaded,
+            );
+            final statusIsOptional = status == 'Optional';
             return Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: Material(
@@ -2178,7 +2221,9 @@ class _RequiredRegistrationDocumentsFieldState
                               Text(
                                 done
                                     ? (doc?.fileName ?? 'Uploaded')
-                                    : 'Pending upload',
+                                    : statusIsOptional
+                                        ? 'Not uploaded'
+                                        : 'Pending upload',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: GoogleFonts.inter(
@@ -2192,13 +2237,15 @@ class _RequiredRegistrationDocumentsFieldState
                           ),
                         ),
                         Text(
-                          done ? 'Done' : 'Required',
+                          status,
                           style: GoogleFonts.inter(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
                             color: done
                                 ? AppColors.success
-                                : AppColors.secondary,
+                                : statusIsOptional
+                                    ? AppColors.mutedText
+                                    : AppColors.secondary,
                           ),
                         ),
                       ],

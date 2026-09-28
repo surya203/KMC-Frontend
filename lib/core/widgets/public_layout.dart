@@ -4,23 +4,12 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../constants/app_assets.dart';
 import '../constants/app_colors.dart';
+import '../constants/public_nav_items.dart';
 import '../router/app_back_navigation.dart';
 import 'drugs_header_card.dart';
 import 'hover_link.dart';
+import 'public_nav_pills.dart';
 import 'safe_asset_image.dart';
-
-/// Navigates back on public pages — pops history when possible, otherwise
-/// returns to a sensible parent route (e.g. event detail → events list).
-void navigatePublicBack(BuildContext context) {
-  if (context.canPop()) {
-    context.pop();
-    return;
-  }
-
-  final path = GoRouterState.of(context).uri.path;
-  final parent = parentRouteForPath(path);
-  context.go(parent ?? '/');
-}
 
 class PublicBackIcon extends StatelessWidget {
   const PublicBackIcon({super.key, this.dark = false});
@@ -45,129 +34,161 @@ class PublicBackIcon extends StatelessWidget {
 }
 
 class PublicAppBar extends StatelessWidget implements PreferredSizeWidget {
-  const PublicAppBar({super.key, this.onMenuPressed});
+  const PublicAppBar({
+    super.key,
+    this.onMenuPressed,
+    this.showBack = false,
+    this.showNavPills = false,
+    this.isDesktop = false,
+  });
 
   final VoidCallback? onMenuPressed;
+  final bool showBack;
+  final bool showNavPills;
+  final bool isDesktop;
 
-  static const _headerPadding = 16.0;
-  static const _menuToLogoGap = 10.0;
+  static const _navPillsHeight = PublicNavPills.height;
+
+  double get _toolbarHeight => isDesktop ? 92.0 : 70.0;
+
+  @override
+  Size get preferredSize => Size.fromHeight(
+        _toolbarHeight + 1 + (showNavPills ? _navPillsHeight : 0),
+      );
 
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
     final currentPath = GoRouterState.of(context).uri.path;
-    final isDesktop = width >= 1100;
-
-    if (!isDesktop) {
-      return AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        surfaceTintColor: Colors.white,
-        toolbarHeight: 70,
-        automaticallyImplyLeading: false,
-        bottom: const PreferredSize(
-          preferredSize: Size.fromHeight(1),
-          child: Divider(height: 1, color: AppColors.border),
-        ),
-        flexibleSpace: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: _headerPadding),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                _MenuButton(onPressed: onMenuPressed),
-                const SizedBox(width: _menuToLogoGap),
-                Expanded(
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: GestureDetector(
-                      onTap: () => context.go('/'),
-                      behavior: HitTestBehavior.opaque,
-                      child: const _BrandLockup(compact: true),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 6),
-                const DrugsHeaderCard(),
-                const SizedBox(width: 6),
-                const _HeaderSignInButton(),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
 
     return AppBar(
       backgroundColor: Colors.white,
       elevation: 0,
       surfaceTintColor: Colors.white,
-      toolbarHeight: 92,
+      toolbarHeight: _toolbarHeight,
       automaticallyImplyLeading: false,
-      bottom: const PreferredSize(
-        preferredSize: Size.fromHeight(1),
-        child: Divider(height: 1, color: AppColors.border),
+      titleSpacing: isDesktop ? 16 : 4,
+      leadingWidth: isDesktop ? null : (showBack ? 104 : 48),
+      leading: isDesktop
+          ? null
+          : Row(
+              children: [
+                if (showBack) const PublicBackIcon(),
+                _MenuButton(onPressed: onMenuPressed),
+              ],
+            ),
+      title: _HeaderTitle(
+        isDesktop: isDesktop,
+        currentPath: currentPath,
       ),
-      flexibleSpace: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: _headerPadding),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              _MenuButton(onPressed: onMenuPressed),
-              const SizedBox(width: _menuToLogoGap),
-              Flexible(
-                fit: FlexFit.loose,
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: GestureDetector(
-                    onTap: () => context.go('/'),
-                    behavior: HitTestBehavior.opaque,
-                    child: const _BrandLockup(compact: false),
-                  ),
-                ),
-              ),
-              const Spacer(),
-              const DrugsHeaderCard(),
-              const SizedBox(width: 12),
-              HoverLink(
-                label: 'Sign in',
-                fontSize: 14,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 12,
-                ),
-                isActive: isNavRouteActive(currentPath, '/auth'),
-                onTap: () => context.go('/auth'),
-              ),
-              const SizedBox(width: 8),
-              ElevatedButton(
-                onPressed: () => context.go('/membership'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 22,
-                    vertical: 16,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                child: Text(
-                  'Join Network',
-                  style: GoogleFonts.inter(fontWeight: FontWeight.w700),
-                ),
-              ),
-            ],
+      actions: [
+        const DrugsHeaderCard(),
+        SizedBox(width: isDesktop ? 12 : 6),
+        if (isDesktop) ...[
+          HoverLink(
+            label: 'Sign in',
+            fontSize: 14,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            isActive: isNavRouteActive(currentPath, '/auth'),
+            onTap: () => navigateAppPath(context, '/auth'),
           ),
+          const SizedBox(width: 8),
+          ElevatedButton(
+            onPressed: () => navigateAppPath(context, '/membership'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: Text(
+              'Join Network',
+              style: GoogleFonts.inter(fontWeight: FontWeight.w700),
+            ),
+          ),
+          const SizedBox(width: 16),
+        ] else ...[
+          const _HeaderSignInButton(),
+          const SizedBox(width: 12),
+        ],
+      ],
+      bottom: PreferredSize(
+        preferredSize: Size.fromHeight(
+          1 + (showNavPills ? _navPillsHeight : 0),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (showNavPills)
+              PublicNavPills(currentPath: currentPath, compact: true),
+            const Divider(height: 1, color: AppColors.border),
+          ],
         ),
       ),
     );
   }
+}
+
+class _HeaderTitle extends StatelessWidget {
+  const _HeaderTitle({
+    required this.isDesktop,
+    required this.currentPath,
+  });
+
+  final bool isDesktop;
+  final String currentPath;
 
   @override
-  Size get preferredSize => const Size.fromHeight(93);
+  Widget build(BuildContext context) {
+    final brand = GestureDetector(
+      onTap: () => navigateAppPath(context, '/'),
+      behavior: HitTestBehavior.opaque,
+      child: _BrandLockup(compact: !isDesktop),
+    );
+
+    if (!isDesktop) {
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: brand,
+        ),
+      );
+    }
+
+    return Row(
+      children: [
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: brand,
+        ),
+        const SizedBox(width: 20),
+        Expanded(
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                for (final item in publicNavItems)
+                  HoverLink(
+                    label: item.label,
+                    fontSize: 14,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 12,
+                    ),
+                    isActive: isNavRouteActive(currentPath, item.path),
+                    onTap: () => navigateAppPath(context, item.path),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class _MenuButton extends StatelessWidget {
@@ -199,7 +220,7 @@ class _HeaderSignInButton extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => context.go('/auth'),
+        onTap: () => navigateAppPath(context, '/auth'),
         borderRadius: BorderRadius.circular(8),
         child: Container(
           height: _height,
@@ -335,11 +356,12 @@ class PublicDrawer extends StatelessWidget {
               child: _BrandLockup(compact: false),
             ),
             const Divider(),
-            _DrawerTile(label: 'Home', path: '/', currentPath: currentPath),
-            _DrawerTile(label: 'About', path: '/about', currentPath: currentPath),
-            _DrawerTile(label: 'MY KMC', path: '/membership', currentPath: currentPath),
-            _DrawerTile(label: 'Events', path: '/events', currentPath: currentPath),
-            _DrawerTile(label: 'Gallery', path: '/gallery', currentPath: currentPath),
+            for (final item in publicNavItems)
+              _DrawerTile(
+                label: item.label,
+                path: item.path,
+                currentPath: currentPath,
+              ),
             const Divider(),
             _DrawerTile(label: 'Contact Us', path: '/contact', currentPath: currentPath),
             _DrawerTile(label: 'Pricing', path: '/pricing', currentPath: currentPath),
@@ -381,10 +403,7 @@ class _DrawerTile extends StatelessWidget {
         ),
       ),
       selected: selected,
-      onTap: () {
-        Navigator.of(context).pop();
-        context.go(path);
-      },
+      onTap: () => navigateAppPath(context, path),
     );
   }
 }
@@ -408,13 +427,21 @@ class _PublicLayoutState extends State<PublicLayout> {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final path = GoRouterState.of(context).uri.path;
+    final isDesktop = width >= 1100;
+    final isHome = path == '/';
+
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: AppColors.background,
       appBar: PublicAppBar(
         onMenuPressed: () => _scaffoldKey.currentState?.openDrawer(),
+        showBack: !isHome,
+        showNavPills: !isDesktop && !isHome,
+        isDesktop: isDesktop,
       ),
-      drawer: const PublicDrawer(),
+      drawer: isDesktop ? null : const PublicDrawer(),
       body: widget.child,
     );
   }

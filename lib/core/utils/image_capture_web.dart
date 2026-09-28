@@ -9,6 +9,9 @@ import 'package:web/web.dart' as web;
 
 import 'image_capture_stub.dart';
 
+export 'image_capture_stub.dart'
+    hide captureImageFromCamera, captureImageWithLivePreview;
+
 Future<CapturedImage?> captureImageFromCamera() async => null;
 
 Future<CapturedImage?> captureImageWithLivePreview(BuildContext context) {

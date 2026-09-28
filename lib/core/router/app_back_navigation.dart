@@ -3,15 +3,71 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
+import 'app_route_history.dart';
 import 'app_router.dart';
+
+/// Closes an open drawer first, then changes route via [appRouter].
+///
+/// Using [appRouter.go] after [Navigator.pop] avoids the common mobile bug
+/// where [BuildContext] from a closing drawer is unmounted and [context.go]
+/// never runs. Website desktop nav does not use a drawer, so this only
+/// showed up in the APK.
+GoRouter routerFor(BuildContext context) {
+  try {
+    return GoRouter.of(context);
+  } catch (_) {
+    return appRouter;
+  }
+}
+
+void navigateAppPath(BuildContext context, String path) {
+  // Capture the router before the drawer pops — that context can unmount.
+  final router = routerFor(context);
+  final current = router.state.uri.path;
+  final scaffold = Scaffold.maybeOf(context);
+  final drawerOpen = scaffold?.isDrawerOpen ?? false;
+
+  if (drawerOpen) {
+    Navigator.of(context).pop();
+  }
+
+  if (path == current) return;
+
+  void go() => router.go(path);
+
+  if (drawerOpen) {
+    WidgetsBinding.instance.addPostFrameCallback((_) => go());
+    return;
+  }
+  go();
+}
+
+/// Navigates back on public pages — pops, then history, then parent route.
+void navigatePublicBack(BuildContext context) {
+  if (context.canPop()) {
+    context.pop();
+    return;
+  }
+
+  final previous = AppRouteHistory.instance.takeBack();
+  if (previous != null) {
+    appRouter.go(previous);
+    return;
+  }
+
+  final path = GoRouterState.of(context).uri.path;
+  final parent = parentRouteForPath(path);
+  context.go(parent ?? '/');
+}
 
 /// Mobile system Back currently exits the app because most screens use
 /// [GoRouter.go] (no Navigator stack). Web is fine via browser history.
 ///
 /// This handler intercepts Back on iOS/Android and:
 /// 1) pops dialogs / pushed routes when possible
-/// 2) otherwise goes to a sensible parent screen
-/// 3) only exits on true root screens (home / dashboard / splash)
+/// 2) walks recorded in-app history (same as website Back)
+/// 3) otherwise goes to a sensible parent screen
+/// 4) only exits on true root screens (home / dashboard / splash)
 bool handleAppSystemBack(BuildContext context) {
   if (kIsWeb) return false;
 
@@ -23,6 +79,12 @@ bool handleAppSystemBack(BuildContext context) {
 
   if (appRouter.canPop()) {
     appRouter.pop();
+    return true;
+  }
+
+  final previous = AppRouteHistory.instance.takeBack();
+  if (previous != null) {
+    appRouter.go(previous);
     return true;
   }
 
@@ -38,7 +100,7 @@ bool handleAppSystemBack(BuildContext context) {
   return true;
 }
 
-/// Parent screen for in-app Back when there is no Navigator history.
+/// Parent screen for in-app Back when there is no Navigator or history.
 String? parentRouteForPath(String path) {
   if (path == '/' || path == '/splash' || path == '/dashboard') {
     return null;
@@ -96,14 +158,25 @@ String? parentRouteForPath(String path) {
 }
 
 /// Wraps the app so Android/iOS system Back navigates in-app first.
-class AppSystemBackScope extends StatelessWidget {
+class AppSystemBackScope extends StatefulWidget {
   const AppSystemBackScope({super.key, required this.child});
 
   final Widget child;
 
   @override
+  State<AppSystemBackScope> createState() => _AppSystemBackScopeState();
+}
+
+class _AppSystemBackScopeState extends State<AppSystemBackScope> {
+  @override
+  void initState() {
+    super.initState();
+    AppRouteHistory.instance.attach(appRouter);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    if (kIsWeb) return child;
+    if (kIsWeb) return widget.child;
 
     return PopScope(
       canPop: false,
@@ -111,7 +184,7 @@ class AppSystemBackScope extends StatelessWidget {
         if (didPop) return;
         handleAppSystemBack(context);
       },
-      child: child,
+      child: widget.child,
     );
   }
 }
