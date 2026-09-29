@@ -2588,14 +2588,103 @@ class _PaymentStepState extends State<_PaymentStep> {
   final _cardNumberController = TextEditingController();
   final _cardExpiryController = TextEditingController();
   final _cardCvvController = TextEditingController();
+  bool _submitted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _upiController.addListener(_refreshValidation);
+    _cardNumberController.addListener(_refreshValidation);
+    _cardExpiryController.addListener(_refreshValidation);
+    _cardCvvController.addListener(_refreshValidation);
+  }
+
+  void _refreshValidation() {
+    if (mounted) setState(() {});
+  }
 
   @override
   void dispose() {
+    _upiController.removeListener(_refreshValidation);
+    _cardNumberController.removeListener(_refreshValidation);
+    _cardExpiryController.removeListener(_refreshValidation);
+    _cardCvvController.removeListener(_refreshValidation);
     _upiController.dispose();
     _cardNumberController.dispose();
     _cardExpiryController.dispose();
     _cardCvvController.dispose();
     super.dispose();
+  }
+
+  void _submitPayment() {
+    setState(() => _submitted = true);
+    if (!_isCurrentMethodValid) return;
+    widget.onPay();
+  }
+
+  bool get _cardEntryIsEmpty =>
+      _paymentDigits(_cardNumberController.text).isEmpty &&
+      _cardExpiryController.text.trim().isEmpty &&
+      _paymentDigits(_cardCvvController.text).isEmpty;
+
+  bool get _cardEntryIsValid =>
+      _isValidCardNumber(_cardNumberController.text) &&
+      _isValidCardExpiry(_cardExpiryController.text) &&
+      _isValidCvv(_cardCvvController.text);
+
+  bool get _isCurrentMethodValid => switch (_method) {
+        _PaymentMethod.upi =>
+          _upiController.text.trim().isEmpty ||
+              _isValidUpiId(_upiController.text),
+        _PaymentMethod.card => _cardEntryIsEmpty || _cardEntryIsValid,
+        _PaymentMethod.bank => true,
+      };
+
+  String? get _upiErrorText {
+    final value = _upiController.text.trim();
+    if (value.isEmpty || _isValidUpiId(value)) return null;
+    final handleStarted = RegExp(r'^[^@\s]+@[a-z]{2,}').hasMatch(value);
+    if (!_submitted && !handleStarted) return null;
+    return 'Enter a valid UPI ID like name@ybl.';
+  }
+
+  String? get _cardNumberErrorText {
+    final digits = _paymentDigits(_cardNumberController.text);
+    if (digits.isEmpty) {
+      return _submitted && !_cardEntryIsEmpty
+          ? 'Enter a 16-digit card number.'
+          : null;
+    }
+    if (digits.length < 16) {
+      return _submitted ? 'Card number must be 16 digits.' : null;
+    }
+    if (!_isValidCardNumber(_cardNumberController.text)) {
+      return 'Enter a valid card number.';
+    }
+    return null;
+  }
+
+  String? get _expiryErrorText {
+    final value = _cardExpiryController.text.trim();
+    if (value.isEmpty) {
+      return _submitted && !_cardEntryIsEmpty ? 'Enter expiry as MM/YY.' : null;
+    }
+    if (!RegExp(r'^\d{2}/\d{2}$').hasMatch(value)) {
+      return _submitted ? 'Enter expiry as MM/YY.' : null;
+    }
+    if (!_isValidCardExpiry(value)) {
+      return 'Enter a valid expiry date (MM/YY).';
+    }
+    return null;
+  }
+
+  String? get _cvvErrorText {
+    final digits = _paymentDigits(_cardCvvController.text);
+    if (digits.isEmpty) {
+      return _submitted && !_cardEntryIsEmpty ? 'Enter the 3-digit CVV.' : null;
+    }
+    if (_isValidCvv(_cardCvvController.text)) return null;
+    return _submitted ? 'Enter the 3-digit CVV.' : null;
   }
 
   bool get _isDemo {
@@ -2693,7 +2782,10 @@ class _PaymentStepState extends State<_PaymentStep> {
           const SizedBox(height: 24),
           _PaymentMethodTabs(
             selected: _method,
-            onChanged: (m) => setState(() => _method = m),
+            onChanged: (m) => setState(() {
+              _method = m;
+              _submitted = false;
+            }),
           ),
           const SizedBox(height: 20),
           AnimatedSwitcher(
@@ -2709,7 +2801,7 @@ class _PaymentStepState extends State<_PaymentStep> {
           const SizedBox(height: 28),
           const _PaymentLegalNotice(),
           const SizedBox(height: 12),
-          _PrimaryButton(label: _payLabel, onPressed: widget.onPay),
+          _PrimaryButton(label: _payLabel, onPressed: _submitPayment),
           const SizedBox(height: 8),
           TextButton(
             onPressed: widget.onBack,
@@ -2749,22 +2841,12 @@ class _PaymentStepState extends State<_PaymentStep> {
           TextField(
             controller: _upiController,
             keyboardType: TextInputType.emailAddress,
-            decoration: InputDecoration(
-              hintText: 'yourmobile@ybl',
-              filled: true,
-              fillColor: Colors.white,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 14,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: AppColors.border),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: AppColors.border),
-              ),
+            autocorrect: false,
+            enableSuggestions: false,
+            inputFormatters: [_UpiIdInputFormatter()],
+            decoration: _paymentInputDecoration(
+              hint: 'yourmobile@ybl',
+              errorText: _upiErrorText,
             ),
           ),
           const SizedBox(height: 10),
@@ -2798,7 +2880,13 @@ class _PaymentStepState extends State<_PaymentStep> {
           TextField(
             controller: _cardNumberController,
             keyboardType: TextInputType.number,
-            decoration: _paymentInputDecoration(hint: '4242 4242 4242 4242'),
+            autocorrect: false,
+            enableSuggestions: false,
+            inputFormatters: [_CardNumberInputFormatter()],
+            decoration: _paymentInputDecoration(
+              hint: '4242 4242 4242 4242',
+              errorText: _cardNumberErrorText,
+            ),
           ),
           const SizedBox(height: 16),
           Row(
@@ -2811,7 +2899,14 @@ class _PaymentStepState extends State<_PaymentStep> {
                     const SizedBox(height: 8),
                     TextField(
                       controller: _cardExpiryController,
-                      decoration: _paymentInputDecoration(hint: 'MM / YY'),
+                      keyboardType: TextInputType.number,
+                      autocorrect: false,
+                      enableSuggestions: false,
+                      inputFormatters: [_CardExpiryInputFormatter()],
+                      decoration: _paymentInputDecoration(
+                        hint: 'MM/YY',
+                        errorText: _expiryErrorText,
+                      ),
                     ),
                   ],
                 ),
@@ -2827,7 +2922,16 @@ class _PaymentStepState extends State<_PaymentStep> {
                       controller: _cardCvvController,
                       keyboardType: TextInputType.number,
                       obscureText: true,
-                      decoration: _paymentInputDecoration(hint: '•••'),
+                      autocorrect: false,
+                      enableSuggestions: false,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(3),
+                      ],
+                      decoration: _paymentInputDecoration(
+                        hint: '•••',
+                        errorText: _cvvErrorText,
+                      ),
                     ),
                   ],
                 ),
@@ -2884,9 +2988,15 @@ class _PaymentStepState extends State<_PaymentStep> {
     );
   }
 
-  InputDecoration _paymentInputDecoration({required String hint}) {
+  InputDecoration _paymentInputDecoration({
+    required String hint,
+    String? errorText,
+  }) {
     return InputDecoration(
       hintText: hint,
+      errorText: errorText,
+      errorMaxLines: 2,
+      errorStyle: GoogleFonts.inter(fontSize: 12, color: AppColors.error),
       filled: true,
       fillColor: Colors.white,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -2897,6 +3007,14 @@ class _PaymentStepState extends State<_PaymentStep> {
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
         borderSide: const BorderSide(color: AppColors.border),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: AppColors.error),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: AppColors.error),
       ),
     );
   }
@@ -2998,6 +3116,225 @@ class _PaymentInputLabel extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 16 digits, shown as `4242 4242 4242 4242`.
+class _CardNumberInputFormatter extends TextInputFormatter {
+  static const _maxDigits = 16;
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    var digits = _paymentDigits(newValue.text);
+    if (_deletedSeparator(oldValue, newValue) && digits.isNotEmpty) {
+      digits = _dropDigitBeforeCursor(digits, newValue);
+    }
+    if (digits.length > _maxDigits) {
+      return oldValue;
+    }
+    return _formattedDigits(
+      _groupEvery(digits, 4),
+      newValue,
+      digits.length,
+    );
+  }
+}
+
+/// Month `01`–`12` and a 2-digit year, shown as `MM/YY`.
+class _CardExpiryInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    var digits = _paymentDigits(newValue.text);
+    if (_deletedSeparator(oldValue, newValue) && digits.isNotEmpty) {
+      digits = _dropDigitBeforeCursor(digits, newValue);
+    }
+    if (digits.length > 4) {
+      return oldValue;
+    }
+    if (digits.length == 1) {
+      final first = int.parse(digits[0]);
+      if (first > 1) {
+        digits = '0$digits';
+      }
+    }
+    if (digits.length >= 2) {
+      final month = int.tryParse(digits.substring(0, 2)) ?? 0;
+      if (month < 1 || month > 12) {
+        return oldValue;
+      }
+    }
+
+    final text = digits.length <= 2
+        ? digits
+        : '${digits.substring(0, 2)}/${digits.substring(2)}';
+    if (digits.length == 2 &&
+        newValue.text.length >= oldValue.text.length &&
+        !text.contains('/')) {
+      return _collapsed('$text/');
+    }
+    return _formattedDigits(text, newValue, digits.length);
+  }
+}
+
+/// UPI VPA only: `name@bank` — letters, digits, `.`, `-`, `_`, and one `@`.
+class _UpiIdInputFormatter extends TextInputFormatter {
+  static final _localChar = RegExp(r'[a-z0-9.\-_]');
+  static final _handleChar = RegExp(r'[a-z]');
+  static const _maxLocal = 64;
+  static const _maxHandle = 30;
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final raw = newValue.text.toLowerCase();
+    final buffer = StringBuffer();
+    var seenAt = false;
+    var localLen = 0;
+    var handleLen = 0;
+    var acceptedBeforeCursor = 0;
+    final cursor = newValue.selection.end.clamp(0, raw.length);
+
+    for (var i = 0; i < raw.length; i++) {
+      final ch = raw[i];
+      var accepted = false;
+      if (ch == '@') {
+        if (!seenAt && localLen > 0) {
+          seenAt = true;
+          buffer.write('@');
+          accepted = true;
+        }
+      } else if (!seenAt) {
+        final isEdgeSymbol = ch == '.' || ch == '-' || ch == '_';
+        if (localLen < _maxLocal &&
+            _localChar.hasMatch(ch) &&
+            !(localLen == 0 && isEdgeSymbol)) {
+          buffer.write(ch);
+          localLen++;
+          accepted = true;
+        }
+      } else if (handleLen < _maxHandle && _handleChar.hasMatch(ch)) {
+        buffer.write(ch);
+        handleLen++;
+        accepted = true;
+      }
+      if (accepted && i < cursor) acceptedBeforeCursor++;
+    }
+
+    final text = buffer.toString();
+    return TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(
+        offset: acceptedBeforeCursor.clamp(0, text.length),
+      ),
+    );
+  }
+}
+
+String _paymentDigits(String value) => value.replaceAll(RegExp(r'\D'), '');
+
+final _upiIdPattern = RegExp(
+  r'^[a-z0-9][a-z0-9.\-_]{0,62}[a-z0-9]@[a-z]{2,30}$',
+);
+
+bool _isValidUpiId(String value) => _upiIdPattern.hasMatch(value.trim());
+
+/// 16-digit PAN that passes the Luhn check. Longer values are never valid.
+bool _isValidCardNumber(String value) {
+  final digits = _paymentDigits(value);
+  if (digits.length != 16) return false;
+  if (RegExp(r'^(\d)\1{15}$').hasMatch(digits)) return false;
+  var sum = 0;
+  var doubleDigit = false;
+  for (var i = digits.length - 1; i >= 0; i--) {
+    var n = digits.codeUnitAt(i) - 48;
+    if (doubleDigit) {
+      n *= 2;
+      if (n > 9) n -= 9;
+    }
+    sum += n;
+    doubleDigit = !doubleDigit;
+  }
+  return sum % 10 == 0;
+}
+
+/// `MM/YY`, month 01–12, and still valid through the end of that month.
+bool _isValidCardExpiry(String value, {DateTime? now}) {
+  final match = RegExp(r'^(0[1-9]|1[0-2])/(\d{2})$').firstMatch(value.trim());
+  if (match == null) return false;
+  final month = int.parse(match.group(1)!);
+  final year = 2000 + int.parse(match.group(2)!);
+  final current = now ?? DateTime.now();
+  if (year > current.year) return true;
+  if (year < current.year) return false;
+  return month >= current.month;
+}
+
+bool _isValidCvv(String value) =>
+    RegExp(r'^\d{3}$').hasMatch(_paymentDigits(value)) &&
+    _paymentDigits(value).length == 3;
+
+bool _deletedSeparator(TextEditingValue oldValue, TextEditingValue newValue) {
+  return newValue.text.length < oldValue.text.length &&
+      _paymentDigits(oldValue.text) == _paymentDigits(newValue.text);
+}
+
+String _dropDigitBeforeCursor(String digits, TextEditingValue newValue) {
+  var digitsBefore = 0;
+  final end = newValue.selection.end.clamp(0, newValue.text.length);
+  for (var i = 0; i < end; i++) {
+    if (RegExp(r'\d').hasMatch(newValue.text[i])) digitsBefore++;
+  }
+  final index = digitsBefore == 0 ? 0 : digitsBefore - 1;
+  if (index >= digits.length) {
+    return digits.substring(0, digits.length - 1);
+  }
+  return digits.substring(0, index) + digits.substring(index + 1);
+}
+
+String _groupEvery(String digits, int size) {
+  final buffer = StringBuffer();
+  for (var i = 0; i < digits.length; i++) {
+    if (i > 0 && i % size == 0) buffer.write(' ');
+    buffer.write(digits[i]);
+  }
+  return buffer.toString();
+}
+
+TextEditingValue _formattedDigits(
+  String formatted,
+  TextEditingValue newValue,
+  int digitCount,
+) {
+  var digitCursor = 0;
+  final rawCursor = newValue.selection.end.clamp(0, newValue.text.length);
+  for (var i = 0; i < rawCursor && digitCursor < digitCount; i++) {
+    if (RegExp(r'\d').hasMatch(newValue.text[i])) digitCursor++;
+  }
+
+  var offset = 0;
+  var seen = 0;
+  while (offset < formatted.length && seen < digitCursor) {
+    if (RegExp(r'\d').hasMatch(formatted[offset])) seen++;
+    offset++;
+  }
+  return TextEditingValue(
+    text: formatted,
+    selection: TextSelection.collapsed(offset: offset),
+  );
+}
+
+TextEditingValue _collapsed(String text) {
+  return TextEditingValue(
+    text: text,
+    selection: TextSelection.collapsed(offset: text.length),
+  );
 }
 
 class _CompleteStep extends StatelessWidget {
