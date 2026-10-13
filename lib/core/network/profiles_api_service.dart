@@ -410,7 +410,11 @@ class ProfilesApiService {
             contentType: DioMediaType.parse(mimeType),
           ),
         }),
-        options: Options(headers: {'Authorization': header}),
+        options: Options(
+          headers: {'Authorization': header},
+          sendTimeout: const Duration(minutes: 5),
+          receiveTimeout: const Duration(minutes: 5),
+        ),
       );
       final url = response.data?['photo_url'] as String?;
       if (url == null || url.isEmpty) throw Exception('Upload failed.');
@@ -429,7 +433,11 @@ class ProfilesApiService {
                 contentType: DioMediaType.parse(mimeType),
               ),
             }),
-            options: Options(headers: {'Authorization': header}),
+            options: Options(
+              headers: {'Authorization': header},
+              sendTimeout: const Duration(minutes: 5),
+              receiveTimeout: const Duration(minutes: 5),
+            ),
           );
           final url = retry.data?['photo_url'] as String?;
           if (url != null && url.isNotEmpty) return url;

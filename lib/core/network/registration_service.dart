@@ -157,6 +157,10 @@ class RegistrationService {
       await _apiClient.dio.post(
         '${AppConfig.apiPrefix}/auth/register/draft/$draftId/photo',
         data: formData,
+        options: Options(
+          sendTimeout: const Duration(minutes: 5),
+          receiveTimeout: const Duration(minutes: 5),
+        ),
       );
     } on DioException catch (e) {
       throw _mapDioException(e);
@@ -181,6 +185,10 @@ class RegistrationService {
       await _apiClient.dio.post(
         '${AppConfig.apiPrefix}/auth/register/draft/$draftId/registration-document',
         data: formData,
+        options: Options(
+          sendTimeout: const Duration(minutes: 5),
+          receiveTimeout: const Duration(minutes: 5),
+        ),
       );
     } on DioException catch (e) {
       throw _mapDioException(e);
@@ -214,6 +222,10 @@ class RegistrationService {
       await _apiClient.dio.post(
         '${AppConfig.apiBaseUrl}${AppConfig.apiPrefix}/auth/register/verify/document',
         data: formData,
+        options: Options(
+          sendTimeout: const Duration(minutes: 5),
+          receiveTimeout: const Duration(minutes: 5),
+        ),
       );
     } on DioException catch (e) {
       throw _mapDioException(e);

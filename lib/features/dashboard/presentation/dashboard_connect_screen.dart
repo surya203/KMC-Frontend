@@ -1030,10 +1030,10 @@ class _AlumniChatPanelState extends State<_AlumniChatPanel> {
       );
       return;
     }
-    if (bytes.length > 10 * 1024 * 1024) {
+    if (bytes.length > 30 * 1024 * 1024) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('File must be 10 MB or smaller.')),
+        const SnackBar(content: Text('File must be 30 MB or smaller.')),
       );
       return;
     }
@@ -2216,10 +2216,10 @@ class _FinanceCouncilPanelState extends State<_FinanceCouncilPanel> {
       );
       return;
     }
-    if (bytes.length > 10 * 1024 * 1024) {
+    if (bytes.length > 30 * 1024 * 1024) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('File must be 10 MB or smaller.')),
+        const SnackBar(content: Text('File must be 30 MB or smaller.')),
       );
       return;
     }
@@ -2872,10 +2872,10 @@ class _ExecutiveCommitteeChatPanelState
       );
       return;
     }
-    if (bytes.length > 10 * 1024 * 1024) {
+    if (bytes.length > 30 * 1024 * 1024) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('File must be 10 MB or smaller.')),
+        const SnackBar(content: Text('File must be 30 MB or smaller.')),
       );
       return;
     }
