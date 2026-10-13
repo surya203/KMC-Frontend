@@ -60,44 +60,43 @@ void navigatePublicBack(BuildContext context) {
   context.go(parent ?? '/');
 }
 
-/// Mobile system Back currently exits the app because most screens use
-/// [GoRouter.go] (no Navigator stack). Web is fine via browser history.
+/// Phone navigation-bar Back. Screens use [GoRouter.go], so Android has no
+/// stack and would close the app. Web keeps the browser history.
 ///
-/// This handler intercepts Back on iOS/Android and:
-/// 1) pops dialogs / pushed routes when possible
-/// 2) walks recorded in-app history (same as website Back)
-/// 3) otherwise goes to a sensible parent screen
-/// 4) only exits on true root screens (home / dashboard / splash)
-bool handleAppSystemBack(BuildContext context) {
+/// 1) pops a dialog or menu when one is open
+/// 2) walks recorded in-app history (same as the website Back button)
+/// 3) otherwise goes to the parent screen
+/// 4) leaves the app only from home, dashboard, or splash
+bool _handlingSystemBack = false;
+
+Future<bool> handleAppSystemBack() async {
   if (kIsWeb) return false;
+  if (_handlingSystemBack) return true;
+  _handlingSystemBack = true;
+  try {
+    if (appRouter.canPop()) {
+      appRouter.pop();
+      return true;
+    }
 
-  final rootNavigator = Navigator.of(context, rootNavigator: true);
-  if (rootNavigator.canPop()) {
-    rootNavigator.pop();
+    final previous = AppRouteHistory.instance.takeBack();
+    if (previous != null) {
+      appRouter.go(previous);
+      return true;
+    }
+
+    final path = appRouter.state.uri.path;
+    final parent = parentRouteForPath(path);
+    if (parent != null && parent != path) {
+      appRouter.go(parent);
+      return true;
+    }
+
+    SystemNavigator.pop();
     return true;
+  } finally {
+    _handlingSystemBack = false;
   }
-
-  if (appRouter.canPop()) {
-    appRouter.pop();
-    return true;
-  }
-
-  final previous = AppRouteHistory.instance.takeBack();
-  if (previous != null) {
-    appRouter.go(previous);
-    return true;
-  }
-
-  final path = appRouter.state.uri.path;
-  final parent = parentRouteForPath(path);
-  if (parent != null && parent != path) {
-    appRouter.go(parent);
-    return true;
-  }
-
-  // Root screens: allow leaving the app.
-  SystemNavigator.pop();
-  return true;
 }
 
 /// Parent screen for in-app Back when there is no Navigator or history.
@@ -167,24 +166,32 @@ class AppSystemBackScope extends StatefulWidget {
   State<AppSystemBackScope> createState() => _AppSystemBackScopeState();
 }
 
-class _AppSystemBackScopeState extends State<AppSystemBackScope> {
+class _AppSystemBackScopeState extends State<AppSystemBackScope>
+    with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
     AppRouteHistory.instance.attach(appRouter);
+    // Register before the router so the phone Back button is handled here
+    // and Android does not finish the activity.
+    if (!kIsWeb) {
+      WidgetsBinding.instance.addObserver(this);
+    }
   }
 
   @override
-  Widget build(BuildContext context) {
-    if (kIsWeb) return widget.child;
-
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, _) {
-        if (didPop) return;
-        handleAppSystemBack(context);
-      },
-      child: widget.child,
-    );
+  void dispose() {
+    if (!kIsWeb) {
+      WidgetsBinding.instance.removeObserver(this);
+    }
+    super.dispose();
   }
+
+  @override
+  Future<bool> didPopRoute() {
+    return handleAppSystemBack();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
