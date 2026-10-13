@@ -411,7 +411,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
     if (confirmPassword != password) {
       throw Exception('Confirm password must match the password.');
     }
-    const maxCertBytes = 5 * 1024 * 1024;
+    const maxCertBytes = 50 * 1024 * 1024;
     final mcrBytes = _regDocBytes[_RegDocType.mcr];
     if (mcrBytes == null) {
       throw Exception(
@@ -419,7 +419,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
       );
     }
     if (mcrBytes.length > maxCertBytes) {
-      throw Exception('${_RegDocType.mcr.label} must be 5 MB or smaller.');
+      throw Exception('${_RegDocType.mcr.label} must be 50 MB or smaller.');
     }
     final hasUg = _regDocBytes.containsKey(_RegDocType.kmcUg);
     final hasPg = _regDocBytes.containsKey(_RegDocType.pg);
@@ -431,7 +431,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
     for (final type in const [_RegDocType.kmcUg, _RegDocType.pg]) {
       final bytes = _regDocBytes[type];
       if (bytes != null && bytes.length > maxCertBytes) {
-        throw Exception('${type.label} must be 5 MB or smaller.');
+        throw Exception('${type.label} must be 50 MB or smaller.');
       }
     }
 
@@ -457,9 +457,9 @@ class _MembershipScreenState extends State<MembershipScreen> {
     );
 
     if (_profilePhotoBytes != null) {
-      const maxPhotoBytes = 3 * 1024 * 1024;
+      const maxPhotoBytes = 10 * 1024 * 1024;
       if (_profilePhotoBytes!.length > maxPhotoBytes) {
-        throw Exception('Profile photo must be 3 MB or smaller.');
+        throw Exception('Profile photo must be 10 MB or smaller.');
       }
       await _registration.uploadDraftPhoto(
         draftId: activeDraft.id,
@@ -758,8 +758,8 @@ class _MembershipScreenState extends State<MembershipScreen> {
     try {
       final file = await pickAndCropProfilePhoto(context);
       if (file == null || file.bytes == null) return;
-      if (file.bytes!.length > 3 * 1024 * 1024) {
-        setState(() => _error = 'Profile photo must be 3 MB or smaller.');
+      if (file.bytes!.length > 10 * 1024 * 1024) {
+        setState(() => _error = 'Profile photo must be 10 MB or smaller.');
         return;
       }
       setState(() {
@@ -784,8 +784,8 @@ class _MembershipScreenState extends State<MembershipScreen> {
         fileName: captured.fileName,
       );
       if (cropped == null || cropped.bytes == null) return;
-      if (cropped.bytes!.length > 3 * 1024 * 1024) {
-        setState(() => _error = 'Profile photo must be 3 MB or smaller.');
+      if (cropped.bytes!.length > 10 * 1024 * 1024) {
+        setState(() => _error = 'Profile photo must be 10 MB or smaller.');
         return;
       }
       setState(() {
@@ -820,8 +820,8 @@ class _MembershipScreenState extends State<MembershipScreen> {
         setState(() => _error = 'Could not read the selected file.');
         return;
       }
-      if (file.bytes!.length > 5 * 1024 * 1024) {
-        setState(() => _error = '${type.label} must be 5 MB or smaller.');
+      if (file.bytes!.length > 50 * 1024 * 1024) {
+        setState(() => _error = '${type.label} must be 50 MB or smaller.');
         return;
       }
       setState(() {
@@ -1996,7 +1996,7 @@ class _RequiredRegistrationDocumentsFieldState
           ),
           const SizedBox(height: 6),
           Text(
-            'Medical Council Registration is required. Also upload either your KMC UG certificate or your PG certificate. PDF, JPG, or PNG · max 5 MB each.',
+            'Medical Council Registration is required. Also upload either your KMC UG certificate or your PG certificate. PDF, JPG, or PNG · max 50 MB each.',
             style: GoogleFonts.inter(
               fontSize: 12,
               color: AppColors.mutedText,

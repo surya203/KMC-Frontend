@@ -313,14 +313,14 @@ class _MyProfileScreenState extends State<MyProfileScreen>
     }
   }
 
-  static const _maxPhotoBytes = 3 * 1024 * 1024;
+  static const _maxPhotoBytes = 10 * 1024 * 1024;
 
   Future<void> _uploadPhotoFile(PlatformFile file) async {
     if (file.bytes == null || file.bytes!.isEmpty) {
       throw Exception('Could not read image file.');
     }
     if (file.bytes!.length > _maxPhotoBytes) {
-      throw Exception('Profile photo must be 3 MB or smaller.');
+      throw Exception('Profile photo must be 10 MB or smaller.');
     }
     if (!looksLikeImageBytes(file.bytes!)) {
       throw Exception('Please choose a valid JPG or PNG image.');

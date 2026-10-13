@@ -325,8 +325,8 @@ class ConnectApiService {
   Options _multipartAuthOptions(String authorizationHeader) {
     return Options(
       headers: {'Authorization': authorizationHeader},
-      sendTimeout: const Duration(minutes: 2),
-      receiveTimeout: const Duration(minutes: 2),
+      sendTimeout: const Duration(minutes: 5),
+      receiveTimeout: const Duration(minutes: 5),
     );
   }
 
@@ -439,7 +439,7 @@ class ConnectApiService {
         '${AppConfig.apiPrefix}/connect/community/messages/$messageId/attachment',
         options: options.copyWith(
           responseType: ResponseType.bytes,
-          receiveTimeout: const Duration(minutes: 2),
+          receiveTimeout: const Duration(minutes: 5),
         ),
       );
       final bytes = response.data;
@@ -540,7 +540,7 @@ class ConnectApiService {
         '${AppConfig.apiPrefix}/connect/finance-council/messages/$messageId/attachment',
         options: options.copyWith(
           responseType: ResponseType.bytes,
-          receiveTimeout: const Duration(minutes: 2),
+          receiveTimeout: const Duration(minutes: 5),
         ),
       );
       final bytes = response.data;
@@ -645,7 +645,7 @@ class ConnectApiService {
         '${AppConfig.apiPrefix}/connect/executive-committee/messages/$messageId/attachment',
         options: options.copyWith(
           responseType: ResponseType.bytes,
-          receiveTimeout: const Duration(minutes: 2),
+          receiveTimeout: const Duration(minutes: 5),
         ),
       );
       final bytes = response.data;
