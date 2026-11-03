@@ -134,6 +134,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         profile: _profile,
                         membership: _membership,
                       ),
+                      if (_profile?.verificationStatus == 'pending')
+                        Padding(
+                          padding: const EdgeInsets.only(top: 14),
+                          child: _VerificationPendingBanner(
+                            status: 'pending',
+                          ),
+                        ),
+                      if (_profile?.verificationStatus == 'rejected')
+                        Padding(
+                          padding: const EdgeInsets.only(top: 14),
+                          child: _VerificationPendingBanner(
+                            status: 'rejected',
+                          ),
+                        ),
+                      if (_profile != null &&
+                          (_profile!.medicalCouncilNumber?.trim().isEmpty ??
+                              true))
+                        Padding(
+                          padding: const EdgeInsets.only(top: 14),
+                          child: _MissingMcNumberBanner(
+                            onAdd: () => context.go('/my-profile'),
+                          ),
+                        ),
                       const SizedBox(height: 18),
                       _StatsGrid(
                         membership: _membership,
@@ -1158,4 +1181,137 @@ class _StatCardData {
   final IconData icon;
   final String title;
   final String? subtitle;
+}
+
+class _MissingMcNumberBanner extends StatelessWidget {
+  const _MissingMcNumberBanner({required this.onAdd});
+
+  final VoidCallback onAdd;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE3F2FD),
+        border: Border.all(color: const Color(0xFF64B5F6), width: 1.5),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.badge_outlined, color: Color(0xFF1565C0), size: 28),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Add Medical Council Number',
+                  style: GoogleFonts.inter(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                    color: const Color(0xFF1565C0),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Existing members only need MC number — no certificates. '
+                  'Add it on your profile. After admin approval, MC stays locked.',
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    color: const Color(0xFF424242),
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton(
+                    onPressed: onAdd,
+                    style: TextButton.styleFrom(
+                      foregroundColor: const Color(0xFF1565C0),
+                      padding: EdgeInsets.zero,
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: const Text('Go to My Profile →'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _VerificationPendingBanner extends StatelessWidget {
+  const _VerificationPendingBanner({required this.status});
+
+  final String status;
+
+  @override
+  Widget build(BuildContext context) {
+    final isPending = status == 'pending';
+    final bgColor = isPending
+        ? const Color(0xFFFFF3CD)
+        : const Color(0xFFF8D7DA);
+    final borderColor = isPending
+        ? const Color(0xFFFFD54F)
+        : const Color(0xFFE57373);
+    final icon = isPending ? Icons.hourglass_top_rounded : Icons.cancel_rounded;
+    final iconColor = isPending
+        ? const Color(0xFFF9A825)
+        : const Color(0xFFC62828);
+    final title = isPending
+        ? 'Profile Verification Pending'
+        : 'Profile Verification Rejected';
+    final message = isPending
+        ? 'Your profile and documents are under review by the admin. '
+            'Some features will be available after approval.'
+        : 'Your profile verification was rejected. '
+            'Please contact the admin for more details.';
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: bgColor,
+        border: Border.all(color: borderColor, width: 1.5),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: iconColor, size: 28),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.inter(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                    color: iconColor,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  message,
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    color: const Color(0xFF424242),
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

@@ -33,6 +33,9 @@ String dashboardTitleForPath(String path, {bool compact = false}) {
   if (path.startsWith('/dashboard/drugs')) {
     return 'Dashboard';
   }
+  if (path == '/settings/delete-account') {
+    return 'Delete account';
+  }
   if (path == '/connect' || path.startsWith('/connect/')) {
     return 'Executive Committee';
   }

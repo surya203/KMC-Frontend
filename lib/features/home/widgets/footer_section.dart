@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_assets.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/business_info.dart';
+import '../../../core/router/app_back_navigation.dart';
 import '../../../core/widgets/hover_link.dart';
 import '../../../core/widgets/safe_asset_image.dart';
 
@@ -186,6 +187,7 @@ class FooterSection extends StatelessWidget {
         const SizedBox(height: 12),
         _FooterLink(label: 'Terms & Conditions', path: '/terms', currentPath: currentPath),
         _FooterLink(label: 'Privacy Policy', path: '/privacy', currentPath: currentPath),
+        _FooterLink(label: 'Delete Account', path: '/delete-account', currentPath: currentPath),
         _FooterLink(label: 'Refund Policy', path: '/refund-policy', currentPath: currentPath),
         _FooterLink(label: 'Shipping Policy', path: '/shipping-policy', currentPath: currentPath),
         _FooterLink(label: 'Pricing', path: '/pricing', currentPath: currentPath),
@@ -314,7 +316,7 @@ class _FooterLink extends StatelessWidget {
     return FooterHoverLink(
       label: label,
       isActive: isNavRouteActive(currentPath, path),
-      onTap: () => context.go(path),
+      onTap: () => navigateAppPath(context, path),
     );
   }
 }

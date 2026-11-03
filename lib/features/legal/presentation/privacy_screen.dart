@@ -65,11 +65,14 @@ class PrivacyScreen extends StatelessWidget {
         LegalSection(
           heading: 'Your rights',
           body: [
-            'You may request access to, correction of, or deletion of your '
-            'personal data by contacting us. Some data may be retained where '
-            'required by law or for legitimate business purposes.',
-            'You can update profile visibility and contact preferences from '
+            'You may request access to or correction of your personal data from '
             'your account settings after signing in.',
+            'You can permanently delete your account in the app: sign in, open '
+            'Settings, then tap Delete account. You will be asked to confirm '
+            'with your password. This removes your login, profile, and associated '
+            'personal data. Payment records required for legal, tax, or audit '
+            'purposes may be retained in anonymized form.',
+            'You can also start account deletion at ${BusinessInfo.websiteUrl}/delete-account.',
           ],
         ),
         LegalSection(

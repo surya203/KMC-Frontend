@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'core/auth/auth_session.dart';
 import 'core/auth/profile_session.dart';
+import 'core/router/app_back_navigation.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/kmc_scroll_behavior.dart';
@@ -16,16 +17,21 @@ Future<void> main() async {
   if (AuthSession.instance.isAuthenticated) {
     await ProfileSession.instance.ensureLoaded(force: true);
   }
-  await GoogleFonts.pendingFonts([
-    GoogleFonts.fraunces(fontWeight: FontWeight.w600),
-    GoogleFonts.fraunces(
-      fontWeight: FontWeight.w500,
-      fontStyle: FontStyle.italic,
-    ),
-    GoogleFonts.inter(),
-    GoogleFonts.inter(fontWeight: FontWeight.w600),
-    GoogleFonts.inter(fontWeight: FontWeight.w700),
-  ]);
+  // Never block the native splash forever if font CDN / network is slow or blocked.
+  try {
+    await GoogleFonts.pendingFonts([
+      GoogleFonts.fraunces(fontWeight: FontWeight.w600),
+      GoogleFonts.fraunces(
+        fontWeight: FontWeight.w500,
+        fontStyle: FontStyle.italic,
+      ),
+      GoogleFonts.inter(),
+      GoogleFonts.inter(fontWeight: FontWeight.w600),
+      GoogleFonts.inter(fontWeight: FontWeight.w700),
+    ]).timeout(const Duration(seconds: 8));
+  } catch (_) {
+    // Fall back to platform fonts; UI still loads.
+  }
   runApp(const KMCApp());
 }
 
@@ -40,6 +46,13 @@ class KMCApp extends StatelessWidget {
       theme: AppTheme.light,
       scrollBehavior: const KmcScrollBehavior(),
       routerConfig: appRouter,
+      // Mobile system Back was exiting the app because routes use go() with no
+      // stack. Web keeps browser history, so this wrapper is mobile-only.
+      builder: (context, child) {
+        return AppSystemBackScope(
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
     );
   }
 }

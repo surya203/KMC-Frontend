@@ -17,6 +17,7 @@ import '../../../core/widgets/drugs_sidebar_banner.dart';
 import '../../../core/utils/membership_number_format.dart';
 import '../../../core/widgets/profile_avatar.dart';
 import '../../../core/widgets/safe_asset_image.dart';
+import '../../../core/router/app_back_navigation.dart';
 import 'dashboard_nav_items.dart';
 
 class DashboardShell extends StatelessWidget {
@@ -70,26 +71,28 @@ class DashboardShell extends StatelessWidget {
                 ),
               ),
             Expanded(
-              child: Column(
-                children: [
-                  DashboardTopBar(
-                    title: title,
-                    searchController: searchController,
-                    searchService: searchService,
-                    profileName: profileName,
-                    profilePhotoUrl: profilePhotoUrl,
-                    profilePhotoBytes: profilePhotoBytes,
-                    onMenuTap: isDesktop
-                        ? null
-                        : () => Scaffold.of(scaffoldContext).openDrawer(),
-                  ),
-                  Expanded(
-                    child: ColoredBox(
-                      color: const Color(0xFFF7F7F4),
-                      child: child,
+              child: SafeArea(
+                child: Column(
+                  children: [
+                    DashboardTopBar(
+                      title: title,
+                      searchController: searchController,
+                      searchService: searchService,
+                      profileName: profileName,
+                      profilePhotoUrl: profilePhotoUrl,
+                      profilePhotoBytes: profilePhotoBytes,
+                      onMenuTap: isDesktop
+                          ? null
+                          : () => Scaffold.of(scaffoldContext).openDrawer(),
                     ),
-                  ),
-                ],
+                    Expanded(
+                      child: ColoredBox(
+                        color: const Color(0xFFF7F7F4),
+                        child: child,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -173,7 +176,6 @@ class DashboardSidebar extends StatelessWidget {
                           currentPath,
                           role: role,
                         ),
-                        currentPath: currentPath,
                         role: role,
                       ),
                   ],
@@ -205,13 +207,11 @@ class _SidebarNavTile extends StatelessWidget {
   const _SidebarNavTile({
     required this.item,
     required this.active,
-    required this.currentPath,
     required this.role,
   });
 
   final DashboardNavItem item;
   final bool active;
-  final String currentPath;
   final String? role;
 
   @override
@@ -231,16 +231,11 @@ class _SidebarNavTile extends StatelessWidget {
           highlightColor: Colors.white.withValues(alpha: 0.08),
           hoverColor: Colors.white.withValues(alpha: 0.06),
           onTap: () {
-            final scaffold = Scaffold.maybeOf(context);
-            if (scaffold?.isDrawerOpen ?? false) {
-              Navigator.of(context).pop();
-            }
             // All roles (including admin) use member Events at /my-events.
             // Admin create/edit stays under Admin → Events only.
             final path =
                 item.label == 'Events' ? '/my-events' : targetPath;
-            if (path == currentPath) return;
-            context.go(path);
+            navigateAppPath(context, path);
           },
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -719,6 +714,10 @@ class _ProfileAvatarMenu extends StatelessWidget {
                     Navigator.of(dialogContext).pop();
                     context.go('/settings');
                   },
+                  onDeleteAccount: () {
+                    Navigator.of(dialogContext).pop();
+                    context.go('/settings/delete-account');
+                  },
                 ),
               ),
             ),
@@ -757,6 +756,7 @@ class _ProfileDetailsCard extends StatelessWidget {
     required this.name,
     required this.onViewProfile,
     required this.onSettings,
+    required this.onDeleteAccount,
     this.photoBytes,
     this.photoUrl,
   });
@@ -766,6 +766,7 @@ class _ProfileDetailsCard extends StatelessWidget {
   final String? photoUrl;
   final VoidCallback onViewProfile;
   final VoidCallback onSettings;
+  final VoidCallback onDeleteAccount;
 
   @override
   Widget build(BuildContext context) {
@@ -938,6 +939,17 @@ class _ProfileDetailsCard extends StatelessWidget {
               label: 'Settings',
               onTap: onSettings,
             ),
+            Container(
+              height: 1,
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              color: const Color(0xFFF0ECE5),
+            ),
+            _ProfileMenuItem(
+              icon: Icons.delete_outline,
+              label: 'Delete account',
+              color: AppColors.error,
+              onTap: onDeleteAccount,
+            ),
             const SizedBox(height: 6),
           ],
         ),
@@ -951,11 +963,13 @@ class _ProfileMenuItem extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.onTap,
+    this.color,
   });
 
   final IconData icon;
   final String label;
   final VoidCallback onTap;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
@@ -967,13 +981,13 @@ class _ProfileMenuItem extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
           child: Row(
             children: [
-              Icon(icon, size: 18, color: AppColors.heading),
+              Icon(icon, size: 18, color: color ?? AppColors.heading),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   label,
                   style: GoogleFonts.inter(
-                    color: AppColors.heading,
+                    color: color ?? AppColors.heading,
                     fontSize: 13.5,
                     fontWeight: FontWeight.w500,
                     letterSpacing: -0.1,

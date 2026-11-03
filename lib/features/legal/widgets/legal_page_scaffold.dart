@@ -22,12 +22,14 @@ class LegalPageScaffold extends StatelessWidget {
     required this.title,
     this.subtitle,
     required this.sections,
+    this.trailing,
   });
 
   final String eyebrow;
   final String title;
   final String? subtitle;
   final List<LegalSection> sections;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -86,6 +88,7 @@ class LegalPageScaffold extends StatelessWidget {
                           ),
                         ),
                       ],
+                      if (trailing != null) trailing!,
                     ],
                   ),
                 ),

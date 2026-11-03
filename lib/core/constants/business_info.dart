@@ -13,13 +13,13 @@ class BusinessInfo {
   static const whatsapp = '+91 9908375545';
   static const email = 'alumni@kmcconnect.org';
 
-  static const websiteHost = 'www.kmcalumni.net';
-  static const websiteUrl = 'https://www.kmcalumni.net';
+  static const websiteHost = 'kmcalumni.net';
+  static const websiteUrl = 'https://kmcalumni.net';
 
   static const supportHours = 'Monday to Friday, 10:00 AM – 5:00 PM IST';
 
   static const fullAddress =
       '$addressLine1, $addressLine2, $addressLine3';
 
-  static const lastPolicyUpdate = '22 July 2026';
+  static const lastPolicyUpdate = '15 September 2026';
 }

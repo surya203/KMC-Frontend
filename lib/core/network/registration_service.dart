@@ -157,10 +157,56 @@ class RegistrationService {
       await _apiClient.dio.post(
         '${AppConfig.apiPrefix}/auth/register/draft/$draftId/photo',
         data: formData,
+        options: Options(
+          sendTimeout: const Duration(minutes: 5),
+          receiveTimeout: const Duration(minutes: 5),
+        ),
       );
     } on DioException catch (e) {
       throw _mapDioException(e);
     }
+  }
+
+  Future<void> uploadDraftRegistrationDocument({
+    required String draftId,
+    required String documentType,
+    required String fileName,
+    required List<int> bytes,
+  }) async {
+    try {
+      final formData = FormData.fromMap({
+        'document_type': documentType,
+        'file': MultipartFile.fromBytes(
+          bytes,
+          filename: fileName,
+          contentType: _documentContentType(fileName),
+        ),
+      });
+      await _apiClient.dio.post(
+        '${AppConfig.apiPrefix}/auth/register/draft/$draftId/registration-document',
+        data: formData,
+        options: Options(
+          sendTimeout: const Duration(minutes: 5),
+          receiveTimeout: const Duration(minutes: 5),
+        ),
+      );
+    } on DioException catch (e) {
+      throw _mapDioException(e);
+    }
+  }
+
+  @Deprecated('Use uploadDraftRegistrationDocument with documentType mcr')
+  Future<void> uploadDraftCouncilCertificate({
+    required String draftId,
+    required String fileName,
+    required List<int> bytes,
+  }) {
+    return uploadDraftRegistrationDocument(
+      draftId: draftId,
+      documentType: 'mcr',
+      fileName: fileName,
+      bytes: bytes,
+    );
   }
 
   Future<void> uploadVerificationDocument({
@@ -176,6 +222,10 @@ class RegistrationService {
       await _apiClient.dio.post(
         '${AppConfig.apiBaseUrl}${AppConfig.apiPrefix}/auth/register/verify/document',
         data: formData,
+        options: Options(
+          sendTimeout: const Duration(minutes: 5),
+          receiveTimeout: const Duration(minutes: 5),
+        ),
       );
     } on DioException catch (e) {
       throw _mapDioException(e);
@@ -267,6 +317,17 @@ class RegistrationService {
     }
     if (lower.endsWith('.webp')) {
       return MediaType('image', 'webp');
+    }
+    return MediaType('image', 'jpeg');
+  }
+
+  MediaType _documentContentType(String fileName) {
+    final lower = fileName.toLowerCase();
+    if (lower.endsWith('.pdf')) {
+      return MediaType('application', 'pdf');
+    }
+    if (lower.endsWith('.png')) {
+      return MediaType('image', 'png');
     }
     return MediaType('image', 'jpeg');
   }

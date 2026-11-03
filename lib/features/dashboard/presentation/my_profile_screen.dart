@@ -49,6 +49,7 @@ class _MyProfileScreenState extends State<MyProfileScreen>
   late final TextEditingController _bio;
   late final TextEditingController _linkedin;
   late final TextEditingController _phone;
+  late final TextEditingController _medicalCouncilNumber;
   bool _directoryVisible = true;
 
   @override
@@ -63,6 +64,7 @@ class _MyProfileScreenState extends State<MyProfileScreen>
     _bio = TextEditingController();
     _linkedin = TextEditingController();
     _phone = TextEditingController();
+    _medicalCouncilNumber = TextEditingController();
     ProfileSession.instance.addListener(_onProfileSessionChanged);
     AuthSession.instance.addListener(_onAuthSessionChanged);
     _syncPhotoFromSession();
@@ -97,6 +99,7 @@ class _MyProfileScreenState extends State<MyProfileScreen>
     _bio.dispose();
     _linkedin.dispose();
     _phone.dispose();
+    _medicalCouncilNumber.dispose();
     super.dispose();
   }
 
@@ -186,6 +189,7 @@ class _MyProfileScreenState extends State<MyProfileScreen>
     _bio.text = profile.bio ?? '';
     _linkedin.text = profile.linkedinUrl ?? '';
     _phone.text = _localPhoneNumber(profile.phone);
+    _medicalCouncilNumber.text = profile.medicalCouncilNumber ?? '';
     _directoryVisible = profile.isDirectoryVisible ?? true;
   }
 
@@ -255,6 +259,13 @@ class _MyProfileScreenState extends State<MyProfileScreen>
         throw const FormatException('Bio must be 500 characters or fewer.');
       }
 
+      final mcNumber = _medicalCouncilNumber.text.trim();
+      if (!_isMcNumberLocked(_profile!) && mcNumber.isEmpty) {
+        throw const FormatException(
+          'Medical Council Number is required. Certificates are not needed for existing members.',
+        );
+      }
+
       final normalizedLinkedIn = normalizeLinkedInUrl(_linkedin.text);
 
       final updated = await _profilesApi.updateMyProfile({
@@ -265,6 +276,8 @@ class _MyProfileScreenState extends State<MyProfileScreen>
         'bio': textOrNull(bio),
         'linkedin_url': normalizedLinkedIn,
         'is_directory_visible': _directoryVisible,
+        if (!_isMcNumberLocked(_profile!))
+          'medical_council_number': textOrNull(mcNumber),
       });
       if (!mounted) return;
       _syncEditors(updated);
@@ -300,14 +313,14 @@ class _MyProfileScreenState extends State<MyProfileScreen>
     }
   }
 
-  static const _maxPhotoBytes = 3 * 1024 * 1024;
+  static const _maxPhotoBytes = 10 * 1024 * 1024;
 
   Future<void> _uploadPhotoFile(PlatformFile file) async {
     if (file.bytes == null || file.bytes!.isEmpty) {
       throw Exception('Could not read image file.');
     }
     if (file.bytes!.length > _maxPhotoBytes) {
-      throw Exception('Profile photo must be 3 MB or smaller.');
+      throw Exception('Profile photo must be 10 MB or smaller.');
     }
     if (!looksLikeImageBytes(file.bytes!)) {
       throw Exception('Please choose a valid JPG or PNG image.');
@@ -562,6 +575,17 @@ class _MyProfileScreenState extends State<MyProfileScreen>
     );
   }
 
+  bool _hasMcNumber(MyProfile profile) =>
+      profile.medicalCouncilNumber?.trim().isNotEmpty ?? false;
+
+  /// Existing approved members may fill a missing MC once; after that it locks.
+  /// New joiners stay editable until admin approval, then lock when MC is present.
+  bool _isMcNumberLocked(MyProfile profile) {
+    return profile.verificationStatus == 'approved' && _hasMcNumber(profile);
+  }
+
+  bool _needsMcNumber(MyProfile profile) => !_hasMcNumber(profile);
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -783,7 +807,7 @@ class _MyProfileScreenState extends State<MyProfileScreen>
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
-                'You can update your mobile number, photo and alumni directory details. Name, batch and email are locked.',
+                'You can update your mobile number, photo, alumni directory details, and Medical Council Number if missing. Name, batch and email are locked. Existing members do not need certificates.',
                 style: GoogleFonts.inter(
                   fontSize: 13,
                   color: AppColors.heading,
@@ -882,6 +906,34 @@ class _MyProfileScreenState extends State<MyProfileScreen>
                     value: _membershipId(profile),
                     readOnly: true,
                   ),
+                  const SizedBox(height: 20),
+                  if (_editing && !_isMcNumberLocked(profile))
+                    _formField(
+                      label: 'MEDICAL COUNCIL NUMBER',
+                      controller: _medicalCouncilNumber,
+                      hintText: 'e.g. KMC/12345',
+                      helperText:
+                          'Required for existing members. Certificates are not needed — only MC number.',
+                    )
+                  else
+                    _formField(
+                      label: 'MEDICAL COUNCIL NUMBER',
+                      value: _hasMcNumber(profile)
+                          ? profile.medicalCouncilNumber
+                          : 'Not added yet',
+                      readOnly: true,
+                    ),
+                  if (_needsMcNumber(profile) && !_editing)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 10),
+                      child: _StatusBanner(
+                        message:
+                            'Please add your Medical Council Number (Edit → Save). '
+                            'Existing members do not need to upload certificates. '
+                            'After admin approval, MC number stays locked.',
+                        isError: true,
+                      ),
+                    ),
                   if (!_editing) ..._buildDirectoryViewFields(profile),
                   if (_editing) ...[
                     const SizedBox(height: 28),
@@ -923,6 +975,16 @@ class _MyProfileScreenState extends State<MyProfileScreen>
                           'A short professional summary for the alumni directory.',
                       helperText: 'Maximum 500 characters',
                     ),
+                    if (_isMcNumberLocked(profile)) ...[
+                      const SizedBox(height: 16),
+                      _formField(
+                        label: 'MEDICAL COUNCIL NUMBER',
+                        controller: _medicalCouncilNumber,
+                        hintText: 'e.g. KMC/12345',
+                        readOnly: true,
+                        helperText: 'Locked — approved by admin',
+                      ),
+                    ],
                     const SizedBox(height: 16),
                     _formField(
                       label: 'LINKEDIN URL',

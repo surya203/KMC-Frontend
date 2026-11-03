@@ -56,6 +56,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
   final _batchYearController = TextEditingController();
   final _specializationController = TextEditingController();
   final _practiceLocationController = TextEditingController();
+  final _medicalCouncilNumberController = TextEditingController();
   final _phoneController = TextEditingController();
   final _dialCodeController = TextEditingController(text: '+91');
   final _emailController = TextEditingController();
@@ -64,6 +65,8 @@ class _MembershipScreenState extends State<MembershipScreen> {
   final _otpController = TextEditingController();
   PlatformFile? _profilePhoto;
   Uint8List? _profilePhotoBytes;
+  final Map<_RegDocType, PlatformFile> _regDocs = {};
+  final Map<_RegDocType, Uint8List> _regDocBytes = {};
   String? _otpStatusMessage;
   String? _devOtpHint;
   bool _otpSent = false;
@@ -91,6 +94,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
     _batchYearController.dispose();
     _specializationController.dispose();
     _practiceLocationController.dispose();
+    _medicalCouncilNumberController.dispose();
     _phoneController.dispose();
     _dialCodeController.dispose();
     _emailController.dispose();
@@ -206,6 +210,8 @@ class _MembershipScreenState extends State<MembershipScreen> {
         '+91';
     _practiceLocationController.text =
         '${draft.payload['practice_location'] ?? draft.payload['location'] ?? draft.payload['city'] ?? ''}';
+    _medicalCouncilNumberController.text =
+        '${draft.payload['medical_council_number'] ?? ''}';
     _specializationController.text =
         '${draft.payload['specialization'] ?? draft.payload['degree'] ?? ''}';
     final batchYear = draft.payload['batch_year'];
@@ -310,6 +316,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
       _batchYearController.clear();
       _specializationController.clear();
       _practiceLocationController.clear();
+      _medicalCouncilNumberController.clear();
       _phoneController.clear();
       _dialCodeController.text = '+91';
       _emailController.clear();
@@ -317,6 +324,8 @@ class _MembershipScreenState extends State<MembershipScreen> {
       _confirmPasswordController.clear();
       _profilePhoto = null;
       _profilePhotoBytes = null;
+      _regDocs.clear();
+      _regDocBytes.clear();
       _selectedPlan = _plans.isNotEmpty ? _plans.first : null;
       _selectedCountryPrice = MembershipCountryPrice.resolve(
         plan: _selectedPlan,
@@ -375,6 +384,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
     final batchYearText = _batchYearController.text.trim();
     final batchYear = int.tryParse(batchYearText);
     final practiceLocation = _practiceLocationController.text.trim();
+    final medicalCouncilNumber = _medicalCouncilNumberController.text.trim();
     final password = _passwordController.text;
     final confirmPassword = _confirmPasswordController.text;
 
@@ -388,6 +398,9 @@ class _MembershipScreenState extends State<MembershipScreen> {
     }
     if (specialization.isEmpty) throw Exception('Enter your specialization.');
     if (practiceLocation.isEmpty) throw Exception('Enter your practice location.');
+    if (medicalCouncilNumber.isEmpty) {
+      throw Exception('Enter your Medical Council Number.');
+    }
     final phoneError = validateInternationalMobile(
       dialCode: dialCode,
       localNumber: phone,
@@ -399,6 +412,29 @@ class _MembershipScreenState extends State<MembershipScreen> {
     if (password.isEmpty) throw Exception('Create your password.');
     if (confirmPassword != password) {
       throw Exception('Confirm password must match the password.');
+    }
+    const maxCertBytes = 50 * 1024 * 1024;
+    final mcrBytes = _regDocBytes[_RegDocType.mcr];
+    if (mcrBytes == null) {
+      throw Exception(
+        'Upload your Medical Council Registration certificate.',
+      );
+    }
+    if (mcrBytes.length > maxCertBytes) {
+      throw Exception('${_RegDocType.mcr.label} must be 50 MB or smaller.');
+    }
+    final hasUg = _regDocBytes.containsKey(_RegDocType.kmcUg);
+    final hasPg = _regDocBytes.containsKey(_RegDocType.pg);
+    if (!hasUg && !hasPg) {
+      throw Exception(
+        'Upload either your KMC UG certificate or your PG certificate.',
+      );
+    }
+    for (final type in const [_RegDocType.kmcUg, _RegDocType.pg]) {
+      final bytes = _regDocBytes[type];
+      if (bytes != null && bytes.length > maxCertBytes) {
+        throw Exception('${type.label} must be 50 MB or smaller.');
+      }
     }
 
     final updated = await _registration.updateDraft(
@@ -416,20 +452,33 @@ class _MembershipScreenState extends State<MembershipScreen> {
         'phone_country_code': normalizeDialCode(dialCode) ?? '+91',
         'specialization': specialization,
         'practice_location': practiceLocation,
+        'medical_council_number': medicalCouncilNumber,
         'email': email,
         'password': password,
       },
     );
 
     if (_profilePhotoBytes != null) {
-      const maxPhotoBytes = 3 * 1024 * 1024;
+      const maxPhotoBytes = 10 * 1024 * 1024;
       if (_profilePhotoBytes!.length > maxPhotoBytes) {
-        throw Exception('Profile photo must be 3 MB or smaller.');
+        throw Exception('Profile photo must be 10 MB or smaller.');
       }
       await _registration.uploadDraftPhoto(
         draftId: activeDraft.id,
         fileName: _profilePhoto?.name ?? 'profile-photo.jpg',
         bytes: _profilePhotoBytes!,
+      );
+    }
+
+    for (final type in _RegDocType.values) {
+      final file = _regDocs[type];
+      final bytes = _regDocBytes[type];
+      if (bytes == null) continue;
+      await _registration.uploadDraftRegistrationDocument(
+        draftId: activeDraft.id,
+        documentType: type.apiValue,
+        fileName: file?.name ?? '${type.apiValue}.pdf',
+        bytes: bytes,
       );
     }
 
@@ -710,8 +759,8 @@ class _MembershipScreenState extends State<MembershipScreen> {
     try {
       final file = await pickAndCropProfilePhoto(context);
       if (file == null || file.bytes == null) return;
-      if (file.bytes!.length > 3 * 1024 * 1024) {
-        setState(() => _error = 'Profile photo must be 3 MB or smaller.');
+      if (file.bytes!.length > 10 * 1024 * 1024) {
+        setState(() => _error = 'Profile photo must be 10 MB or smaller.');
         return;
       }
       setState(() {
@@ -736,8 +785,8 @@ class _MembershipScreenState extends State<MembershipScreen> {
         fileName: captured.fileName,
       );
       if (cropped == null || cropped.bytes == null) return;
-      if (cropped.bytes!.length > 3 * 1024 * 1024) {
-        setState(() => _error = 'Profile photo must be 3 MB or smaller.');
+      if (cropped.bytes!.length > 10 * 1024 * 1024) {
+        setState(() => _error = 'Profile photo must be 10 MB or smaller.');
         return;
       }
       setState(() {
@@ -755,6 +804,42 @@ class _MembershipScreenState extends State<MembershipScreen> {
     setState(() {
       _profilePhoto = null;
       _profilePhotoBytes = null;
+      _error = null;
+    });
+  }
+
+  Future<void> _pickRegistrationDocument(_RegDocType type) async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: const ['pdf', 'jpg', 'jpeg', 'png'],
+        withData: true,
+      );
+      if (result == null || result.files.isEmpty) return;
+      final file = result.files.first;
+      if (file.bytes == null) {
+        setState(() => _error = 'Could not read the selected file.');
+        return;
+      }
+      if (file.bytes!.length > 50 * 1024 * 1024) {
+        setState(() => _error = '${type.label} must be 50 MB or smaller.');
+        return;
+      }
+      setState(() {
+        _regDocs[type] = file;
+        _regDocBytes[type] = file.bytes!;
+        _error = null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = e.toString());
+    }
+  }
+
+  void _removeRegistrationDocument(_RegDocType type) {
+    setState(() {
+      _regDocs.remove(type);
+      _regDocBytes.remove(type);
       _error = null;
     });
   }
@@ -785,6 +870,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
           batchYearController: _batchYearController,
           specializationController: _specializationController,
           practiceLocationController: _practiceLocationController,
+          medicalCouncilNumberController: _medicalCouncilNumberController,
           phoneController: _phoneController,
           dialCodeController: _dialCodeController,
           emailController: _emailController,
@@ -795,6 +881,15 @@ class _MembershipScreenState extends State<MembershipScreen> {
           onCapturePhoto: _captureProfilePhoto,
           onPickPhoto: _pickProfilePhoto,
           onRemovePhoto: _removeProfilePhoto,
+          registrationDocuments: {
+            for (final type in _RegDocType.values)
+              type: _RegDocSelection(
+                fileName: _regDocs[type]?.name,
+                hasFile: _regDocBytes.containsKey(type),
+              ),
+          },
+          onPickRegistrationDocument: _pickRegistrationDocument,
+          onRemoveRegistrationDocument: _removeRegistrationDocument,
           onContinue: () => _runStep(_saveDetailsAndSendOtp),
         ),
       2 => _VerifyStep(
@@ -986,9 +1081,9 @@ class MembershipCountryPrice {
       code: 'UK',
       country: 'United Kingdom',
       currencyCode: 'GBP',
-      displayPrice: '£150',
+      displayPrice: '£75',
       flag: '🇬🇧',
-      amountPaise: 15000,
+      amountPaise: 7500,
     ),
     MembershipCountryPrice(
       code: 'AU',
@@ -1379,6 +1474,7 @@ class _DetailsStep extends StatefulWidget {
     required this.batchYearController,
     required this.specializationController,
     required this.practiceLocationController,
+    required this.medicalCouncilNumberController,
     required this.phoneController,
     required this.dialCodeController,
     required this.emailController,
@@ -1389,6 +1485,9 @@ class _DetailsStep extends StatefulWidget {
     required this.onCapturePhoto,
     required this.onPickPhoto,
     required this.onRemovePhoto,
+    required this.registrationDocuments,
+    required this.onPickRegistrationDocument,
+    required this.onRemoveRegistrationDocument,
     required this.onContinue,
   });
 
@@ -1398,6 +1497,7 @@ class _DetailsStep extends StatefulWidget {
   final TextEditingController batchYearController;
   final TextEditingController specializationController;
   final TextEditingController practiceLocationController;
+  final TextEditingController medicalCouncilNumberController;
   final TextEditingController phoneController;
   final TextEditingController dialCodeController;
   final TextEditingController emailController;
@@ -1408,6 +1508,9 @@ class _DetailsStep extends StatefulWidget {
   final Future<void> Function() onCapturePhoto;
   final Future<void> Function() onPickPhoto;
   final VoidCallback onRemovePhoto;
+  final Map<_RegDocType, _RegDocSelection> registrationDocuments;
+  final Future<void> Function(_RegDocType type) onPickRegistrationDocument;
+  final void Function(_RegDocType type) onRemoveRegistrationDocument;
   final VoidCallback onContinue;
 
   @override
@@ -1474,6 +1577,14 @@ class _DetailsStepState extends State<_DetailsStep> {
           ),
           const SizedBox(height: 16),
           _FormField(
+            label: 'Medical Council Number',
+            controller: widget.medicalCouncilNumberController,
+            hint: 'e.g. TSMC/2015/12345',
+            helperText: 'Enter your official medical council registration number',
+            required: true,
+          ),
+          const SizedBox(height: 16),
+          _FormField(
             label: 'Email Address',
             controller: widget.emailController,
             keyboard: TextInputType.emailAddress,
@@ -1529,6 +1640,12 @@ class _DetailsStepState extends State<_DetailsStep> {
             onCapture: widget.onCapturePhoto,
             onUpload: widget.onPickPhoto,
             onRemove: widget.onRemovePhoto,
+          ),
+          const SizedBox(height: 16),
+          _RequiredRegistrationDocumentsField(
+            documents: widget.registrationDocuments,
+            onPick: widget.onPickRegistrationDocument,
+            onRemove: widget.onRemoveRegistrationDocument,
           ),
           const SizedBox(height: 28),
           _PrimaryButton(
@@ -1749,6 +1866,398 @@ class _ProfilePhotoFieldState extends State<_ProfilePhotoField> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _RegDocSelection {
+  const _RegDocSelection({required this.fileName, required this.hasFile});
+
+  final String? fileName;
+  final bool hasFile;
+}
+
+enum _RegDocType {
+  mcr(
+    'mcr',
+    'MCR',
+    'Medical Council Registration',
+  ),
+  kmcUg(
+    'kmc_ug',
+    'KMC UG Certificate',
+    'Undergraduate degree certificate. Upload this or a PG certificate.',
+  ),
+  pg(
+    'pg',
+    'PG Certificate',
+    'Postgraduate degree certificate. Upload this or a UG certificate.',
+  );
+
+  const _RegDocType(this.apiValue, this.shortLabel, this.subtitle);
+
+  final String apiValue;
+  final String shortLabel;
+  final String subtitle;
+
+  String get label => '$shortLabel — $subtitle';
+
+  static const requiredSlotCount = 2;
+
+  /// Medical Council Registration plus one degree certificate (UG or PG).
+  static int requiredSlotsFilled(bool Function(_RegDocType type) hasFile) {
+    final hasMcr = hasFile(mcr);
+    final hasDegree = hasFile(kmcUg) || hasFile(pg);
+    return (hasMcr ? 1 : 0) + (hasDegree ? 1 : 0);
+  }
+
+  String rowStatus({
+    required bool done,
+    required bool otherDegreeUploaded,
+  }) {
+    if (done) return 'Done';
+    if (this == mcr) return 'Required';
+    if (otherDegreeUploaded) return 'Optional';
+    return 'One required';
+  }
+}
+
+class _RequiredRegistrationDocumentsField extends StatefulWidget {
+  const _RequiredRegistrationDocumentsField({
+    required this.documents,
+    required this.onPick,
+    required this.onRemove,
+  });
+
+  final Map<_RegDocType, _RegDocSelection> documents;
+  final Future<void> Function(_RegDocType type) onPick;
+  final void Function(_RegDocType type) onRemove;
+
+  @override
+  State<_RequiredRegistrationDocumentsField> createState() =>
+      _RequiredRegistrationDocumentsFieldState();
+}
+
+class _RequiredRegistrationDocumentsFieldState
+    extends State<_RequiredRegistrationDocumentsField> {
+  _RegDocType _selected = _RegDocType.mcr;
+
+  @override
+  Widget build(BuildContext context) {
+    final selectedDoc = widget.documents[_selected];
+    bool hasFile(_RegDocType type) => widget.documents[type]?.hasFile == true;
+    final requiredFilled = _RegDocType.requiredSlotsFilled(hasFile);
+    final allDone = requiredFilled == _RegDocType.requiredSlotCount;
+    final hasSelected = selectedDoc?.hasFile == true;
+    final hasUg = hasFile(_RegDocType.kmcUg);
+    final hasPg = hasFile(_RegDocType.pg);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFBFAf7),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: allDone ? AppColors.success.withValues(alpha: 0.35) : AppColors.border,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Required documents',
+                  style: GoogleFonts.inter(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.heading,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: allDone
+                      ? AppColors.success.withValues(alpha: 0.12)
+                      : AppColors.secondary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  '$requiredFilled / ${_RegDocType.requiredSlotCount}',
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: allDone ? AppColors.success : AppColors.secondary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Medical Council Registration is required. Also upload either your KMC UG certificate or your PG certificate. PDF, JPG, or PNG · max 50 MB each.',
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              color: AppColors.mutedText,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            'DOCUMENT TYPE *',
+            style: GoogleFonts.inter(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.1,
+              color: AppColors.mutedText,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<_RegDocType>(
+                value: _selected,
+                isExpanded: true,
+                icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                items: _RegDocType.values.map((type) {
+                  final done = widget.documents[type]?.hasFile == true;
+                  return DropdownMenuItem(
+                    value: type,
+                    child: Row(
+                      children: [
+                        Icon(
+                          done
+                              ? Icons.check_circle_rounded
+                              : Icons.circle_outlined,
+                          size: 18,
+                          color: done ? AppColors.success : AppColors.mutedText,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            type.shortLabel,
+                            style: GoogleFonts.inter(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.heading,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  if (value == null) return;
+                  setState(() => _selected = value);
+                },
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _selected.subtitle,
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              color: AppColors.mutedText,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Material(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            child: InkWell(
+              onTap: () => widget.onPick(_selected),
+              borderRadius: BorderRadius.circular(14),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: hasSelected
+                        ? AppColors.success.withValues(alpha: 0.5)
+                        : AppColors.border,
+                    width: hasSelected ? 1.5 : 1,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 52,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        color: hasSelected
+                            ? AppColors.success.withValues(alpha: 0.1)
+                            : AppColors.muted,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        hasSelected
+                            ? Icons.description_rounded
+                            : Icons.cloud_upload_outlined,
+                        size: 26,
+                        color: hasSelected
+                            ? AppColors.success
+                            : AppColors.secondary,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            hasSelected
+                                ? 'Replace ${_selected.shortLabel}'
+                                : 'Upload ${_selected.shortLabel}',
+                            style: GoogleFonts.inter(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.heading,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            hasSelected
+                                ? (selectedDoc?.fileName ?? 'File added')
+                                : 'Tap to choose PDF, JPG, or PNG',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              color: hasSelected
+                                  ? AppColors.success
+                                  : AppColors.mutedText,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (hasSelected)
+                      IconButton(
+                        tooltip: 'Remove',
+                        onPressed: () => widget.onRemove(_selected),
+                        icon: const Icon(Icons.close_rounded),
+                        color: AppColors.mutedText,
+                      )
+                    else
+                      Icon(
+                        Icons.add_circle_outline_rounded,
+                        color: AppColors.secondary.withValues(alpha: 0.9),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          ..._RegDocType.values.map((type) {
+            final doc = widget.documents[type];
+            final done = doc?.hasFile == true;
+            final isActive = type == _selected;
+            final otherDegreeUploaded = type == _RegDocType.kmcUg
+                ? hasPg
+                : type == _RegDocType.pg
+                    ? hasUg
+                    : false;
+            final status = type.rowStatus(
+              done: done,
+              otherDegreeUploaded: otherDegreeUploaded,
+            );
+            final statusIsOptional = status == 'Optional';
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Material(
+                color: isActive ? Colors.white : Colors.transparent,
+                borderRadius: BorderRadius.circular(12),
+                child: InkWell(
+                  onTap: () => setState(() => _selected = type),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isActive
+                            ? AppColors.secondary.withValues(alpha: 0.55)
+                            : AppColors.border.withValues(alpha: 0.7),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          done
+                              ? Icons.check_circle_rounded
+                              : Icons.radio_button_unchecked,
+                          size: 20,
+                          color: done
+                              ? AppColors.success
+                              : AppColors.mutedText,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                type.shortLabel,
+                                style: GoogleFonts.inter(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.heading,
+                                ),
+                              ),
+                              Text(
+                                done
+                                    ? (doc?.fileName ?? 'Uploaded')
+                                    : statusIsOptional
+                                        ? 'Not uploaded'
+                                        : 'Pending upload',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.inter(
+                                  fontSize: 11,
+                                  color: done
+                                      ? AppColors.success
+                                      : AppColors.mutedText,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Text(
+                          status,
+                          style: GoogleFonts.inter(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: done
+                                ? AppColors.success
+                                : statusIsOptional
+                                    ? AppColors.mutedText
+                                    : AppColors.secondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }),
+        ],
+      ),
     );
   }
 }

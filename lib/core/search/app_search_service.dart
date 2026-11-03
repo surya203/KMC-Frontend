@@ -32,7 +32,7 @@ const _pageKeywords = <String, List<String>>{
     'registry',
   ],
   '/my-payments': ['payments', 'payment', 'receipt', 'invoice'],
-  '/settings': ['settings', 'setting', 'preferences', 'account'],
+  '/settings': ['settings', 'setting', 'preferences', 'account', 'delete account'],
 };
 
 class AppSearchService {

@@ -1,17 +1,21 @@
 
-File Name: image_capture.dart / image_capture_web.dart / image_capture_stub.dart
+File Name: image_capture.dart / image_capture_web.dart / image_capture_io.dart / image_capture_stub.dart
 
 1. Modification Done:
 
-   * Conditional export: web implementation provides `captureImageWithLivePreview(context)` opening a dialog with live camera preview (`getUserMedia`), capture, and JPEG bytes.
-   * Stub returns null on non-web platforms.
-   * Used by registration wizard profile photo **camera** option.
+   * Conditional export:
+     * Web: live camera preview via `getUserMedia`, capture, and JPEG bytes.
+     * Android/iOS: system camera via `image_picker` (`ImageSource.camera`), then the same crop/upload path.
+     * Other platforms: stub returns null.
+   * Release AndroidManifest declares `CAMERA` plus an `IMAGE_CAPTURE` package-visibility query (required for the production APK).
+   * Used by registration and My Profile **Take photo**.
 
 2. Purpose of This Modification:
 
-   * Registration requires optional live photo capture on web; file picker alone is not sufficient for the camera path.
+   * Website camera already worked; the APK previously called a stub that always returned null.
 
 3. How This Modification Is Involved in the Flow:
 
    * `membership_screen.dart` → `_captureProfilePhoto()` → `captureImageWithLivePreview()`.
-   * Bytes uploaded via `registration_service.uploadDraftPhoto()` after details step.
+   * `my_profile_screen.dart` → `_capturePhoto()` → `captureImageWithLivePreview()`.
+   * Bytes are cropped, then uploaded through the existing profile/registration photo APIs.

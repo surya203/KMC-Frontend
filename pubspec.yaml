@@ -2,7 +2,7 @@ name: kmc_alumni_connect
 description: "A new Flutter project."
 publish_to: 'none'
 
-version: 1.0.0+1
+version: 1.0.1+9
 
 environment:
   sdk: '>=3.7.0 <4.0.0'
@@ -24,6 +24,7 @@ dependencies:
   web: ^1.1.0
   http_parser: ^4.1.2
   crop_your_image: ^2.0.0
+  image_picker: ^1.2.3
 
 dev_dependencies:
   flutter_test:
@@ -39,7 +40,8 @@ flutter_launcher_icons:
   # Full-bleed yellow (matches icon) — no cream/white frame like Rapido
   adaptive_icon_background: "#FFDE59"
   adaptive_icon_foreground: assets/images/app_icon.png
-  adaptive_icon_foreground_inset: 0
+  # Keep seal + text inside Android adaptive safe zone (avoids zoom/crop)
+  adaptive_icon_foreground_inset: 16
   remove_alpha_ios: true
   web:
     generate: true

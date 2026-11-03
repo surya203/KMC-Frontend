@@ -32,6 +32,7 @@ class AuthUser {
     this.fullName,
     this.batchYear,
     this.membershipNumber,
+    this.verificationStatus,
   });
 
   final String id;
@@ -42,6 +43,11 @@ class AuthUser {
   final String? fullName;
   final int? batchYear;
   final String? membershipNumber;
+  final String? verificationStatus;
+
+  bool get isPending => verificationStatus == 'pending';
+  bool get isApproved => verificationStatus == 'approved';
+  bool get isRejected => verificationStatus == 'rejected';
 
   factory AuthUser.fromJson(Map<String, dynamic> json) {
     final profile = json['profile'];
@@ -59,6 +65,9 @@ class AuthUser {
           : null,
       membershipNumber: membership is Map<String, dynamic>
           ? membership['membership_number'] as String?
+          : null,
+      verificationStatus: profile is Map<String, dynamic>
+          ? profile['verification_status'] as String?
           : null,
     );
   }
@@ -152,6 +161,7 @@ class AuthService {
     String? phone,
     String? phoneCountryCode,
     String? membershipNumber,
+    String? medicalCouncilNumber,
   }) async {
     final Map<String, dynamic> data;
     if (email != null && email.isNotEmpty) {
@@ -160,6 +170,11 @@ class AuthService {
       data = {
         'phone': phone,
         'phone_country_code': phoneCountryCode ?? '+91',
+        'password': password,
+      };
+    } else if (medicalCouncilNumber != null && medicalCouncilNumber.isNotEmpty) {
+      data = {
+        'medical_council_number': medicalCouncilNumber,
         'password': password,
       };
     } else {
@@ -266,6 +281,59 @@ class AuthService {
         e.response?.statusMessage ?? 'Unable to reach the backend.',
       );
     }
+  }
+
+  Future<void> deleteAccount({
+    required String password,
+    bool allowRefresh = true,
+  }) async {
+    final header = authorizationHeader;
+    if (header == null) {
+      throw AuthException('Not signed in.');
+    }
+
+    try {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '${AppConfig.apiPrefix}/auth/delete-account',
+        data: {'password': password},
+        options: Options(
+          headers: {'Authorization': header},
+          receiveTimeout: const Duration(seconds: 30),
+        ),
+      );
+      final status = response.statusCode ?? 0;
+      if (status < 200 || status >= 300) {
+        throw AuthException(
+          'Could not delete account (${response.statusCode}).',
+        );
+      }
+    } on DioException catch (e) {
+      final status = e.response?.statusCode;
+      if (status == 401 && allowRefresh) {
+        try {
+          await refresh();
+        } on AuthException {
+          rethrow;
+        }
+        return deleteAccount(password: password, allowRefresh: false);
+      }
+      throw AuthException(_detailFromDio(e, 'Unable to delete account.'));
+    }
+  }
+
+  static String _detailFromDio(DioException e, String fallback) {
+    final detail = e.response?.data;
+    if (detail is Map && detail['detail'] != null) {
+      final nested = detail['detail'];
+      if (nested is String && nested.trim().isNotEmpty) return nested;
+      if (nested is List && nested.isNotEmpty) {
+        final first = nested.first;
+        if (first is Map && first['msg'] != null) return '${first['msg']}';
+        return '$first';
+      }
+      return '$nested';
+    }
+    return e.response?.statusMessage ?? fallback;
   }
 
   Future<void> resetPassword({

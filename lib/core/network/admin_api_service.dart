@@ -105,6 +105,10 @@ class VerificationQueueItem {
     this.degree,
     this.organization,
     this.submittedAt,
+    this.medicalCouncilNumber,
+    this.mcrCertificateUrl,
+    this.kmcUgCertificateUrl,
+    this.pgCertificateUrl,
   });
 
   final String id;
@@ -116,6 +120,10 @@ class VerificationQueueItem {
   final String? degree;
   final String? organization;
   final DateTime? submittedAt;
+  final String? medicalCouncilNumber;
+  final String? mcrCertificateUrl;
+  final String? kmcUgCertificateUrl;
+  final String? pgCertificateUrl;
 
   factory VerificationQueueItem.fromJson(Map<String, dynamic> json) {
     return VerificationQueueItem(
@@ -130,6 +138,10 @@ class VerificationQueueItem {
       submittedAt: json['submitted_at'] != null
           ? DateTime.tryParse(json['submitted_at'] as String)
           : null,
+      medicalCouncilNumber: json['medical_council_number'] as String?,
+      mcrCertificateUrl: json['mcr_certificate_url'] as String?,
+      kmcUgCertificateUrl: json['kmc_ug_certificate_url'] as String?,
+      pgCertificateUrl: json['pg_certificate_url'] as String?,
     );
   }
 }
