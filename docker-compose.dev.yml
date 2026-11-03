@@ -7,7 +7,7 @@
 #   docker compose -f docker-compose.dev.yml up --build
 #
 # Edit lib/ (e.g. footer text) → container hot-restarts → refresh browser.
-# Backend should be on http://192.168.0.10:8001 (or the machine's current LAN IP).
+# Backend should be on http://192.168.0.17:8001 (or the machine's current LAN IP).
 
 services:
   web:
@@ -19,7 +19,7 @@ services:
       - "8080:8080"
     environment:
       ENV: development
-      API_BASE_URL: http://192.168.0.10:8001
+      API_BASE_URL: http://192.168.0.17:8001
       API_PREFIX: /api/v1
       STORAGE_BUCKET: ${STORAGE_BUCKET:-verification-documents}
       # Legacy optional

@@ -1,5 +1,4 @@
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -565,30 +564,49 @@ class _MembershipScreenState extends State<MembershipScreen> {
   }
 
   Future<void> _startPayment() async {
-    if (!kIsWeb) {
-      throw Exception('Payment is available on the website.');
-    }
     final draft = _draft;
     if (draft == null) {
       throw Exception('Start registration before payment.');
     }
-    if (_selectedCountryPrice.currencyCode.toUpperCase() != 'INR') {
+    final country = _selectedCountryPrice;
+    final currency = country.currencyCode.toUpperCase();
+    const supported = {'INR', 'USD', 'GBP', 'AUD'};
+    if (!supported.contains(currency)) {
       throw Exception(
-        'PayU currently accepts India (INR) only. Select the India price to continue.',
+        'Unsupported currency. Choose India, United States, United Kingdom, or Australia.',
       );
     }
+    // Persist the selected country/price so checkout charges the right currency.
+    await _registration.updateDraft(
+      draftId: draft.id,
+      step: draft.step,
+      payload: {
+        ...draft.payload,
+        'country_code': country.code,
+        'currency': country.currencyCode,
+        if (country.amountPaise > 0) 'amount_paise': country.amountPaise,
+      },
+    );
     final session = await _membershipApi.createCheckout(
       draft.id,
-      countryCode: _selectedCountryPrice.code,
-      currency: _selectedCountryPrice.currencyCode,
+      countryCode: country.code,
+      currency: country.currencyCode,
     );
     if (session.paymentActionUrl.isEmpty || session.payuFields.isEmpty) {
       throw Exception('Payment could not be started. Please try again.');
     }
-    openPayuHostedCheckout(
+    if (!mounted) return;
+    final launch = await openPayuHostedCheckout(
       actionUrl: session.paymentActionUrl,
       fields: session.payuFields,
+      context: context,
     );
+    // Web: form navigates away; completion runs via URL on return.
+    // Mobile: WebView pops with outcome when PayU redirects back.
+    if (!mounted) return;
+    if (launch != null) {
+      await _applyPayuOutcome(launch.outcome, draftId: launch.draftId);
+    }
   }
 
   Future<void> _finishPayuReturn() async {
@@ -596,14 +614,32 @@ class _MembershipScreenState extends State<MembershipScreen> {
     final uri = GoRouterState.of(context).uri;
     final payu = uri.queryParameters['payu'];
     if (payu == null || payu.isEmpty) return;
+    await _applyPayuOutcome(
+      payu,
+      draftId: uri.queryParameters['draft_id'],
+    );
+  }
 
-    final queryDraftId = uri.queryParameters['draft_id'];
+  Future<void> _applyPayuOutcome(
+    String payu, {
+    String? draftId,
+  }) async {
+    if (!mounted) return;
+    if (payu == 'cancelled') {
+      setState(() {
+        _error = 'Payment was cancelled. You can try again.';
+        _step = 3;
+      });
+      return;
+    }
+
+    final queryDraftId = draftId;
     if (queryDraftId != null && queryDraftId.isNotEmpty) {
       await AuthSession.instance.saveDraftId(queryDraftId);
     }
-    final draftId =
+    final resolvedDraftId =
         _draft?.id ?? queryDraftId ?? await AuthSession.instance.getDraftId();
-    if (draftId == null) return;
+    if (resolvedDraftId == null) return;
 
     if (payu == 'failure') {
       if (!mounted) return;
@@ -616,7 +652,8 @@ class _MembershipScreenState extends State<MembershipScreen> {
 
     for (var attempt = 0; attempt < 5; attempt++) {
       try {
-        final completion = await _registration.completeRegistration(draftId);
+        final completion =
+            await _registration.completeRegistration(resolvedDraftId);
         if (!mounted) return;
         if (completion.completed) {
           setState(() {
@@ -633,7 +670,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
     if (!mounted) return;
     setState(() {
       _error =
-          'Payment is still confirming. Wait a moment, then refresh this page.';
+          'Payment is still confirming. Wait a moment, then try again.';
       _step = 3;
     });
   }
