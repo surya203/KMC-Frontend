@@ -19,7 +19,7 @@ Handbook §6.2 component inventory mapped to Flutter `ValueKey`s (QA contract).
 | `/auth` | SignInForm, PasswordField | `auth-email-field`, `auth-password-field`, `auth-sign-in-button` (ARIA via Semantics) |
 | `/auth/forgot-password` | ForgotPasswordPage | `forgot-password-email-field`, `forgot-password-submit` |
 | `/auth/reset-password` | Reset password | `reset-password-token-field`, `reset-password-submit` |
-| `/membership` | RegistrationStepper, PlanCard, DetailsForm, VerificationStep, PaymentStep, CompletionStep | `membership-join-button`, `membership-upload-document`, Razorpay step 4 |
+| `/membership` | RegistrationStepper, PlanCard, DetailsForm, VerificationStep, PaymentStep, CompletionStep | `membership-join-button`, `membership-upload-document`, payment step 4 |
 | `/dashboard` | DashboardSummary, MembershipBadge | `dashboard-profile-link`, `dashboard-sign-out` |
 
 ## Phase 3 — Member features
@@ -55,4 +55,4 @@ Nav: `member-admin-link` when user has admin access.
 
 ## Payment
 
-Razorpay checkout on membership step 4 (web): `checkout.js` in `web/index.html`, order from `POST /api/v1/membership/checkout`, signature verify via `POST /api/v1/membership/verify-payment`.
+Membership step 4 calls `POST /api/v1/membership/checkout`. Payment collection is not connected yet.

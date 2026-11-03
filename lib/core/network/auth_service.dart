@@ -74,6 +74,31 @@ class AuthException implements Exception {
   String toString() => message;
 }
 
+String _loginErrorMessage(DioException error) {
+  final detail = error.response?.data;
+  if (detail is Map && detail['detail'] != null) {
+    final nested = detail['detail'];
+    if (nested is String && nested.trim().isNotEmpty) {
+      return nested;
+    }
+    if (nested is List && nested.isNotEmpty) {
+      final first = nested.first;
+      if (first is Map && first['msg'] != null) {
+        return '${first['msg']}';
+      }
+    }
+  }
+  final noResponse = error.response == null;
+  final connectionIssue = error.type == DioExceptionType.connectionError ||
+      error.type == DioExceptionType.connectionTimeout ||
+      error.type == DioExceptionType.receiveTimeout ||
+      noResponse;
+  if (connectionIssue) {
+    return 'Unable to reach the backend at ${AppConfig.apiBaseUrl}.';
+  }
+  return error.response?.statusMessage ?? 'Login failed.';
+}
+
 class AuthService {
   AuthService({Dio? dio})
       : _dio = dio ??
@@ -84,7 +109,17 @@ class AuthService {
                 receiveTimeout: const Duration(seconds: 10),
                 headers: {'Content-Type': 'application/json'},
               ),
-            );
+            ) {
+    // Keep baseUrl fresh (LAN IP / env-config can change after AuthService is created).
+    _dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          options.baseUrl = AppConfig.apiBaseUrl;
+          handler.next(options);
+        },
+      ),
+    );
+  }
 
   final Dio _dio;
 
@@ -145,13 +180,7 @@ class AuthService {
       }
       throw AuthException('Login failed (${response.statusCode}).');
     } on DioException catch (e) {
-      final detail = e.response?.data;
-      if (detail is Map && detail['detail'] != null) {
-        throw AuthException('${detail['detail']}');
-      }
-      throw AuthException(
-        e.response?.statusMessage ?? 'Unable to reach the backend.',
-      );
+      throw AuthException(_loginErrorMessage(e));
     }
   }
 

@@ -3,7 +3,11 @@
 
 $ErrorActionPreference = "Stop"
 $Port = if ($env:KMC_WEB_PORT) { $env:KMC_WEB_PORT } else { "5173" }
-$Url = "http://200.141.2.90:$Port"
+$HostIp = (Get-NetIPAddress -AddressFamily IPv4 |
+    Where-Object { $_.IPAddress -like '192.168.*' -or $_.IPAddress -like '10.*' } |
+    Select-Object -First 1 -ExpandProperty IPAddress)
+if (-not $HostIp) { $HostIp = "127.0.0.1" }
+$Url = "http://${HostIp}:$Port"
 
 # Ensure Flutter is on PATH (Cursor/old terminals may not have refreshed user PATH yet)
 $flutterCandidates = @(

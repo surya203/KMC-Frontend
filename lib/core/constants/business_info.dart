@@ -1,4 +1,4 @@
-/// Registered business details used on legal and contact pages (Razorpay compliance).
+/// Registered business details used on legal and contact pages.
 class BusinessInfo {
   BusinessInfo._();
 

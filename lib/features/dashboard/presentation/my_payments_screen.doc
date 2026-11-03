@@ -3,7 +3,7 @@ File Name: my_payments_screen.dart
 
 1. Modification Done:
 
-   * Lists captured membership payments with amount, date, Razorpay reference, and receipt number when available.
+   * Lists captured membership payments with amount, date, PayU reference, and receipt number when available.
    * Shows **Download receipt** button when `hasReceipt` is true from the API.
    * Downloads receipt as HTML via `fetchPaymentReceiptHtml()` and `downloadTextFile()`.
 

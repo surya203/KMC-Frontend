@@ -1,4 +1,5 @@
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -9,9 +10,9 @@ import '../../../core/auth/auth_session.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/membership_api_service.dart';
+import '../../../core/payment/payu_checkout.dart';
 import '../../../core/network/api_errors.dart';
 import '../../../core/network/registration_service.dart';
-import '../../../core/payment/razorpay_checkout.dart';
 import '../../../core/theme/heading_styles.dart';
 import '../../../core/utils/file_download.dart';
 import '../../../core/utils/image_capture.dart';
@@ -145,6 +146,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
           (draft.payload['registration_completed'] == true || draft.step >= 5)) {
         _restoreCompletionInBackground(draft.id);
       }
+      await _finishPayuReturn();
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -514,78 +516,77 @@ class _MembershipScreenState extends State<MembershipScreen> {
   }
 
   Future<void> _startPayment() async {
+    if (!kIsWeb) {
+      throw Exception('Payment is available on the website.');
+    }
     final draft = _draft;
-    if (draft == null) return;
-
-    final checkout = await _membershipApi.createCheckout(
+    if (draft == null) {
+      throw Exception('Start registration before payment.');
+    }
+    if (_selectedCountryPrice.currencyCode.toUpperCase() != 'INR') {
+      throw Exception(
+        'PayU currently accepts India (INR) only. Select the India price to continue.',
+      );
+    }
+    final session = await _membershipApi.createCheckout(
       draft.id,
       countryCode: _selectedCountryPrice.code,
       currency: _selectedCountryPrice.currencyCode,
     );
-    final email = _emailController.text.trim();
-    final keyId = checkout.keyId;
-
-    if (keyId.isEmpty) {
-      await _pollCompletion(draft.id);
-      return;
+    if (session.paymentActionUrl.isEmpty || session.payuFields.isEmpty) {
+      throw Exception('Payment could not be started. Please try again.');
     }
-
-    await openRazorpayCheckout(
-      keyId: keyId,
-      orderId: checkout.orderId,
-      amountPaise: checkout.amountPaise,
-      currency: checkout.currency,
-      name: _fullName,
-      email: email,
-      onSuccess: (result) async {
-        try {
-          await _membershipApi.verifyPayment(
-            draftId: draft.id,
-            razorpayOrderId: result.orderId,
-            razorpayPaymentId: result.paymentId,
-            razorpaySignature: result.signature,
-          );
-          await _pollCompletion(draft.id);
-        } catch (e) {
-          if (mounted) {
-            setState(() {
-              _error = e.toString().replaceFirst('Exception: ', '');
-              _loading = false;
-            });
-          }
-        }
-      },
-      onDismiss: (message) {
-        if (mounted) setState(() => _error = message);
-      },
-      onFailed: (message) {
-        if (mounted) setState(() => _error = message);
-      },
+    openPayuHostedCheckout(
+      actionUrl: session.paymentActionUrl,
+      fields: session.payuFields,
     );
   }
 
-  Future<void> _pollCompletion(String draftId) async {
-    setState(() => _loading = true);
-    for (var i = 0; i < 8; i++) {
+  Future<void> _finishPayuReturn() async {
+    if (!mounted) return;
+    final uri = GoRouterState.of(context).uri;
+    final payu = uri.queryParameters['payu'];
+    if (payu == null || payu.isEmpty) return;
+
+    final queryDraftId = uri.queryParameters['draft_id'];
+    if (queryDraftId != null && queryDraftId.isNotEmpty) {
+      await AuthSession.instance.saveDraftId(queryDraftId);
+    }
+    final draftId =
+        _draft?.id ?? queryDraftId ?? await AuthSession.instance.getDraftId();
+    if (draftId == null) return;
+
+    if (payu == 'failure') {
+      if (!mounted) return;
+      setState(() {
+        _error = 'Payment was not completed. You can try again.';
+        _step = 3;
+      });
+      return;
+    }
+
+    for (var attempt = 0; attempt < 5; attempt++) {
       try {
-        final result = await _registration.completeRegistration(draftId);
+        final completion = await _registration.completeRegistration(draftId);
         if (!mounted) return;
-        setState(() {
-          _completion = result;
-          _step = 4;
-          _loading = false;
-        });
-        return;
+        if (completion.completed) {
+          setState(() {
+            _completion = completion;
+            _step = 4;
+            _error = null;
+          });
+          return;
+        }
       } catch (_) {
         await Future<void>.delayed(const Duration(seconds: 2));
       }
     }
-    if (mounted) {
-      setState(() {
-        _error = 'Payment received but registration is still processing. Try again shortly.';
-        _loading = false;
-      });
-    }
+    if (!mounted) return;
+    setState(() {
+      _error =
+          'Payment is still confirming. Wait a moment, then refresh this page.';
+      _step = 3;
+    });
   }
 
   @override
@@ -1998,7 +1999,7 @@ class _VerifyStep extends StatelessWidget {
   }
 }
 
-class _PaymentStep extends StatefulWidget {
+class _PaymentStep extends StatelessWidget {
   const _PaymentStep({
     required this.plan,
     required this.countryPrice,
@@ -2011,11 +2012,91 @@ class _PaymentStep extends StatefulWidget {
   final VoidCallback onBack;
   final VoidCallback onPay;
 
-  @override
-  State<_PaymentStep> createState() => _PaymentStepState();
-}
+  String get _price => countryPrice.displayPrice;
 
-enum _PaymentMethod { upi, card, bank }
+  String get _planLabel =>
+      'MY KMC — ${plan?.name ?? 'Life Membership'}';
+
+  @override
+  Widget build(BuildContext context) {
+    return _Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Payment',
+            style: GoogleFonts.fraunces(
+              fontSize: 28,
+              fontWeight: FontWeight.w600,
+              color: AppColors.heading,
+            ),
+          ),
+          const SizedBox(height: 24),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+            decoration: BoxDecoration(
+              color: AppColors.muted,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    _planLabel,
+                    style: GoogleFonts.inter(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.heading,
+                    ),
+                  ),
+                ),
+                Text(
+                  _price,
+                  style: GoogleFonts.fraunces(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.heading,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: AppColors.background,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Text(
+              "You will pay on PayU's secure page. KMC does not collect card, UPI, or bank details.",
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                height: 1.5,
+                color: AppColors.bodyText,
+              ),
+            ),
+          ),
+          const SizedBox(height: 28),
+          const _PaymentLegalNotice(),
+          const SizedBox(height: 12),
+          _PrimaryButton(label: 'Pay $_price on PayU', onPressed: onPay),
+          const SizedBox(height: 8),
+          TextButton(
+            onPressed: onBack,
+            child: Text(
+              'Back',
+              style: GoogleFonts.inter(color: AppColors.bodyText),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _PaymentLegalNotice extends StatelessWidget {
   const _PaymentLegalNotice();
@@ -2069,457 +2150,6 @@ class _PaymentLegalNotice extends StatelessWidget {
           const TextSpan(text: '.'),
         ],
       ),
-    );
-  }
-}
-
-class _PaymentStepState extends State<_PaymentStep> {
-  _PaymentMethod _method = _PaymentMethod.upi;
-  final _upiController = TextEditingController();
-  final _cardNumberController = TextEditingController();
-  final _cardExpiryController = TextEditingController();
-  final _cardCvvController = TextEditingController();
-
-  @override
-  void dispose() {
-    _upiController.dispose();
-    _cardNumberController.dispose();
-    _cardExpiryController.dispose();
-    _cardCvvController.dispose();
-    super.dispose();
-  }
-
-  bool get _isDemo {
-    final key = AppConfig.razorpayKeyId.trim();
-    return key.isEmpty ||
-        AppConfig.env == 'development' ||
-        key.startsWith('rzp_test_');
-  }
-
-  String get _price => widget.countryPrice.displayPrice;
-
-  String get _planLabel =>
-      'MY KMC — ${widget.plan?.name ?? 'Life Membership'}';
-
-  String get _payLabel => switch (_method) {
-        _PaymentMethod.upi => 'Pay $_price via UPI',
-        _PaymentMethod.card => 'Pay $_price via Card',
-        _PaymentMethod.bank => 'Pay $_price via Bank transfer',
-      };
-
-  @override
-  Widget build(BuildContext context) {
-    return _Card(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Text(
-                'Payment',
-                style: GoogleFonts.fraunces(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.heading,
-                ),
-              ),
-              if (_isDemo) ...[
-                const SizedBox(width: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.secondary.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: AppColors.secondary.withValues(alpha: 0.35),
-                    ),
-                  ),
-                  child: Text(
-                    'Demo — no real charge',
-                    style: GoogleFonts.inter(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.secondary,
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-          const SizedBox(height: 24),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-            decoration: BoxDecoration(
-              color: AppColors.muted,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.border),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    _planLabel,
-                    style: GoogleFonts.inter(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                      color: AppColors.heading,
-                    ),
-                  ),
-                ),
-                Text(
-                  _price,
-                  style: GoogleFonts.fraunces(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.heading,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-          _PaymentMethodTabs(
-            selected: _method,
-            onChanged: (m) => setState(() => _method = m),
-          ),
-          const SizedBox(height: 20),
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 200),
-            child: switch (_method) {
-              _PaymentMethod.upi => _buildUpiPanel(key: const ValueKey('upi')),
-              _PaymentMethod.card =>
-                _buildCardPanel(key: const ValueKey('card')),
-              _PaymentMethod.bank =>
-                _buildBankPanel(key: const ValueKey('bank')),
-            },
-          ),
-          const SizedBox(height: 28),
-          const _PaymentLegalNotice(),
-          const SizedBox(height: 12),
-          _PrimaryButton(label: _payLabel, onPressed: widget.onPay),
-          const SizedBox(height: 8),
-          TextButton(
-            onPressed: widget.onBack,
-            child: Text(
-              'Back',
-              style: GoogleFonts.inter(color: AppColors.bodyText),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildUpiPanel({required Key key}) {
-    return Container(
-      key: key,
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.background,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'UPI ID',
-            style: GoogleFonts.inter(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.2,
-              color: AppColors.mutedText,
-            ),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _upiController,
-            keyboardType: TextInputType.emailAddress,
-            decoration: InputDecoration(
-              hintText: 'yourmobile@ybl',
-              filled: true,
-              fillColor: Colors.white,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 14,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: AppColors.border),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: AppColors.border),
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            "You'll get a collect request on your UPI app.",
-            style: GoogleFonts.inter(
-              fontSize: 13,
-              color: AppColors.mutedText,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCardPanel({required Key key}) {
-    return Container(
-      key: key,
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.background,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _PaymentInputLabel('Card number'),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _cardNumberController,
-            keyboardType: TextInputType.number,
-            decoration: _paymentInputDecoration(hint: '4242 4242 4242 4242'),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _PaymentInputLabel('Expiry'),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _cardExpiryController,
-                      decoration: _paymentInputDecoration(hint: 'MM / YY'),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _PaymentInputLabel('CVV'),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _cardCvvController,
-                      keyboardType: TextInputType.number,
-                      obscureText: true,
-                      decoration: _paymentInputDecoration(hint: '•••'),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'Secured by Razorpay. Your card details are encrypted.',
-            style: GoogleFonts.inter(
-              fontSize: 13,
-              color: AppColors.mutedText,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBankPanel({required Key key}) {
-    return Container(
-      key: key,
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.background,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _BankDetailRow(label: 'Account name', value: 'KMC Alumni Association'),
-          const SizedBox(height: 12),
-          _BankDetailRow(label: 'Bank', value: 'State Bank of India'),
-          const SizedBox(height: 12),
-          _BankDetailRow(label: 'Account no.', value: 'XXXX XXXX 1234'),
-          const SizedBox(height: 12),
-          _BankDetailRow(label: 'IFSC', value: 'SBIN0001234'),
-          const SizedBox(height: 14),
-          Text(
-            'Use your registered email as payment reference. Membership activates after verification.',
-            style: GoogleFonts.inter(
-              fontSize: 13,
-              height: 1.5,
-              color: AppColors.mutedText,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  InputDecoration _paymentInputDecoration({required String hint}) {
-    return InputDecoration(
-      hintText: hint,
-      filled: true,
-      fillColor: Colors.white,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: AppColors.border),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: AppColors.border),
-      ),
-    );
-  }
-}
-
-class _PaymentMethodTabs extends StatelessWidget {
-  const _PaymentMethodTabs({
-    required this.selected,
-    required this.onChanged,
-  });
-
-  final _PaymentMethod selected;
-  final ValueChanged<_PaymentMethod> onChanged;
-
-  static const _tabs = [
-    (_PaymentMethod.upi, 'UPI'),
-    (_PaymentMethod.card, 'Card'),
-    (_PaymentMethod.bank, 'Bank transfer'),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: AppColors.muted,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        children: [
-          for (var i = 0; i < _tabs.length; i++)
-            Expanded(
-              child: Padding(
-                padding: EdgeInsets.only(right: i < _tabs.length - 1 ? 4 : 0),
-                child: _PaymentTab(
-                  label: _tabs[i].$2,
-                  selected: selected == _tabs[i].$1,
-                  onTap: () => onChanged(_tabs[i].$1),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PaymentTab extends StatelessWidget {
-  const _PaymentTab({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: selected ? AppColors.primary : Colors.transparent,
-      borderRadius: BorderRadius.circular(8),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            style: GoogleFonts.inter(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: selected ? Colors.white : AppColors.bodyText,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _PaymentInputLabel extends StatelessWidget {
-  const _PaymentInputLabel(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      text.toUpperCase(),
-      style: GoogleFonts.inter(
-        fontSize: 11,
-        fontWeight: FontWeight.w700,
-        letterSpacing: 1.2,
-        color: AppColors.mutedText,
-      ),
-    );
-  }
-}
-
-class _BankDetailRow extends StatelessWidget {
-  const _BankDetailRow({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 110,
-          child: Text(
-            label,
-            style: GoogleFonts.inter(
-              fontSize: 13,
-              color: AppColors.mutedText,
-            ),
-          ),
-        ),
-        Expanded(
-          child: Text(
-            value,
-            style: GoogleFonts.inter(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: AppColors.heading,
-            ),
-          ),
-        ),
-      ],
     );
   }
 }

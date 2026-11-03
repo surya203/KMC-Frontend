@@ -14,4 +14,4 @@ File Name: dashboard_member_screens.dart
 3. How This Modification Is Involved in the Flow:
 
    * Routes: /dashboard/profile, /dashboard/membership, /dashboard/announcements, /dashboard/events.
-   * Uses profiles_service, announcements_service, membership_service, events_service, razorpay_checkout.
+   * Uses profiles_service, announcements_service, membership_service, events_service, payu_checkout.

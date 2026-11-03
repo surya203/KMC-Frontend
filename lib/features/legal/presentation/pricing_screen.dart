@@ -62,7 +62,7 @@ class _PricingScreenState extends State<PricingScreen> {
               ),
               subtitle:
                   'Membership fees are shown before checkout and processed '
-                  'securely via Razorpay.',
+                  'securely by the payment provider.',
             ),
             Container(
               width: double.infinity,

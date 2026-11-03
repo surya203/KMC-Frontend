@@ -29,12 +29,27 @@ class AppConfig {
     return fallback;
   }
 
+  /// On local/LAN web, always call the API on the same host as the page.
+  /// Stops login breaking when Wi‑Fi DHCP changes the machine IP.
+  static String? _sameHostApiBaseUrl() {
+    if (!kIsWeb) return null;
+    final host = Uri.base.host;
+    if (host.isEmpty) return null;
+    final isLocalName = host == 'localhost' || host == '127.0.0.1';
+    final isIpv4 = RegExp(r'^\d{1,3}(\.\d{1,3}){3}$').hasMatch(host);
+    if (!isLocalName && !isIpv4) return null;
+    return 'http://$host:8001';
+  }
+
   static String get env => _env('ENV', 'development');
 
   static bool get isDevelopment => env == 'development';
 
-  static String get apiBaseUrl =>
-      _env('API_BASE_URL', 'http://200.141.2.90:8001');
+  static String get apiBaseUrl {
+    final sameHost = _sameHostApiBaseUrl();
+    if (sameHost != null) return sameHost;
+    return _env('API_BASE_URL', 'http://192.168.0.10:8001');
+  }
 
   static String get apiPrefix => _env('API_PREFIX', '/api/v1');
 
@@ -43,8 +58,6 @@ class AppConfig {
   static String get supabaseUrl => _env('SUPABASE_URL', '');
 
   static String get supabaseAnonKey => _env('SUPABASE_ANON_KEY', '');
-
-  static String get razorpayKeyId => _env('RAZORPAY_KEY_ID', '');
 
   static String get storageBucket {
     final preferred = _env('STORAGE_BUCKET', '');

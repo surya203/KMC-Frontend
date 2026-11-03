@@ -24,7 +24,7 @@ class PrivacyScreen extends StatelessWidget {
             'documents where applicable.',
             'When you make a payment, transaction details such as order ID, '
             'amount, payment status, and timestamp are recorded. Card and UPI '
-            'details are processed directly by Razorpay and are not stored on '
+            'details are processed directly by the payment provider and are not stored on '
             'our servers.',
             'We also collect technical data such as browser type, device '
             'information, and usage logs to maintain platform security and '
@@ -45,8 +45,8 @@ class PrivacyScreen extends StatelessWidget {
         LegalSection(
           heading: 'Data sharing',
           body: [
-            'We share payment information with Razorpay solely to process '
-            'transactions. Razorpay handles card and banking data according to '
+            'We share payment information with the payment provider solely to process '
+            'transactions. The payment provider handles card and banking data according to '
             'its own privacy policy and PCI-DSS standards.',
             'We may disclose information when required by law, court order, or '
             'to protect the rights and safety of our members and organisation.',

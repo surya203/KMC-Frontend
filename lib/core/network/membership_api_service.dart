@@ -110,6 +110,8 @@ class CheckoutSession {
     required this.amountPaise,
     required this.currency,
     required this.keyId,
+    required this.paymentActionUrl,
+    required this.payuFields,
   });
 
   final String draftId;
@@ -117,14 +119,25 @@ class CheckoutSession {
   final int amountPaise;
   final String currency;
   final String keyId;
+  final String paymentActionUrl;
+  final Map<String, String> payuFields;
 
   factory CheckoutSession.fromJson(Map<String, dynamic> json) {
+    final rawPayu = json['payu'];
+    final payuFields = <String, String>{};
+    if (rawPayu is Map) {
+      rawPayu.forEach((key, value) {
+        payuFields['$key'] = '$value';
+      });
+    }
     return CheckoutSession(
       draftId: '${json['draft_id']}',
       orderId: '${json['order_id']}',
       amountPaise: json['amount_paise'] as int,
       currency: json['currency'] as String? ?? 'INR',
       keyId: json['key_id'] as String? ?? '',
+      paymentActionUrl: '${json['payment_action_url'] ?? ''}',
+      payuFields: payuFields,
     );
   }
 }
@@ -273,33 +286,6 @@ class MembershipApiService {
       );
       if (response.data == null) throw Exception('Checkout failed.');
       return CheckoutSession.fromJson(response.data!);
-    } on DioException catch (e) {
-      throw Exception(_readDetail(e));
-    }
-  }
-
-  Future<void> verifyPayment({
-    required String draftId,
-    required String razorpayOrderId,
-    required String razorpayPaymentId,
-    required String razorpaySignature,
-  }) async {
-    try {
-      final response = await _apiClient.post<Map<String, dynamic>>(
-        '${AppConfig.apiPrefix}/membership/verify-payment',
-        data: {
-          'draft_id': draftId,
-          'razorpay_order_id': razorpayOrderId,
-          'razorpay_payment_id': razorpayPaymentId,
-          'razorpay_signature': razorpaySignature,
-        },
-      );
-      final data = response.data;
-      if (data == null || data['success'] != true) {
-        throw Exception(
-          '${data?['message'] ?? 'Payment verification failed.'}',
-        );
-      }
     } on DioException catch (e) {
       throw Exception(_readDetail(e));
     }

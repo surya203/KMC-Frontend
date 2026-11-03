@@ -1,15 +1,21 @@
+# Fast local/static build (nginx). Opens quickly — no Flutter debug reload loop.
+# Usage:
+#   docker compose -f docker-compose.dev.yml down
+#   docker compose up --build -d
+#
+# For live Dart editing use docker-compose.dev.yml instead (slower).
+
 services:
   web:
     build: .
     ports:
       - "8080:80"
     environment:
-      # Default API host.
-      ENV: ${ENV:-production}
-      API_BASE_URL: ${API_BASE_URL:-http://200.141.2.90:8001}
+      # Local API host (override with your current LAN IP if needed).
+      ENV: ${ENV:-development}
+      API_BASE_URL: ${API_BASE_URL:-http://192.168.0.10:8001}
       API_PREFIX: ${API_PREFIX:-/api/v1}
       STORAGE_BUCKET: ${STORAGE_BUCKET:-verification-documents}
-      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
       # Legacy optional — not required with Postgres media
       SUPABASE_URL: ${SUPABASE_URL:-}
       SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-}
