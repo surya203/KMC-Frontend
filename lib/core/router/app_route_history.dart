@@ -7,6 +7,9 @@ import '../auth/auth_session.dart';
 ///
 /// Screens use [GoRouter.go], which does not push a Navigator stack. Web still
 /// has window history; mobile does not unless we record it here.
+///
+/// Redirect chains (legacy URLs, auth) are collapsed to the final path in a
+/// frame so Back never lands on an intermediate that redirects again.
 class AppRouteHistory {
   AppRouteHistory({bool Function()? isAuthenticated})
       : _isAuthenticated = isAuthenticated ??
@@ -20,12 +23,16 @@ class AppRouteHistory {
   String? current;
   bool _ignoreNext = false;
   bool _attached = false;
+  bool _coalesceFrames = false;
+  String? _pendingPath;
+  bool _callbackScheduled = false;
 
   static const _maxStack = 64;
 
   void attach(GoRouter router) {
     if (_attached) return;
     _attached = true;
+    _coalesceFrames = true;
     void sync() {
       final path = _currentPath(router);
       if (path != null) record(path);
@@ -42,6 +49,32 @@ class AppRouteHistory {
   }
 
   void record(String path) {
+    if (path.isEmpty || path == '/splash') return;
+
+    if (!_coalesceFrames) {
+      _commit(path);
+      return;
+    }
+
+    _pendingPath = path;
+    if (_callbackScheduled) return;
+    _callbackScheduled = true;
+    try {
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        _callbackScheduled = false;
+        final pending = _pendingPath;
+        _pendingPath = null;
+        if (pending != null) _commit(pending);
+      });
+    } catch (_) {
+      _callbackScheduled = false;
+      final pending = _pendingPath;
+      _pendingPath = null;
+      if (pending != null) _commit(pending);
+    }
+  }
+
+  void _commit(String path) {
     if (path.isEmpty || path == '/splash') return;
     if (path == current) return;
 
@@ -61,6 +94,7 @@ class AppRouteHistory {
 
   bool get canGoBack => _nextUsable() != null;
 
+  /// Pops exactly one usable previous route (never jumps multiple screens).
   String? takeBack() {
     while (_stack.isNotEmpty) {
       final prev = _stack.removeLast();
@@ -77,6 +111,7 @@ class AppRouteHistory {
     _stack.clear();
     current = null;
     _ignoreNext = false;
+    _pendingPath = null;
   }
 
   /// Call after a back [GoRouter.go] in tests (no frame scheduled).

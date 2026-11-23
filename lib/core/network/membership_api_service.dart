@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 import '../config/app_config.dart';
 import 'auth_service.dart';
@@ -110,6 +111,8 @@ class CheckoutSession {
     required this.amountPaise,
     required this.currency,
     required this.keyId,
+    required this.paymentActionUrl,
+    required this.payuFields,
   });
 
   final String draftId;
@@ -117,14 +120,25 @@ class CheckoutSession {
   final int amountPaise;
   final String currency;
   final String keyId;
+  final String paymentActionUrl;
+  final Map<String, String> payuFields;
 
   factory CheckoutSession.fromJson(Map<String, dynamic> json) {
+    final rawPayu = json['payu'];
+    final payuFields = <String, String>{};
+    if (rawPayu is Map) {
+      rawPayu.forEach((key, value) {
+        payuFields['$key'] = '$value';
+      });
+    }
     return CheckoutSession(
       draftId: '${json['draft_id']}',
       orderId: '${json['order_id']}',
       amountPaise: json['amount_paise'] as int,
       currency: json['currency'] as String? ?? 'INR',
       keyId: json['key_id'] as String? ?? '',
+      paymentActionUrl: '${json['payment_action_url'] ?? ''}',
+      payuFields: payuFields,
     );
   }
 }
@@ -136,6 +150,7 @@ class MemberMembership {
     required this.planSlug,
     required this.votingRights,
     required this.feePaise,
+    this.feeCurrency = 'INR',
     this.planId,
     this.startedAt,
     this.expiresAt,
@@ -155,8 +170,9 @@ class MemberMembership {
   final String? registrationDate;
   final String? paymentDate;
   final int feePaise;
+  final String feeCurrency;
 
-  String get feeDisplay => _formatPaise(feePaise);
+  String get feeDisplay => _formatPaise(feePaise, feeCurrency);
 
   factory MemberMembership.fromJson(Map<String, dynamic> json) {
     DateTime? parseDate(String? raw) =>
@@ -177,6 +193,7 @@ class MemberMembership {
       feePaise: json['fee_paise'] is int
           ? json['fee_paise'] as int
           : int.tryParse('${json['fee_paise']}') ?? 0,
+      feeCurrency: '${json['fee_currency'] ?? 'INR'}'.toUpperCase(),
     );
   }
 }
@@ -187,6 +204,7 @@ class PaymentHistoryItem {
     required this.amountPaise,
     required this.status,
     required this.createdAt,
+    this.currency = 'INR',
     this.providerOrderId,
     this.providerPaymentId,
     this.receiptNumber,
@@ -195,6 +213,7 @@ class PaymentHistoryItem {
 
   final String id;
   final int amountPaise;
+  final String currency;
   final String status;
   final DateTime createdAt;
   final String? providerOrderId;
@@ -202,12 +221,16 @@ class PaymentHistoryItem {
   final String? receiptNumber;
   final bool hasReceipt;
 
-  String get displayAmount => '₹${(amountPaise / 100).round()}';
+  String get displayAmount => _formatCurrencyAmount(amountPaise, currency);
 
   factory PaymentHistoryItem.fromJson(Map<String, dynamic> json) {
+    final amount = json['amount_paise'] is int
+        ? json['amount_paise'] as int
+        : int.tryParse('${json['amount_paise']}') ?? 0;
     return PaymentHistoryItem(
       id: '${json['id']}',
-      amountPaise: json['amount_paise'] as int,
+      amountPaise: amount,
+      currency: '${json['currency'] ?? 'INR'}'.toUpperCase(),
       status: '${json['status']}',
       createdAt: DateTime.parse('${json['created_at']}'),
       providerOrderId: json['provider_order_id'] as String?,
@@ -218,12 +241,8 @@ class PaymentHistoryItem {
   }
 }
 
-String _formatPaise(int paise) {
-  final rupees = paise / 100;
-  if (rupees == rupees.roundToDouble()) {
-    return '₹${rupees.toInt()}';
-  }
-  return '₹${rupees.toStringAsFixed(2)}';
+String _formatPaise(int paise, [String currency = 'INR']) {
+  return _formatCurrencyAmount(paise, currency);
 }
 
 class MembershipApiService {
@@ -269,37 +288,11 @@ class MembershipApiService {
           if (countryCode != null && countryCode.isNotEmpty)
             'country_code': countryCode,
           if (currency != null && currency.isNotEmpty) 'currency': currency,
+          if (kIsWeb) 'return_url': '${Uri.base.origin}/#/membership',
         },
       );
       if (response.data == null) throw Exception('Checkout failed.');
       return CheckoutSession.fromJson(response.data!);
-    } on DioException catch (e) {
-      throw Exception(_readDetail(e));
-    }
-  }
-
-  Future<void> verifyPayment({
-    required String draftId,
-    required String razorpayOrderId,
-    required String razorpayPaymentId,
-    required String razorpaySignature,
-  }) async {
-    try {
-      final response = await _apiClient.post<Map<String, dynamic>>(
-        '${AppConfig.apiPrefix}/membership/verify-payment',
-        data: {
-          'draft_id': draftId,
-          'razorpay_order_id': razorpayOrderId,
-          'razorpay_payment_id': razorpayPaymentId,
-          'razorpay_signature': razorpaySignature,
-        },
-      );
-      final data = response.data;
-      if (data == null || data['success'] != true) {
-        throw Exception(
-          '${data?['message'] ?? 'Payment verification failed.'}',
-        );
-      }
     } on DioException catch (e) {
       throw Exception(_readDetail(e));
     }

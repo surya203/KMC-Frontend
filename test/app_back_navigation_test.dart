@@ -57,4 +57,18 @@ void main() {
 
     expect(history.takeBack(), '/');
   });
+
+  test('history walks exactly one step at a time', () {
+    final history = AppRouteHistory(isAuthenticated: () => false);
+    history.record('/');
+    history.record('/about');
+    history.record('/events');
+    history.record('/membership');
+
+    expect(history.takeBack(), '/events');
+    history.completeBackTransition();
+    expect(history.takeBack(), '/about');
+    history.completeBackTransition();
+    expect(history.takeBack(), '/');
+  });
 }

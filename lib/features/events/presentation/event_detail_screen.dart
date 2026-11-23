@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/auth/auth_session.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/events_api_service.dart';
+import '../../../core/router/app_back_navigation.dart';
 import '../../../core/widgets/event_card.dart';
 import '../../../core/widgets/public_layout.dart';
 import '../../home/widgets/footer_section.dart';
@@ -136,7 +137,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 1200),
                   child: TextButton.icon(
-                    onPressed: () => context.go('/events'),
+                    onPressed: () => navigateAppBack(context),
                     icon: const Icon(Icons.arrow_back),
                     label: const Text('All events'),
                   ),

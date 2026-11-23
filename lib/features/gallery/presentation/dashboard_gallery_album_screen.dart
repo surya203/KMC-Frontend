@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/api_errors.dart';
 import '../../../core/network/gallery_api_service.dart';
+import '../../../core/router/app_back_navigation.dart';
 import '../../../core/utils/download_file.dart';
 import '../../../core/utils/open_external_url.dart';
 import '../widgets/gallery_album_dialogs.dart';
@@ -249,7 +250,7 @@ class _DashboardGalleryAlbumScreenState
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         TextButton.icon(
-          onPressed: () => context.go(widget.basePath),
+          onPressed: () => navigateAppBack(context),
           icon: const Icon(Icons.arrow_back),
           label: const Text('Back to gallery'),
         ),

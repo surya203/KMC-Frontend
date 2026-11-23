@@ -43,7 +43,7 @@ class RefundPolicyScreen extends StatelessWidget {
           heading: 'Failed transactions',
           body: [
             'If a payment fails but your bank account is debited, the amount is '
-            'typically auto-reversed by your bank or Razorpay within 5–7 '
+            'typically auto-reversed by your bank or the payment provider within 5–7 '
             'business days. If not reversed within 10 business days, contact us '
             'with your transaction reference for assistance.',
           ],

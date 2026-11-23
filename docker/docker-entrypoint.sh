@@ -9,7 +9,6 @@ window.__ENV__ = {
   STORAGE_BUCKET: "${STORAGE_BUCKET:-verification-documents}",
   SUPABASE_URL: "${SUPABASE_URL:-}",
   SUPABASE_ANON_KEY: "${SUPABASE_ANON_KEY:-}",
-  RAZORPAY_KEY_ID: "${RAZORPAY_KEY_ID:-rzp_live_TGwiguT5HZKaNR}",
   SUPABASE_STORAGE_BUCKET: "${SUPABASE_STORAGE_BUCKET:-verification-documents}"
 };
 EOF

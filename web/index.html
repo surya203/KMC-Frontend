@@ -32,7 +32,23 @@
   <title>KMC Alumni Connect</title>
   <link rel="manifest" href="manifest.json">
   <script src="env-config.js"></script>
-  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+  <script>
+    // One-time cleanup of a stale production service worker on this origin.
+    // Do NOT clear caches on every load — that forces full reloads and feels stuck.
+    (function () {
+      var host = location.hostname || '';
+      if (host === 'www.kmcalumni.net' || host === 'kmcalumni.net') return;
+      try {
+        if (sessionStorage.getItem('kmc_sw_cleared') === '1') return;
+        sessionStorage.setItem('kmc_sw_cleared', '1');
+      } catch (e) {}
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function (regs) {
+          for (var i = 0; i < regs.length; i++) regs[i].unregister();
+        });
+      }
+    })();
+  </script>
   <style>
     /* Pill scrollbar — Lovable / Chrome reference (thin track, rounded thumb, arrows) */
     :root {

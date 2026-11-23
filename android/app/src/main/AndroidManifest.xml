@@ -1,5 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Required in main (release) — debug/profile manifests alone are not merged into release APK. -->
+    <!-- Required in main (release) — debug/profile manifests alone are not merged into release APK.
+         INTERNET + cleartext for PayU WebView UAT over LAN HTTP. -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.CAMERA"/>
     <uses-feature android:name="android.hardware.camera" android:required="false"/>

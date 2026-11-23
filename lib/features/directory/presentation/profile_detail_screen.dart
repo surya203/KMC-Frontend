@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/profiles_api_service.dart';
+import '../../../core/router/app_back_navigation.dart';
 import '../../../core/utils/membership_number_format.dart';
 import '../../../core/utils/open_external_url.dart';
 import '../../../core/utils/resilient_profile_image.dart';
@@ -68,13 +69,7 @@ class _ProfileDetailScreenState extends State<ProfileDetailScreen> {
             child: Align(
               alignment: Alignment.centerLeft,
               child: TextButton.icon(
-                onPressed: () {
-                  if (context.canPop()) {
-                    context.pop();
-                  } else {
-                    context.go('/member/alumni-roll');
-                  }
-                },
+                onPressed: () => navigateAppBack(context),
                 icon: const Icon(Icons.arrow_back, size: 18),
                 label: const Text('Back to Alumni Member'),
               ),

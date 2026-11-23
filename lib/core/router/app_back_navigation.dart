@@ -42,32 +42,52 @@ void navigateAppPath(BuildContext context, String path) {
   go();
 }
 
-/// Navigates back on public pages — pops, then history, then parent route.
+/// Canonical in-app Back: one step only.
+///
+/// 1) Pop dialogs / local routes when the Navigator can pop
+/// 2) Otherwise go to the immediately previous recorded screen
+/// 3) Otherwise go to the logical parent (not a multi-step jump)
+/// 4) Otherwise go home `/`
 void navigatePublicBack(BuildContext context) {
-  if (context.canPop()) {
-    context.pop();
-    return;
-  }
+  navigateAppBack(context);
+}
 
-  final previous = AppRouteHistory.instance.takeBack();
-  if (previous != null) {
-    appRouter.go(previous);
-    return;
-  }
+/// Same as [navigatePublicBack] — use for every Back control in the app.
+void navigateAppBack(BuildContext context) {
+  if (_handlingAppBack) return;
+  _handlingAppBack = true;
+  try {
+    final router = routerFor(context);
+    if (router.canPop()) {
+      router.pop();
+      return;
+    }
 
-  final path = GoRouterState.of(context).uri.path;
-  final parent = parentRouteForPath(path);
-  context.go(parent ?? '/');
+    final previous = AppRouteHistory.instance.takeBack();
+    if (previous != null) {
+      router.go(previous);
+      return;
+    }
+
+    final path = router.state.uri.path;
+    final parent = parentRouteForPath(path);
+    if (parent != null && parent != path) {
+      router.go(parent);
+      return;
+    }
+
+    if (path != '/') {
+      router.go('/');
+    }
+  } finally {
+    _handlingAppBack = false;
+  }
 }
 
 /// Phone navigation-bar Back. Screens use [GoRouter.go], so Android has no
 /// stack and would close the app. Web keeps the browser history.
-///
-/// 1) pops a dialog or menu when one is open
-/// 2) walks recorded in-app history (same as the website Back button)
-/// 3) otherwise goes to the parent screen
-/// 4) leaves the app only from home, dashboard, or splash
 bool _handlingSystemBack = false;
+bool _handlingAppBack = false;
 
 Future<bool> handleAppSystemBack() async {
   if (kIsWeb) return false;

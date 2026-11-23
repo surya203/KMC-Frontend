@@ -77,7 +77,7 @@ git pull origin main
 #   ENV=production
 #   PUBLIC_API_BASE_URL=https://api.kmcalumni.net
 #   CORS_ORIGIN=https://kmcalumni.net
-#   RAZORPAY live keys, JWT_SECRET, POSTGRES_PASSWORD, etc.
+#   PayU live key/salt, JWT_SECRET, POSTGRES_PASSWORD, etc.
 
 docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
 ```
@@ -113,23 +113,23 @@ Defaults (already production-safe):
 | `ENV` | `production` |
 | `API_BASE_URL` | `https://api.kmcalumni.net` |
 | `API_PREFIX` | `/api/v1` |
-| `RAZORPAY_KEY_ID` | live public key |
 
 Override only if needed:
 
 ```bash
 ENV=production \
 API_BASE_URL=https://api.kmcalumni.net \
-RAZORPAY_KEY_ID=rzp_live_YOUR_KEY \
 docker compose up -d --build
 ```
 
 ### Smoke
 
 1. Open https://kmcalumni.net (hard refresh)  
-2. Check https://kmcalumni.net/env-config.js → API URL + `rzp_live_...`  
+2. Check https://kmcalumni.net/env-config.js → `API_BASE_URL=https://api.kmcalumni.net`  
 3. Login (email / MC number)  
-4. Membership pay — no “Demo” badge  
+4. Membership PayU: after OTP, **no** Chrome insecure-form warning → success + receipt  
+   - Requires backend `PUBLIC_API_BASE_URL=https://…` and `PAYU_FRONTEND_RETURN_URL=https://YOUR-APP/#/membership`  
+   - Smoke INR / USD / GBP / AUD (PayU Live must have multi-currency / MCC enabled for non-INR)  
 5. Join Network docs upload works (needs migration-032 + BE)
 
 App port on host: **8080** (map behind Cloudflare / reverse proxy as you already do).
@@ -141,7 +141,7 @@ App port on host: **8080** (map behind Cloudflare / reverse proxy as you already
 - [ ] **DB:** run `migration-032` on **production** Postgres (if not already)  
 - [ ] **BE:** `git pull` + `docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build`  
 - [ ] **FE:** `git pull` + `docker compose up -d --build`  
-- [ ] Health + login + pay + registration docs smoke tests  
+- [ ] Health + login + PayU (INR/USD/GBP/AUD) + registration docs smoke tests  
 
 ---
 
@@ -150,9 +150,9 @@ App port on host: **8080** (map behind Cloudflare / reverse proxy as you already
 | Wrong (local) | Right (production) |
 | --- | --- |
 | `docker-compose.dev.yml` | FE: `docker compose.yml` / BE: `docker-compose.prod.yml` |
-| `http://200.141.2.90:8001` | `https://api.kmcalumni.net` |
+| local HTTP API | `https://api.kmcalumni.net` |
 | Local Postgres `:5433` / `kmc-postgres` | `kmc-prod-postgres` or cloud `DATABASE_URL` |
-| `rzp_test_...` | `rzp_live_...` |
+| PayU test key + HTTP callbacks | PayU live + `PUBLIC_API_BASE_URL=https://…` |
 
 ---
 

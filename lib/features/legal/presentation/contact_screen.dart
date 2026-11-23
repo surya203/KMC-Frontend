@@ -164,7 +164,7 @@ class _SupportHoursCard extends StatelessWidget {
         const SizedBox(height: 20),
         Text(
           'Payment-related queries should include your registered email and '
-          'Razorpay payment ID or receipt reference for faster resolution.',
+          'payment reference or receipt number for faster resolution.',
           style: GoogleFonts.inter(
             fontSize: 16,
             height: 1.75,

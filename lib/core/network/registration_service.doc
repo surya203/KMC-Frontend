@@ -4,7 +4,7 @@ File Name: registration_service.dart
 1. Modification Done:
 
    * Created API calls for the full membership registration wizard: create/update draft, send OTP, verify OTP, upload verification document, create payment checkout, and complete registration.
-   * Added result models for checkout (Razorpay order details), OTP debug info, and completion status.
+   * Added result models for checkout (PayU order details), OTP debug info, and completion status.
 
 2. Purpose of This Modification:
 
@@ -14,7 +14,7 @@ File Name: registration_service.dart
 3. How This Modification Is Involved in the Flow:
 
    * Used exclusively by `membership_screen.dart` and its step widgets.
-   * Checkout result is passed to Razorpay in `razorpay_checkout_web.dart`; completion clears `registration_draft_storage.dart`.
+   * Checkout result is passed to PayU in `payu_checkout_web.dart`; completion clears `registration_draft_storage.dart`.
 
 ---
 

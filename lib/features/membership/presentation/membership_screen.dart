@@ -9,9 +9,10 @@ import '../../../core/auth/auth_session.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/membership_api_service.dart';
+import '../../../core/payment/payu_checkout.dart';
+import '../../../core/payment/payu_return_history.dart';
 import '../../../core/network/api_errors.dart';
 import '../../../core/network/registration_service.dart';
-import '../../../core/payment/razorpay_checkout.dart';
 import '../../../core/theme/heading_styles.dart';
 import '../../../core/utils/file_download.dart';
 import '../../../core/utils/image_capture.dart';
@@ -149,6 +150,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
           (draft.payload['registration_completed'] == true || draft.step >= 5)) {
         _restoreCompletionInBackground(draft.id);
       }
+      await _finishPayuReturn();
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -562,79 +564,175 @@ class _MembershipScreenState extends State<MembershipScreen> {
     });
   }
 
+  /// India is INR to INR. US, UK, and AU pay the same ₹1000 (rupees to that
+  /// country). The local-currency checkout is not offered on this screen.
+  String get _checkoutCurrency => 'INR';
+
+  int get _checkoutAmountPaise {
+    if (_checkoutCurrency == 'INR') return 100000;
+    return _selectedCountryPrice.amountPaise;
+  }
+
+  String get _checkoutDisplayPrice {
+    if (_checkoutCurrency == 'INR') return '₹1000';
+    return _selectedCountryPrice.displayPrice;
+  }
+
   Future<void> _startPayment() async {
     final draft = _draft;
-    if (draft == null) return;
-
-    final checkout = await _membershipApi.createCheckout(
-      draft.id,
-      countryCode: _selectedCountryPrice.code,
-      currency: _selectedCountryPrice.currencyCode,
-    );
-    final email = _emailController.text.trim();
-    final keyId = checkout.keyId;
-
-    if (keyId.isEmpty) {
-      await _pollCompletion(draft.id);
-      return;
+    if (draft == null) {
+      throw Exception('Start registration before payment.');
     }
+    final country = _selectedCountryPrice;
+    final currency = _checkoutCurrency;
+    const supported = {'INR', 'USD', 'GBP', 'AUD'};
+    if (!supported.contains(currency)) {
+      throw Exception(
+        'Unsupported currency. Choose India, United States, United Kingdom, or Australia.',
+      );
+    }
+    final amountPaise = _checkoutAmountPaise;
+    // Country stays US/UK/AU/IN. Collection is always the INR life fee.
+    await _registration.updateDraft(
+      draftId: draft.id,
+      step: draft.step,
+      payload: {
+        ...draft.payload,
+        'country_code': country.code,
+        'currency': currency,
+        if (amountPaise > 0) 'amount_paise': amountPaise,
+        'payment_flow': 'inr',
+      },
+    );
+    final session = await _membershipApi.createCheckout(
+      draft.id,
+      countryCode: country.code,
+      currency: currency,
+    );
+    if (session.paymentActionUrl.isEmpty || session.payuFields.isEmpty) {
+      throw Exception('Payment could not be started. Please try again.');
+    }
+    // Flow 1 non-INR must carry PayU transactionCurrency from the backend.
+    if (currency != 'INR') {
+      final postedCurrency =
+          (session.payuFields['transactionCurrency'] ?? '').toUpperCase();
+      if (postedCurrency != currency) {
+        throw Exception(
+          'Multi-currency payment is misconfigured. Please try again.',
+        );
+      }
+    } else if (session.payuFields.containsKey('transactionCurrency')) {
+      throw Exception(
+        'INR checkout must not send a foreign transactionCurrency.',
+      );
+    }
+    if (!mounted) return;
+    final launch = await openPayuHostedCheckout(
+      actionUrl: session.paymentActionUrl,
+      fields: session.payuFields,
+      context: context,
+    );
+    // Web: form navigates away; completion runs via URL on return.
+    // Mobile: WebView pops with outcome when PayU redirects back.
+    if (!mounted) return;
+    if (launch != null) {
+      await _applyPayuOutcome(
+        launch.outcome,
+        draftId: launch.draftId,
+        reason: launch.reason,
+      );
+    }
+  }
 
-    await openRazorpayCheckout(
-      keyId: keyId,
-      orderId: checkout.orderId,
-      amountPaise: checkout.amountPaise,
-      currency: checkout.currency,
-      name: _fullName,
-      email: email,
-      onSuccess: (result) async {
-        try {
-          await _membershipApi.verifyPayment(
-            draftId: draft.id,
-            razorpayOrderId: result.orderId,
-            razorpayPaymentId: result.paymentId,
-            razorpaySignature: result.signature,
-          );
-          await _pollCompletion(draft.id);
-        } catch (e) {
-          if (mounted) {
-            setState(() {
-              _error = e.toString().replaceFirst('Exception: ', '');
-              _loading = false;
-            });
-          }
-        }
-      },
-      onDismiss: (message) {
-        if (mounted) setState(() => _error = message);
-      },
-      onFailed: (message) {
-        if (mounted) setState(() => _error = message);
-      },
+  Future<void> _finishPayuReturn() async {
+    if (!mounted) return;
+    final uri = GoRouterState.of(context).uri;
+    final payu = uri.queryParameters['payu'];
+    if (payu == null || payu.isEmpty) return;
+    final draftId = uri.queryParameters['draft_id'];
+    final reason = uri.queryParameters['reason'];
+    // Remove callback/payu query from browser history before handling outcome.
+    scrubPayuReturnBrowserHistory();
+    await _applyPayuOutcome(
+      payu,
+      draftId: draftId,
+      reason: reason,
     );
   }
 
-  Future<void> _pollCompletion(String draftId) async {
-    setState(() => _loading = true);
-    for (var i = 0; i < 8; i++) {
+  Future<void> _applyPayuOutcome(
+    String payu, {
+    String? draftId,
+    String? reason,
+  }) async {
+    if (!mounted) return;
+    if (payu == 'cancelled') {
+      final detail = (reason ?? '').trim();
+      setState(() {
+        _error = detail.isEmpty
+            ? 'Payment was cancelled. You can try again from this page.'
+            : detail;
+        _step = 3;
+      });
+      return;
+    }
+
+    final queryDraftId = draftId;
+    if (queryDraftId != null && queryDraftId.isNotEmpty) {
+      await AuthSession.instance.saveDraftId(queryDraftId);
+    }
+    final resolvedDraftId =
+        _draft?.id ?? queryDraftId ?? await AuthSession.instance.getDraftId();
+    if (resolvedDraftId == null) return;
+
+    if (payu == 'failure') {
+      if (!mounted) return;
+      final detail = (reason ?? '').trim();
+      setState(() {
+        _error = detail.isEmpty
+            ? 'Payment was not completed. You can try again.'
+            : detail;
+        _step = 3;
+      });
+      return;
+    }
+
+    var paymentNotTaken = false;
+    for (var attempt = 0; attempt < 5; attempt++) {
       try {
-        final result = await _registration.completeRegistration(draftId);
+        final completion =
+            await _registration.completeRegistration(resolvedDraftId);
         if (!mounted) return;
-        setState(() {
-          _completion = result;
-          _step = 4;
-          _loading = false;
-        });
-        return;
+        if (completion.completed) {
+          setState(() {
+            _completion = completion;
+            _step = 4;
+            _error = null;
+          });
+          return;
+        }
+      } on RegistrationException catch (error) {
+        final message = error.message.toLowerCase();
+        // Payment was not taken. Do not keep the wizard on a spinner.
+        if (message.contains('not complete') ||
+            message.contains('not been started') ||
+            message.contains('cancelled') ||
+            message.contains('canceled')) {
+          paymentNotTaken = true;
+          break;
+        }
+        await Future<void>.delayed(const Duration(seconds: 2));
       } catch (_) {
         await Future<void>.delayed(const Duration(seconds: 2));
       }
     }
-    if (mounted) {
-      setState(() {
-        _error = 'Payment received but registration is still processing. Try again shortly.';
-        _loading = false;
-      });
-    }
+    if (!mounted) return;
+    setState(() {
+      _error = paymentNotTaken
+          ? 'Payment was not completed. You can try again.'
+          : 'Payment is still confirming. Wait a moment, then try again.';
+      _step = 3;
+    });
   }
 
   @override
@@ -850,8 +948,9 @@ class _MembershipScreenState extends State<MembershipScreen> {
           selected: _selectedPlan,
           selectedCountry: _selectedCountryPrice,
           countryOptions: MembershipCountryPrice.fromPlan(_selectedPlan),
-          onCountryChanged: (country) =>
-              setState(() => _selectedCountryPrice = country),
+          onCountryChanged: (country) => setState(() {
+            _selectedCountryPrice = country;
+          }),
           onSelect: (plan) => setState(() {
             _selectedPlan = plan;
             _selectedCountryPrice = MembershipCountryPrice.resolve(
@@ -890,6 +989,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
           onPickRegistrationDocument: _pickRegistrationDocument,
           onRemoveRegistrationDocument: _removeRegistrationDocument,
           onContinue: () => _runStep(_saveDetailsAndSendOtp),
+          onBack: () => setState(() => _step = 0),
         ),
       2 => _VerifyStep(
           email: _emailController.text.trim(),
@@ -903,7 +1003,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
         ),
       3 => _PaymentStep(
           plan: _selectedPlan,
-          countryPrice: _selectedCountryPrice,
+          displayPrice: _checkoutDisplayPrice,
           onBack: () => setState(() => _step = 2),
           onPay: () => _runStep(_startPayment),
         ),
@@ -1189,26 +1289,6 @@ class _CountryCurrencySelector extends StatelessWidget {
                         ),
                       ),
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 7,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.muted,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        selected.currencyCode,
-                        style: GoogleFonts.inter(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.3,
-                          color: AppColors.heading,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 2),
                     Icon(
                       Icons.expand_more_rounded,
                       size: 18,
@@ -1320,15 +1400,6 @@ class _CountryMenuRow extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(width: 8),
-        Text(
-          option.displayPrice,
-          style: GoogleFonts.inter(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: selected ? AppColors.secondary : AppColors.mutedText,
-          ),
-        ),
         if (selected) ...[
           const SizedBox(width: 4),
           const Icon(Icons.check, size: 14, color: AppColors.secondary),
@@ -1386,7 +1457,7 @@ class _PlanStep extends StatelessWidget {
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 180),
             child: Text(
-              selectedCountry.displayPrice,
+              '₹1000',
               key: ValueKey(selectedCountry.code),
               textAlign: TextAlign.center,
               style: GoogleFonts.fraunces(
@@ -1408,7 +1479,7 @@ class _PlanStep extends StatelessWidget {
           ),
           const SizedBox(height: 18),
           Text(
-            'Currency',
+            'Country',
             textAlign: TextAlign.center,
             style: GoogleFonts.inter(
               fontSize: 11,
@@ -1488,6 +1559,7 @@ class _DetailsStep extends StatefulWidget {
     required this.onPickRegistrationDocument,
     required this.onRemoveRegistrationDocument,
     required this.onContinue,
+    required this.onBack,
   });
 
   final TextEditingController firstNameController;
@@ -1511,6 +1583,7 @@ class _DetailsStep extends StatefulWidget {
   final Future<void> Function(_RegDocType type) onPickRegistrationDocument;
   final void Function(_RegDocType type) onRemoveRegistrationDocument;
   final VoidCallback onContinue;
+  final VoidCallback onBack;
 
   @override
   State<_DetailsStep> createState() => _DetailsStepState();
@@ -1650,6 +1723,14 @@ class _DetailsStepState extends State<_DetailsStep> {
           _PrimaryButton(
             label: 'Continue — send OTP',
             onPressed: widget.onContinue,
+          ),
+          const SizedBox(height: 8),
+          TextButton(
+            onPressed: widget.onBack,
+            child: Text(
+              'Back',
+              style: GoogleFonts.inter(color: AppColors.bodyText),
+            ),
           ),
         ],
       ),
@@ -2507,24 +2588,107 @@ class _VerifyStep extends StatelessWidget {
   }
 }
 
-class _PaymentStep extends StatefulWidget {
+class _PaymentStep extends StatelessWidget {
   const _PaymentStep({
     required this.plan,
-    required this.countryPrice,
+    required this.displayPrice,
     required this.onBack,
     required this.onPay,
   });
 
   final MembershipPlan? plan;
-  final MembershipCountryPrice countryPrice;
+  final String displayPrice;
   final VoidCallback onBack;
   final VoidCallback onPay;
 
-  @override
-  State<_PaymentStep> createState() => _PaymentStepState();
-}
+  String get _planLabel =>
+      'MY KMC — ${plan?.name ?? 'Life Membership'}';
 
-enum _PaymentMethod { upi, card, bank }
+  @override
+  Widget build(BuildContext context) {
+    return _Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Payment',
+            style: GoogleFonts.fraunces(
+              fontSize: 28,
+              fontWeight: FontWeight.w600,
+              color: AppColors.heading,
+            ),
+          ),
+          const SizedBox(height: 24),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+            decoration: BoxDecoration(
+              color: AppColors.muted,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    _planLabel,
+                    style: GoogleFonts.inter(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.heading,
+                    ),
+                  ),
+                ),
+                Text(
+                  displayPrice,
+                  style: GoogleFonts.fraunces(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.heading,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: AppColors.background,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Text(
+              "You will pay on PayU's secure page. KMC does not collect card, UPI, or bank details. "
+              "For a card, your bank sends the OTP to the mobile number registered on that card. "
+              "Wait on that page for the SMS. Refreshing it cancels the payment.",
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                height: 1.5,
+                color: AppColors.bodyText,
+              ),
+            ),
+          ),
+          const SizedBox(height: 28),
+          const _PaymentLegalNotice(),
+          const SizedBox(height: 12),
+          _PrimaryButton(
+            label: 'Pay $displayPrice',
+            onPressed: onPay,
+          ),
+          const SizedBox(height: 8),
+          TextButton(
+            onPressed: onBack,
+            child: Text(
+              'Back',
+              style: GoogleFonts.inter(color: AppColors.bodyText),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _PaymentLegalNotice extends StatelessWidget {
   const _PaymentLegalNotice();
@@ -2580,761 +2744,6 @@ class _PaymentLegalNotice extends StatelessWidget {
       ),
     );
   }
-}
-
-class _PaymentStepState extends State<_PaymentStep> {
-  _PaymentMethod _method = _PaymentMethod.upi;
-  final _upiController = TextEditingController();
-  final _cardNumberController = TextEditingController();
-  final _cardExpiryController = TextEditingController();
-  final _cardCvvController = TextEditingController();
-  bool _submitted = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _upiController.addListener(_refreshValidation);
-    _cardNumberController.addListener(_refreshValidation);
-    _cardExpiryController.addListener(_refreshValidation);
-    _cardCvvController.addListener(_refreshValidation);
-  }
-
-  void _refreshValidation() {
-    if (mounted) setState(() {});
-  }
-
-  @override
-  void dispose() {
-    _upiController.removeListener(_refreshValidation);
-    _cardNumberController.removeListener(_refreshValidation);
-    _cardExpiryController.removeListener(_refreshValidation);
-    _cardCvvController.removeListener(_refreshValidation);
-    _upiController.dispose();
-    _cardNumberController.dispose();
-    _cardExpiryController.dispose();
-    _cardCvvController.dispose();
-    super.dispose();
-  }
-
-  void _submitPayment() {
-    setState(() => _submitted = true);
-    if (!_isCurrentMethodValid) return;
-    widget.onPay();
-  }
-
-  bool get _cardEntryIsEmpty =>
-      _paymentDigits(_cardNumberController.text).isEmpty &&
-      _cardExpiryController.text.trim().isEmpty &&
-      _paymentDigits(_cardCvvController.text).isEmpty;
-
-  bool get _cardEntryIsValid =>
-      _isValidCardNumber(_cardNumberController.text) &&
-      _isValidCardExpiry(_cardExpiryController.text) &&
-      _isValidCvv(_cardCvvController.text);
-
-  bool get _isCurrentMethodValid => switch (_method) {
-        _PaymentMethod.upi =>
-          _upiController.text.trim().isEmpty ||
-              _isValidUpiId(_upiController.text),
-        _PaymentMethod.card => _cardEntryIsEmpty || _cardEntryIsValid,
-        _PaymentMethod.bank => true,
-      };
-
-  String? get _upiErrorText {
-    final value = _upiController.text.trim();
-    if (value.isEmpty || _isValidUpiId(value)) return null;
-    final handleStarted = RegExp(r'^[^@\s]+@[a-z]{2,}').hasMatch(value);
-    if (!_submitted && !handleStarted) return null;
-    return 'Enter a valid UPI ID like name@ybl.';
-  }
-
-  String? get _cardNumberErrorText {
-    final digits = _paymentDigits(_cardNumberController.text);
-    if (digits.isEmpty) {
-      return _submitted && !_cardEntryIsEmpty
-          ? 'Enter a 16-digit card number.'
-          : null;
-    }
-    if (digits.length < 16) {
-      return _submitted ? 'Card number must be 16 digits.' : null;
-    }
-    if (!_isValidCardNumber(_cardNumberController.text)) {
-      return 'Enter a valid card number.';
-    }
-    return null;
-  }
-
-  String? get _expiryErrorText {
-    final value = _cardExpiryController.text.trim();
-    if (value.isEmpty) {
-      return _submitted && !_cardEntryIsEmpty ? 'Enter expiry as MM/YY.' : null;
-    }
-    if (!RegExp(r'^\d{2}/\d{2}$').hasMatch(value)) {
-      return _submitted ? 'Enter expiry as MM/YY.' : null;
-    }
-    if (!_isValidCardExpiry(value)) {
-      return 'Enter a valid expiry date (MM/YY).';
-    }
-    return null;
-  }
-
-  String? get _cvvErrorText {
-    final digits = _paymentDigits(_cardCvvController.text);
-    if (digits.isEmpty) {
-      return _submitted && !_cardEntryIsEmpty ? 'Enter the 3-digit CVV.' : null;
-    }
-    if (_isValidCvv(_cardCvvController.text)) return null;
-    return _submitted ? 'Enter the 3-digit CVV.' : null;
-  }
-
-  bool get _isDemo {
-    final key = AppConfig.razorpayKeyId.trim();
-    return key.isEmpty ||
-        AppConfig.env == 'development' ||
-        key.startsWith('rzp_test_');
-  }
-
-  String get _price => widget.countryPrice.displayPrice;
-
-  String get _planLabel =>
-      'MY KMC — ${widget.plan?.name ?? 'Life Membership'}';
-
-  String get _payLabel => switch (_method) {
-        _PaymentMethod.upi => 'Pay $_price via UPI',
-        _PaymentMethod.card => 'Pay $_price via Card',
-        _PaymentMethod.bank => 'Pay $_price via Bank transfer',
-      };
-
-  @override
-  Widget build(BuildContext context) {
-    return _Card(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Text(
-                'Payment',
-                style: GoogleFonts.fraunces(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.heading,
-                ),
-              ),
-              if (_isDemo) ...[
-                const SizedBox(width: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.secondary.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: AppColors.secondary.withValues(alpha: 0.35),
-                    ),
-                  ),
-                  child: Text(
-                    'Demo — no real charge',
-                    style: GoogleFonts.inter(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.secondary,
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-          const SizedBox(height: 24),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-            decoration: BoxDecoration(
-              color: AppColors.muted,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.border),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    _planLabel,
-                    style: GoogleFonts.inter(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                      color: AppColors.heading,
-                    ),
-                  ),
-                ),
-                Text(
-                  _price,
-                  style: GoogleFonts.fraunces(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.heading,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-          _PaymentMethodTabs(
-            selected: _method,
-            onChanged: (m) => setState(() {
-              _method = m;
-              _submitted = false;
-            }),
-          ),
-          const SizedBox(height: 20),
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 200),
-            child: switch (_method) {
-              _PaymentMethod.upi => _buildUpiPanel(key: const ValueKey('upi')),
-              _PaymentMethod.card =>
-                _buildCardPanel(key: const ValueKey('card')),
-              _PaymentMethod.bank =>
-                _buildBankPanel(key: const ValueKey('bank')),
-            },
-          ),
-          const SizedBox(height: 28),
-          const _PaymentLegalNotice(),
-          const SizedBox(height: 12),
-          _PrimaryButton(label: _payLabel, onPressed: _submitPayment),
-          const SizedBox(height: 8),
-          TextButton(
-            onPressed: widget.onBack,
-            child: Text(
-              'Back',
-              style: GoogleFonts.inter(color: AppColors.bodyText),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildUpiPanel({required Key key}) {
-    return Container(
-      key: key,
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.background,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'UPI ID',
-            style: GoogleFonts.inter(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.2,
-              color: AppColors.mutedText,
-            ),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _upiController,
-            keyboardType: TextInputType.emailAddress,
-            autocorrect: false,
-            enableSuggestions: false,
-            inputFormatters: [_UpiIdInputFormatter()],
-            decoration: _paymentInputDecoration(
-              hint: 'yourmobile@ybl',
-              errorText: _upiErrorText,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            "You'll get a collect request on your UPI app.",
-            style: GoogleFonts.inter(
-              fontSize: 13,
-              color: AppColors.mutedText,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCardPanel({required Key key}) {
-    return Container(
-      key: key,
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.background,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _PaymentInputLabel('Card number'),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _cardNumberController,
-            keyboardType: TextInputType.number,
-            autocorrect: false,
-            enableSuggestions: false,
-            inputFormatters: [_CardNumberInputFormatter()],
-            decoration: _paymentInputDecoration(
-              hint: '4242 4242 4242 4242',
-              errorText: _cardNumberErrorText,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _PaymentInputLabel('Expiry'),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _cardExpiryController,
-                      keyboardType: TextInputType.number,
-                      autocorrect: false,
-                      enableSuggestions: false,
-                      inputFormatters: [_CardExpiryInputFormatter()],
-                      decoration: _paymentInputDecoration(
-                        hint: 'MM/YY',
-                        errorText: _expiryErrorText,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _PaymentInputLabel('CVV'),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _cardCvvController,
-                      keyboardType: TextInputType.number,
-                      obscureText: true,
-                      autocorrect: false,
-                      enableSuggestions: false,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.digitsOnly,
-                        LengthLimitingTextInputFormatter(3),
-                      ],
-                      decoration: _paymentInputDecoration(
-                        hint: '•••',
-                        errorText: _cvvErrorText,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'Secured by Razorpay. Your card details are encrypted.',
-            style: GoogleFonts.inter(
-              fontSize: 13,
-              color: AppColors.mutedText,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBankPanel({required Key key}) {
-    return Container(
-      key: key,
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.background,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Bank transfer (NEFT / IMPS / RTGS)',
-            style: GoogleFonts.inter(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: AppColors.heading,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'Click Pay to open Razorpay and complete a secure bank transfer. '
-            'Account details are shown inside the Razorpay checkout — no manual deposit needed. '
-            'Membership activates after payment verification.',
-            style: GoogleFonts.inter(
-              fontSize: 13,
-              height: 1.5,
-              color: AppColors.mutedText,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  InputDecoration _paymentInputDecoration({
-    required String hint,
-    String? errorText,
-  }) {
-    return InputDecoration(
-      hintText: hint,
-      errorText: errorText,
-      errorMaxLines: 2,
-      errorStyle: GoogleFonts.inter(fontSize: 12, color: AppColors.error),
-      filled: true,
-      fillColor: Colors.white,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: AppColors.border),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: AppColors.border),
-      ),
-      errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: AppColors.error),
-      ),
-      focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: AppColors.error),
-      ),
-    );
-  }
-}
-
-class _PaymentMethodTabs extends StatelessWidget {
-  const _PaymentMethodTabs({
-    required this.selected,
-    required this.onChanged,
-  });
-
-  final _PaymentMethod selected;
-  final ValueChanged<_PaymentMethod> onChanged;
-
-  static const _tabs = [
-    (_PaymentMethod.upi, 'UPI'),
-    (_PaymentMethod.card, 'Card'),
-    (_PaymentMethod.bank, 'Bank transfer'),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: AppColors.muted,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        children: [
-          for (var i = 0; i < _tabs.length; i++)
-            Expanded(
-              child: Padding(
-                padding: EdgeInsets.only(right: i < _tabs.length - 1 ? 4 : 0),
-                child: _PaymentTab(
-                  label: _tabs[i].$2,
-                  selected: selected == _tabs[i].$1,
-                  onTap: () => onChanged(_tabs[i].$1),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PaymentTab extends StatelessWidget {
-  const _PaymentTab({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: selected ? AppColors.primary : Colors.transparent,
-      borderRadius: BorderRadius.circular(8),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            style: GoogleFonts.inter(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: selected ? Colors.white : AppColors.bodyText,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _PaymentInputLabel extends StatelessWidget {
-  const _PaymentInputLabel(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      text.toUpperCase(),
-      style: GoogleFonts.inter(
-        fontSize: 11,
-        fontWeight: FontWeight.w700,
-        letterSpacing: 1.2,
-        color: AppColors.mutedText,
-      ),
-    );
-  }
-}
-
-/// 16 digits, shown as `4242 4242 4242 4242`.
-class _CardNumberInputFormatter extends TextInputFormatter {
-  static const _maxDigits = 16;
-
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    var digits = _paymentDigits(newValue.text);
-    if (_deletedSeparator(oldValue, newValue) && digits.isNotEmpty) {
-      digits = _dropDigitBeforeCursor(digits, newValue);
-    }
-    if (digits.length > _maxDigits) {
-      return oldValue;
-    }
-    return _formattedDigits(
-      _groupEvery(digits, 4),
-      newValue,
-      digits.length,
-    );
-  }
-}
-
-/// Month `01`–`12` and a 2-digit year, shown as `MM/YY`.
-class _CardExpiryInputFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    var digits = _paymentDigits(newValue.text);
-    if (_deletedSeparator(oldValue, newValue) && digits.isNotEmpty) {
-      digits = _dropDigitBeforeCursor(digits, newValue);
-    }
-    if (digits.length > 4) {
-      return oldValue;
-    }
-    if (digits.length == 1) {
-      final first = int.parse(digits[0]);
-      if (first > 1) {
-        digits = '0$digits';
-      }
-    }
-    if (digits.length >= 2) {
-      final month = int.tryParse(digits.substring(0, 2)) ?? 0;
-      if (month < 1 || month > 12) {
-        return oldValue;
-      }
-    }
-
-    final text = digits.length <= 2
-        ? digits
-        : '${digits.substring(0, 2)}/${digits.substring(2)}';
-    if (digits.length == 2 &&
-        newValue.text.length >= oldValue.text.length &&
-        !text.contains('/')) {
-      return _collapsed('$text/');
-    }
-    return _formattedDigits(text, newValue, digits.length);
-  }
-}
-
-/// UPI VPA only: `name@bank` — letters, digits, `.`, `-`, `_`, and one `@`.
-class _UpiIdInputFormatter extends TextInputFormatter {
-  static final _localChar = RegExp(r'[a-z0-9.\-_]');
-  static final _handleChar = RegExp(r'[a-z]');
-  static const _maxLocal = 64;
-  static const _maxHandle = 30;
-
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    final raw = newValue.text.toLowerCase();
-    final buffer = StringBuffer();
-    var seenAt = false;
-    var localLen = 0;
-    var handleLen = 0;
-    var acceptedBeforeCursor = 0;
-    final cursor = newValue.selection.end.clamp(0, raw.length);
-
-    for (var i = 0; i < raw.length; i++) {
-      final ch = raw[i];
-      var accepted = false;
-      if (ch == '@') {
-        if (!seenAt && localLen > 0) {
-          seenAt = true;
-          buffer.write('@');
-          accepted = true;
-        }
-      } else if (!seenAt) {
-        final isEdgeSymbol = ch == '.' || ch == '-' || ch == '_';
-        if (localLen < _maxLocal &&
-            _localChar.hasMatch(ch) &&
-            !(localLen == 0 && isEdgeSymbol)) {
-          buffer.write(ch);
-          localLen++;
-          accepted = true;
-        }
-      } else if (handleLen < _maxHandle && _handleChar.hasMatch(ch)) {
-        buffer.write(ch);
-        handleLen++;
-        accepted = true;
-      }
-      if (accepted && i < cursor) acceptedBeforeCursor++;
-    }
-
-    final text = buffer.toString();
-    return TextEditingValue(
-      text: text,
-      selection: TextSelection.collapsed(
-        offset: acceptedBeforeCursor.clamp(0, text.length),
-      ),
-    );
-  }
-}
-
-String _paymentDigits(String value) => value.replaceAll(RegExp(r'\D'), '');
-
-final _upiIdPattern = RegExp(
-  r'^[a-z0-9][a-z0-9.\-_]{0,62}[a-z0-9]@[a-z]{2,30}$',
-);
-
-bool _isValidUpiId(String value) => _upiIdPattern.hasMatch(value.trim());
-
-/// 16-digit PAN that passes the Luhn check. Longer values are never valid.
-bool _isValidCardNumber(String value) {
-  final digits = _paymentDigits(value);
-  if (digits.length != 16) return false;
-  if (RegExp(r'^(\d)\1{15}$').hasMatch(digits)) return false;
-  var sum = 0;
-  var doubleDigit = false;
-  for (var i = digits.length - 1; i >= 0; i--) {
-    var n = digits.codeUnitAt(i) - 48;
-    if (doubleDigit) {
-      n *= 2;
-      if (n > 9) n -= 9;
-    }
-    sum += n;
-    doubleDigit = !doubleDigit;
-  }
-  return sum % 10 == 0;
-}
-
-/// `MM/YY`, month 01–12, and still valid through the end of that month.
-bool _isValidCardExpiry(String value, {DateTime? now}) {
-  final match = RegExp(r'^(0[1-9]|1[0-2])/(\d{2})$').firstMatch(value.trim());
-  if (match == null) return false;
-  final month = int.parse(match.group(1)!);
-  final year = 2000 + int.parse(match.group(2)!);
-  final current = now ?? DateTime.now();
-  if (year > current.year) return true;
-  if (year < current.year) return false;
-  return month >= current.month;
-}
-
-bool _isValidCvv(String value) =>
-    RegExp(r'^\d{3}$').hasMatch(_paymentDigits(value)) &&
-    _paymentDigits(value).length == 3;
-
-bool _deletedSeparator(TextEditingValue oldValue, TextEditingValue newValue) {
-  return newValue.text.length < oldValue.text.length &&
-      _paymentDigits(oldValue.text) == _paymentDigits(newValue.text);
-}
-
-String _dropDigitBeforeCursor(String digits, TextEditingValue newValue) {
-  var digitsBefore = 0;
-  final end = newValue.selection.end.clamp(0, newValue.text.length);
-  for (var i = 0; i < end; i++) {
-    if (RegExp(r'\d').hasMatch(newValue.text[i])) digitsBefore++;
-  }
-  final index = digitsBefore == 0 ? 0 : digitsBefore - 1;
-  if (index >= digits.length) {
-    return digits.substring(0, digits.length - 1);
-  }
-  return digits.substring(0, index) + digits.substring(index + 1);
-}
-
-String _groupEvery(String digits, int size) {
-  final buffer = StringBuffer();
-  for (var i = 0; i < digits.length; i++) {
-    if (i > 0 && i % size == 0) buffer.write(' ');
-    buffer.write(digits[i]);
-  }
-  return buffer.toString();
-}
-
-TextEditingValue _formattedDigits(
-  String formatted,
-  TextEditingValue newValue,
-  int digitCount,
-) {
-  var digitCursor = 0;
-  final rawCursor = newValue.selection.end.clamp(0, newValue.text.length);
-  for (var i = 0; i < rawCursor && digitCursor < digitCount; i++) {
-    if (RegExp(r'\d').hasMatch(newValue.text[i])) digitCursor++;
-  }
-
-  var offset = 0;
-  var seen = 0;
-  while (offset < formatted.length && seen < digitCursor) {
-    if (RegExp(r'\d').hasMatch(formatted[offset])) seen++;
-    offset++;
-  }
-  return TextEditingValue(
-    text: formatted,
-    selection: TextSelection.collapsed(offset: offset),
-  );
-}
-
-TextEditingValue _collapsed(String text) {
-  return TextEditingValue(
-    text: text,
-    selection: TextSelection.collapsed(offset: text.length),
-  );
 }
 
 class _CompleteStep extends StatelessWidget {

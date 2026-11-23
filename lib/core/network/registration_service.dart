@@ -290,6 +290,13 @@ class RegistrationService {
           retryAfterSeconds: null,
         );
       }
+      if (nested is List && nested.isNotEmpty) {
+        final first = nested.first;
+        final message = first is Map
+            ? (first['msg'] as String? ?? 'Registration request failed.')
+            : 'Registration request failed.';
+        return RegistrationException(sanitizeUserFacingMessage(message));
+      }
       final message = detail['message'] as String?;
       if (message != null) {
         return RegistrationException(

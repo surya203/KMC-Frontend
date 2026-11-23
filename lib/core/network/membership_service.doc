@@ -5,7 +5,7 @@ File Name: membership_service.dart
 
    * Added MembershipRecord model (membership number, registration/payment dates, fee, general/project donations).
    * Added fetchMyMembership(), fetchDonationCategories(), fetchMyDonations().
-   * Added createDonationCheckout() and completeDonation() for Razorpay donate flow.
+   * Added createDonationCheckout() and completeDonation() for PayU donate flow.
    * Kept fetchPlans() for Join Network wizard.
 
 2. Purpose of This Modification:

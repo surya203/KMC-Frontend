@@ -1,12 +1,31 @@
-﻿#!/usr/bin/env bash
-# Start Flutter web-server and auto hot-restart when FE source changes.
+#!/usr/bin/env bash
+# Start Flutter web-server. Hot-restart is OFF by default (avoids reload loops
+# on Windows bind mounts). Set ENABLE_HOT_RESTART=1 to watch lib/*.dart only.
 set -euo pipefail
 
 cd /app
 
 touch .env
 
-echo "[fe-dev] API_BASE_URL=${API_BASE_URL:-http://200.141.2.90:8001}"
+API_BASE_URL="${API_BASE_URL:-http://localhost:8001}"
+# Write env-config only when content changes — avoids false file-watch triggers.
+ENV_CONFIG_TMP="$(mktemp)"
+cat > "$ENV_CONFIG_TMP" <<EOF
+window.__ENV__ = {
+  ENV: '${ENV:-development}',
+  API_BASE_URL: '${API_BASE_URL}',
+  API_PREFIX: '${API_PREFIX:-/api/v1}',
+  SUPABASE_URL: '${SUPABASE_URL:-}',
+  SUPABASE_ANON_KEY: '${SUPABASE_ANON_KEY:-}',
+  SUPABASE_STORAGE_BUCKET: '${SUPABASE_STORAGE_BUCKET:-verification-documents}',
+};
+EOF
+if ! cmp -s "$ENV_CONFIG_TMP" /app/web/env-config.js 2>/dev/null; then
+  cp "$ENV_CONFIG_TMP" /app/web/env-config.js
+fi
+rm -f "$ENV_CONFIG_TMP"
+
+echo "[fe-dev] API_BASE_URL=${API_BASE_URL}"
 echo "[fe-dev] flutter pub get..."
 flutter pub get
 
@@ -25,13 +44,15 @@ flutter run -d web-server \
   <&3 &
 FLUTTER_PID=$!
 
+if [[ "${ENABLE_HOT_RESTART:-0}" != "1" ]]; then
+  echo "[fe-dev] hot-restart watcher OFF (stable page loads). Set ENABLE_HOT_RESTART=1 to enable."
+  wait "$FLUTTER_PID"
+  exit $?
+fi
+
 fingerprint() {
-  find lib web assets pubspec.yaml pubspec.lock \
-    -type f \( \
-      -name '*.dart' -o -name '*.js' -o -name '*.html' -o -name '*.css' \
-      -o -name '*.yaml' -o -name '*.yml' -o -name '*.json' \
-      -o -name 'pubspec.lock' \
-    \) 2>/dev/null \
+  # Only Dart sources — never watch web/env-config.js or assets (Windows churn).
+  find lib -type f -name '*.dart' 2>/dev/null \
     | sort \
     | xargs md5sum 2>/dev/null \
     | md5sum \
@@ -39,16 +60,16 @@ fingerprint() {
 }
 
 PREV="$(fingerprint || true)"
-echo "[fe-dev] watching lib/ web/ assets/ â€” edit code, then refresh the browser"
+echo "[fe-dev] watching lib/*.dart for hot restart"
 
 while kill -0 "$FLUTTER_PID" 2>/dev/null; do
-  sleep 2
+  sleep 5
   CUR="$(fingerprint || true)"
-  if [[ -n "$CUR" && "$CUR" != "$PREV" ]]; then
-    echo "[fe-dev] code change detected -> hot restart (R)"
+  if [[ -n "$CUR" && -n "$PREV" && "$CUR" != "$PREV" ]]; then
+    echo "[fe-dev] dart change detected -> hot restart (R)"
     printf 'R\n' >&3
     PREV="$CUR"
-    sleep 3
+    sleep 5
   fi
 done
 

@@ -41,7 +41,7 @@ class TermsScreen extends StatelessWidget {
             'Membership fees are displayed on the Pricing page and at checkout '
             'before payment. All prices are inclusive of applicable taxes '
             'unless stated otherwise.',
-            'Membership payments are processed securely through Razorpay. By '
+            'Membership payments are processed securely through the payment provider. By '
             'completing a payment, you confirm that the information provided is '
             'accurate and that you are authorised to use the selected payment '
             'method.',

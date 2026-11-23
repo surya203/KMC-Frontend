@@ -1,16 +1,21 @@
+# Fast local/static build (nginx). Opens quickly — no Flutter debug reload loop.
+# Usage:
+#   docker compose -f docker-compose.dev.yml down
+#   docker compose up --build -d
+#
+# For live Dart editing use docker-compose.dev.yml instead (slower).
+
 services:
   web:
     build: .
     ports:
       - "8080:80"
     environment:
-      # Production defaults — override via .env / compose env for local/LAN.
+      # Production API unless this folder's .env sets a local URL.
       ENV: ${ENV:-production}
       API_BASE_URL: ${API_BASE_URL:-https://api.kmcalumni.net}
       API_PREFIX: ${API_PREFIX:-/api/v1}
       STORAGE_BUCKET: ${STORAGE_BUCKET:-verification-documents}
-      # Public Razorpay key only (secret stays on backend).
-      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-rzp_live_TGwiguT5HZKaNR}
       # Legacy optional — not required with Postgres media
       SUPABASE_URL: ${SUPABASE_URL:-}
       SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-}
