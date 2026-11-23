@@ -7,7 +7,7 @@ cd /app
 
 touch .env
 
-API_BASE_URL="${API_BASE_URL:-http://192.168.0.17:8001}"
+API_BASE_URL="${API_BASE_URL:-http://localhost:8001}"
 # Write env-config only when content changes — avoids false file-watch triggers.
 ENV_CONFIG_TMP="$(mktemp)"
 cat > "$ENV_CONFIG_TMP" <<EOF

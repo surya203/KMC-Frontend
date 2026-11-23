@@ -8,6 +8,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/business_info.dart';
 import '../../../core/network/api_errors.dart';
 import '../../../core/network/auth_service.dart';
+import '../../../core/router/app_back_navigation.dart';
 import '../widgets/dashboard_layout.dart';
 
 class DeleteAccountScreen extends StatefulWidget {
@@ -235,7 +236,9 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
                     ),
                     const SizedBox(height: 8),
                     TextButton(
-                      onPressed: _deleting ? null : () => context.go('/settings'),
+                      onPressed: _deleting
+                          ? null
+                          : () => navigateAppBack(context),
                       child: const Text('Cancel and go back to Settings'),
                     ),
                   ],

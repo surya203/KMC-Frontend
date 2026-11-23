@@ -19,7 +19,7 @@ class PublicBackIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return IconButton(
-      onPressed: () => navigatePublicBack(context),
+      onPressed: () => navigateAppBack(context),
       icon: Icon(
         Icons.arrow_back,
         color: dark ? Colors.white : AppColors.primary,
@@ -266,42 +266,47 @@ class _BrandLockup extends StatelessWidget {
     // Subtitle smaller so it reads as secondary text.
     final subtitleSize = compact ? 9.5 : 11.0;
 
-    return IntrinsicWidth(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              SafeAssetImage(
-                assetPath: AppAssets.logo,
-                height: logoSize,
-                width: logoSize,
-              ),
-              const SizedBox(width: _logoToKmcGap),
-              SizedBox(
-                height: logoSize,
-                width: kmcWidth,
-                child: FittedBox(
-                  fit: BoxFit.contain,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'KMC',
-                    style: GoogleFonts.fraunces(
-                      fontSize: kmcFontSize,
-                      fontWeight: FontWeight.w700,
-                      height: 1,
-                      color: AppColors.primary,
-                    ),
+    // Natural-size lockup; parent FittedBox scales it down. Avoid
+    // CrossAxisAlignment.stretch + IntrinsicWidth — that caused a yellow/black
+    // overflow stripe on the ALUMNI CONNECT row under tight AppBar widths.
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            SafeAssetImage(
+              assetPath: AppAssets.logo,
+              height: logoSize,
+              width: logoSize,
+            ),
+            const SizedBox(width: _logoToKmcGap),
+            SizedBox(
+              height: logoSize,
+              width: kmcWidth,
+              child: FittedBox(
+                fit: BoxFit.contain,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'KMC',
+                  style: GoogleFonts.fraunces(
+                    fontSize: kmcFontSize,
+                    fontWeight: FontWeight.w700,
+                    height: 1,
+                    color: AppColors.primary,
                   ),
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: _kmcToSubtitleGap),
-          Row(
+            ),
+          ],
+        ),
+        const SizedBox(height: _kmcToSubtitleGap),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
@@ -333,8 +338,8 @@ class _BrandLockup extends StatelessWidget {
               ),
             ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

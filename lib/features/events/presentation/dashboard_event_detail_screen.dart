@@ -7,6 +7,7 @@ import '../../../core/auth/role_utils.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/events_api_service.dart';
 import '../../../core/network/profiles_api_service.dart';
+import '../../../core/router/app_back_navigation.dart';
 import '../../../core/utils/membership_number_format.dart';
 import '../../../core/utils/validators.dart';
 import '../../../core/widgets/event_card.dart';
@@ -248,7 +249,7 @@ class _DashboardEventDetailScreenState extends State<DashboardEventDetailScreen>
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         TextButton.icon(
-          onPressed: () => context.go('/my-events'),
+          onPressed: () => navigateAppBack(context),
           icon: const Icon(Icons.arrow_back),
           label: const Text('Back to events'),
         ),

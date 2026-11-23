@@ -70,6 +70,10 @@ String? validateMobileNumberForCountry(
     }
     return 'Mobile number must be ${country.localMinLength}-${country.localMaxLength} digits.';
   }
+  if (country.dialCode == '+91' && !RegExp(r'^[6-9]\d{9}$').hasMatch(digits)) {
+    return 'Enter the 10-digit mobile registered with your card. '
+        'It must start with 6, 7, 8, or 9 so the bank can send the card OTP.';
+  }
   return null;
 }
 

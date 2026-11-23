@@ -150,7 +150,7 @@ App port on host: **8080** (map behind Cloudflare / reverse proxy as you already
 | Wrong (local) | Right (production) |
 | --- | --- |
 | `docker-compose.dev.yml` | FE: `docker compose.yml` / BE: `docker-compose.prod.yml` |
-| `http://200.141.2.90:8001` / LAN HTTP | `https://api.kmcalumni.net` |
+| local HTTP API | `https://api.kmcalumni.net` |
 | Local Postgres `:5433` / `kmc-postgres` | `kmc-prod-postgres` or cloud `DATABASE_URL` |
 | PayU test key + HTTP callbacks | PayU live + `PUBLIC_API_BASE_URL=https://…` |
 

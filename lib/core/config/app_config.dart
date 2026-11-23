@@ -43,26 +43,46 @@ class AppConfig {
     return fallback;
   }
 
-  /// On local/LAN web, always call the API on the same host as the page.
-  /// Stops login breaking when Wi‑Fi DHCP changes the machine IP.
-  static String? _sameHostApiBaseUrl() {
-    if (!kIsWeb) return null;
-    final host = Uri.base.host;
-    if (host.isEmpty) return null;
-    final isLocalName = host == 'localhost' || host == '127.0.0.1';
-    final isIpv4 = RegExp(r'^\d{1,3}(\.\d{1,3}){3}$').hasMatch(host);
-    if (!isLocalName && !isIpv4) return null;
-    return 'http://$host:8001';
+  static final RegExp _ipv4 = RegExp(
+    r'^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$',
+  );
+
+  static bool _isLocalOrPrivateHost(String host) {
+    if (host.isEmpty) return false;
+    if (host == 'localhost' || host == '127.0.0.1') return true;
+    final match = _ipv4.firstMatch(host);
+    if (match == null) return false;
+    final a = int.parse(match.group(1)!);
+    final b = int.parse(match.group(2)!);
+    if (a == 10) return true;
+    if (a == 192 && b == 168) return true;
+    if (a == 172 && b >= 16 && b <= 31) return true;
+    return false;
   }
 
   static String get env => _env('ENV', 'development');
 
   static bool get isDevelopment => env == 'development';
 
+  static bool _isPrivateApiUrl(String value) {
+    final uri = Uri.tryParse(value);
+    if (uri == null || uri.host.isEmpty) return false;
+    return _isLocalOrPrivateHost(uri.host);
+  }
+
   static String get apiBaseUrl {
-    final sameHost = _sameHostApiBaseUrl();
-    if (sameHost != null) return sameHost;
-    return _env('API_BASE_URL', 'http://192.168.0.17:8001');
+    final configured = _env('API_BASE_URL', '');
+    if (!kIsWeb) {
+      return configured.isNotEmpty ? configured : 'http://127.0.0.1:8001';
+    }
+    final host = Uri.base.host;
+    if (_isLocalOrPrivateHost(host)) return 'http://$host:8001';
+    if (configured.isNotEmpty && !_isPrivateApiUrl(configured)) {
+      return configured;
+    }
+    final origin = Uri.base.origin;
+    if (origin.isNotEmpty) return origin;
+    return 'http://127.0.0.1:8001';
   }
 
   static String get apiPrefix => _env('API_PREFIX', '/api/v1');

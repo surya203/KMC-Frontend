@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/api_errors.dart';
 import '../../../core/network/gallery_api_service.dart';
+import '../../../core/router/app_back_navigation.dart';
 import '../widgets/gallery_album_dialogs.dart';
 
 /// Admin-only album photo manager: upload and delete photos (no external links).
@@ -211,7 +212,7 @@ class _DashboardGalleryManageScreenState
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         TextButton.icon(
-          onPressed: () => context.go(widget.basePath),
+          onPressed: () => navigateAppBack(context),
           icon: const Icon(Icons.arrow_back),
           label: const Text('Back to gallery'),
         ),

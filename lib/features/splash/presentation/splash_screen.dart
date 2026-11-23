@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -21,16 +19,18 @@ class _SplashScreenState extends State<SplashScreen> {
   void initState() {
     super.initState();
 
-    Timer(const Duration(milliseconds: 800), () async {
-      if (!mounted) return;
-      await AuthSession.instance.ensureReady();
-      if (!mounted) return;
-      if (AuthSession.instance.isAuthenticated) {
-        context.go(homeRouteForRole(currentUserRole));
-        return;
-      }
-      context.go('/');
-    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _leaveSplash());
+  }
+
+  Future<void> _leaveSplash() async {
+    if (!mounted) return;
+    await AuthSession.instance.ensureReady();
+    if (!mounted) return;
+    if (AuthSession.instance.isAuthenticated) {
+      context.go(homeRouteForRole(currentUserRole));
+      return;
+    }
+    context.go('/');
   }
 
   @override

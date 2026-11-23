@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/drugs_api_service.dart';
+import '../../../core/router/app_back_navigation.dart';
 
 bool _looksLikeImageUrl(String url) {
   final path = url.toLowerCase().split('?').first;
@@ -86,16 +87,7 @@ class _DrugDetailsScreenState extends State<DrugDetailsScreen> {
   }
 
   void _close() {
-    if (context.canPop()) {
-      context.pop();
-      return;
-    }
-    final path = GoRouterState.of(context).uri.path;
-    if (path.startsWith('/drugs/')) {
-      context.go('/');
-      return;
-    }
-    context.go('/dashboard');
+    navigateAppBack(context);
   }
 
   String? get _linkUrl {

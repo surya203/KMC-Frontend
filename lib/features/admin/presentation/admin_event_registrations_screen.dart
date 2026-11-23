@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/router/app_back_navigation.dart';
 import '../../events/widgets/event_registrations_dialog.dart';
 
 class AdminEventRegistrationsScreen extends StatelessWidget {
@@ -26,7 +27,7 @@ class AdminEventRegistrationsScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               TextButton.icon(
-                onPressed: () => context.go('/admin/events'),
+                onPressed: () => navigateAppBack(context),
                 icon: const Icon(Icons.arrow_back),
                 label: const Text('Back to events'),
               ),

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -13,11 +15,17 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   GoogleFonts.config.allowRuntimeFetching = true;
   await dotenv.load(fileName: '.env', isOptional: true);
+  // Tokens come from local storage. Profile, /auth/me, and Google Fonts
+  // stay off this path so a slow network cannot hold a blank page.
   await AuthSession.instance.initialize();
+  runApp(const KMCApp());
+  unawaited(_warmAfterFirstFrame());
+}
+
+Future<void> _warmAfterFirstFrame() async {
   if (AuthSession.instance.isAuthenticated) {
-    await ProfileSession.instance.ensureLoaded(force: true);
+    unawaited(ProfileSession.instance.ensureLoaded(force: true));
   }
-  // Never block the native splash forever if font CDN / network is slow or blocked.
   try {
     await GoogleFonts.pendingFonts([
       GoogleFonts.fraunces(fontWeight: FontWeight.w600),
@@ -30,9 +38,8 @@ Future<void> main() async {
       GoogleFonts.inter(fontWeight: FontWeight.w700),
     ]).timeout(const Duration(seconds: 8));
   } catch (_) {
-    // Fall back to platform fonts; UI still loads.
+    // Fall back to platform fonts; the UI is already on screen.
   }
-  runApp(const KMCApp());
 }
 
 class KMCApp extends StatelessWidget {

@@ -1,10 +1,17 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:webview_flutter_android/webview_flutter_android.dart';
+import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
 
 import 'payu_checkout_result.dart';
 
 /// Opens PayU Hosted Checkout inside an in-app WebView (Android / iOS).
 /// Completes when PayU redirects to the merchant return URL containing `payu=`.
+///
+/// Cards / netbanking need full HTTPS navigation (3DS, bank pages). UPI apps
+/// use custom schemes (`upi://`, `phonepe://`, …) which we open externally.
 Future<PayuCheckoutLaunchResult?> openPayuHostedCheckout({
   required String actionUrl,
   required Map<String, String> fields,
@@ -50,15 +57,19 @@ class _PayuCheckoutWebViewState extends State<_PayuCheckoutWebView> {
   @override
   void initState() {
     super.initState();
-    _controller = WebViewController()
+    _controller = WebViewController.fromPlatformCreationParams(
+      _platformParams(),
+    )
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageStarted: (_) {
             if (mounted) setState(() => _loading = true);
           },
-          onPageFinished: (_) {
+          onPageFinished: (url) {
             if (mounted) setState(() => _loading = false);
+            final result = _parsePayuReturn(url);
+            if (result != null) _complete(result);
           },
           onNavigationRequest: (request) {
             final result = _parsePayuReturn(request.url);
@@ -66,6 +77,11 @@ class _PayuCheckoutWebViewState extends State<_PayuCheckoutWebView> {
               _complete(result);
               return NavigationDecision.prevent;
             }
+            if (_isExternalPaymentScheme(request.url)) {
+              _openExternalPaymentUrl(request.url);
+              return NavigationDecision.prevent;
+            }
+            // Allow PayU + bank ACS / netbanking HTTPS pages in-WebView.
             return NavigationDecision.navigate;
           },
           onUrlChange: (change) {
@@ -75,11 +91,40 @@ class _PayuCheckoutWebViewState extends State<_PayuCheckoutWebView> {
             if (result != null) _complete(result);
           },
         ),
-      )
-      ..loadHtmlString(
-        _buildAutoSubmitHtml(widget.actionUrl, widget.fields),
-        baseUrl: widget.actionUrl,
       );
+
+    _configurePlatformWebView(_controller);
+
+    _controller.loadHtmlString(
+      _buildAutoSubmitHtml(widget.actionUrl, widget.fields),
+      baseUrl: widget.actionUrl,
+    );
+  }
+
+  PlatformWebViewControllerCreationParams _platformParams() {
+    if (defaultTargetPlatform == TargetPlatform.iOS ||
+        defaultTargetPlatform == TargetPlatform.macOS) {
+      return WebKitWebViewControllerCreationParams(
+        allowsInlineMediaPlayback: true,
+        mediaTypesRequiringUserAction: const <PlaybackMediaTypes>{},
+      );
+    }
+    return const PlatformWebViewControllerCreationParams();
+  }
+
+  Future<void> _configurePlatformWebView(WebViewController controller) async {
+    final platform = controller.platform;
+    if (platform is AndroidWebViewController) {
+      await AndroidWebViewController.enableDebugging(kDebugMode);
+      await platform.setMediaPlaybackRequiresUserGesture(false);
+      // Third-party cookies help some bank / 3DS flows inside WebView.
+      final cookies = AndroidWebViewCookieManager(
+        const PlatformWebViewCookieManagerCreationParams(),
+      );
+      await cookies.setAcceptThirdPartyCookies(platform, true);
+    } else if (platform is WebKitWebViewController) {
+      await platform.setAllowsBackForwardNavigationGestures(true);
+    }
   }
 
   void _complete(PayuCheckoutLaunchResult result) {
@@ -88,28 +133,80 @@ class _PayuCheckoutWebViewState extends State<_PayuCheckoutWebView> {
     Navigator.of(context).pop(result);
   }
 
+  Future<void> _goBackOrCancel() async {
+    if (await _controller.canGoBack()) {
+      await _controller.goBack();
+      return;
+    }
+    if (!mounted) return;
+    Navigator.of(context).pop(
+      const PayuCheckoutLaunchResult(outcome: 'cancelled'),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        _goBackOrCancel();
+      },
+      child: Scaffold(
       appBar: AppBar(
         title: const Text('Secure payment'),
         leading: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: () {
-            Navigator.of(context).pop(
-              const PayuCheckoutLaunchResult(outcome: 'cancelled'),
-            );
-          },
+          icon: const Icon(Icons.arrow_back),
+          onPressed: _goBackOrCancel,
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.close),
+            onPressed: () {
+              Navigator.of(context).pop(
+                const PayuCheckoutLaunchResult(outcome: 'cancelled'),
+              );
+            },
+          ),
+        ],
       ),
       body: Stack(
         children: [
           WebViewWidget(controller: _controller),
           if (_loading)
-            const Center(child: CircularProgressIndicator.adaptive()),
+            const IgnorePointer(
+              child: Center(child: CircularProgressIndicator.adaptive()),
+            ),
         ],
       ),
+    ),
     );
+  }
+}
+
+bool _isExternalPaymentScheme(String url) {
+  final uri = Uri.tryParse(url);
+  if (uri == null) return false;
+  final scheme = uri.scheme.toLowerCase();
+  if (scheme.isEmpty ||
+      scheme == 'http' ||
+      scheme == 'https' ||
+      scheme == 'about' ||
+      scheme == 'data' ||
+      scheme == 'blob') {
+    return false;
+  }
+  // UPI / wallet app deep links (and Android intent://).
+  return true;
+}
+
+Future<void> _openExternalPaymentUrl(String url) async {
+  final uri = Uri.tryParse(url);
+  if (uri == null) return;
+  try {
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  } catch (_) {
+    // User may not have the UPI app installed; stay on PayU page.
   }
 }
 
@@ -123,6 +220,7 @@ PayuCheckoutLaunchResult? _parsePayuReturn(String url) {
 
   String? outcome = uri.queryParameters['payu'];
   String? draftId = uri.queryParameters['draft_id'];
+  String? reason = uri.queryParameters['reason'];
 
   // Flutter hash routes: https://host/#/membership?payu=success&draft_id=…
   final fragment = uri.fragment;
@@ -132,10 +230,15 @@ PayuCheckoutLaunchResult? _parsePayuReturn(String url) {
     );
     outcome = fragUri.queryParameters['payu'] ?? outcome;
     draftId = fragUri.queryParameters['draft_id'] ?? draftId;
+    reason = fragUri.queryParameters['reason'] ?? reason;
   }
 
   if (outcome == null || outcome.isEmpty) return null;
-  return PayuCheckoutLaunchResult(outcome: outcome, draftId: draftId);
+  return PayuCheckoutLaunchResult(
+    outcome: outcome,
+    draftId: draftId,
+    reason: reason,
+  );
 }
 
 String _buildAutoSubmitHtml(String actionUrl, Map<String, String> fields) {

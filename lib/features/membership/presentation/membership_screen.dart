@@ -10,6 +10,7 @@ import '../../../core/config/app_config.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/membership_api_service.dart';
 import '../../../core/payment/payu_checkout.dart';
+import '../../../core/payment/payu_return_history.dart';
 import '../../../core/network/api_errors.dart';
 import '../../../core/network/registration_service.dart';
 import '../../../core/theme/heading_styles.dart';
@@ -563,37 +564,67 @@ class _MembershipScreenState extends State<MembershipScreen> {
     });
   }
 
+  /// India is INR to INR. US, UK, and AU pay the same ₹1000 (rupees to that
+  /// country). The local-currency checkout is not offered on this screen.
+  String get _checkoutCurrency => 'INR';
+
+  int get _checkoutAmountPaise {
+    if (_checkoutCurrency == 'INR') return 100000;
+    return _selectedCountryPrice.amountPaise;
+  }
+
+  String get _checkoutDisplayPrice {
+    if (_checkoutCurrency == 'INR') return '₹1000';
+    return _selectedCountryPrice.displayPrice;
+  }
+
   Future<void> _startPayment() async {
     final draft = _draft;
     if (draft == null) {
       throw Exception('Start registration before payment.');
     }
     final country = _selectedCountryPrice;
-    final currency = country.currencyCode.toUpperCase();
+    final currency = _checkoutCurrency;
     const supported = {'INR', 'USD', 'GBP', 'AUD'};
     if (!supported.contains(currency)) {
       throw Exception(
         'Unsupported currency. Choose India, United States, United Kingdom, or Australia.',
       );
     }
-    // Persist the selected country/price so checkout charges the right currency.
+    final amountPaise = _checkoutAmountPaise;
+    // Country stays US/UK/AU/IN. Collection is always the INR life fee.
     await _registration.updateDraft(
       draftId: draft.id,
       step: draft.step,
       payload: {
         ...draft.payload,
         'country_code': country.code,
-        'currency': country.currencyCode,
-        if (country.amountPaise > 0) 'amount_paise': country.amountPaise,
+        'currency': currency,
+        if (amountPaise > 0) 'amount_paise': amountPaise,
+        'payment_flow': 'inr',
       },
     );
     final session = await _membershipApi.createCheckout(
       draft.id,
       countryCode: country.code,
-      currency: country.currencyCode,
+      currency: currency,
     );
     if (session.paymentActionUrl.isEmpty || session.payuFields.isEmpty) {
       throw Exception('Payment could not be started. Please try again.');
+    }
+    // Flow 1 non-INR must carry PayU transactionCurrency from the backend.
+    if (currency != 'INR') {
+      final postedCurrency =
+          (session.payuFields['transactionCurrency'] ?? '').toUpperCase();
+      if (postedCurrency != currency) {
+        throw Exception(
+          'Multi-currency payment is misconfigured. Please try again.',
+        );
+      }
+    } else if (session.payuFields.containsKey('transactionCurrency')) {
+      throw Exception(
+        'INR checkout must not send a foreign transactionCurrency.',
+      );
     }
     if (!mounted) return;
     final launch = await openPayuHostedCheckout(
@@ -605,7 +636,11 @@ class _MembershipScreenState extends State<MembershipScreen> {
     // Mobile: WebView pops with outcome when PayU redirects back.
     if (!mounted) return;
     if (launch != null) {
-      await _applyPayuOutcome(launch.outcome, draftId: launch.draftId);
+      await _applyPayuOutcome(
+        launch.outcome,
+        draftId: launch.draftId,
+        reason: launch.reason,
+      );
     }
   }
 
@@ -614,20 +649,29 @@ class _MembershipScreenState extends State<MembershipScreen> {
     final uri = GoRouterState.of(context).uri;
     final payu = uri.queryParameters['payu'];
     if (payu == null || payu.isEmpty) return;
+    final draftId = uri.queryParameters['draft_id'];
+    final reason = uri.queryParameters['reason'];
+    // Remove callback/payu query from browser history before handling outcome.
+    scrubPayuReturnBrowserHistory();
     await _applyPayuOutcome(
       payu,
-      draftId: uri.queryParameters['draft_id'],
+      draftId: draftId,
+      reason: reason,
     );
   }
 
   Future<void> _applyPayuOutcome(
     String payu, {
     String? draftId,
+    String? reason,
   }) async {
     if (!mounted) return;
     if (payu == 'cancelled') {
+      final detail = (reason ?? '').trim();
       setState(() {
-        _error = 'Payment was cancelled. You can try again.';
+        _error = detail.isEmpty
+            ? 'Payment was cancelled. You can try again from this page.'
+            : detail;
         _step = 3;
       });
       return;
@@ -643,13 +687,17 @@ class _MembershipScreenState extends State<MembershipScreen> {
 
     if (payu == 'failure') {
       if (!mounted) return;
+      final detail = (reason ?? '').trim();
       setState(() {
-        _error = 'Payment was not completed. You can try again.';
+        _error = detail.isEmpty
+            ? 'Payment was not completed. You can try again.'
+            : detail;
         _step = 3;
       });
       return;
     }
 
+    var paymentNotTaken = false;
     for (var attempt = 0; attempt < 5; attempt++) {
       try {
         final completion =
@@ -663,14 +711,26 @@ class _MembershipScreenState extends State<MembershipScreen> {
           });
           return;
         }
+      } on RegistrationException catch (error) {
+        final message = error.message.toLowerCase();
+        // Payment was not taken. Do not keep the wizard on a spinner.
+        if (message.contains('not complete') ||
+            message.contains('not been started') ||
+            message.contains('cancelled') ||
+            message.contains('canceled')) {
+          paymentNotTaken = true;
+          break;
+        }
+        await Future<void>.delayed(const Duration(seconds: 2));
       } catch (_) {
         await Future<void>.delayed(const Duration(seconds: 2));
       }
     }
     if (!mounted) return;
     setState(() {
-      _error =
-          'Payment is still confirming. Wait a moment, then try again.';
+      _error = paymentNotTaken
+          ? 'Payment was not completed. You can try again.'
+          : 'Payment is still confirming. Wait a moment, then try again.';
       _step = 3;
     });
   }
@@ -888,8 +948,9 @@ class _MembershipScreenState extends State<MembershipScreen> {
           selected: _selectedPlan,
           selectedCountry: _selectedCountryPrice,
           countryOptions: MembershipCountryPrice.fromPlan(_selectedPlan),
-          onCountryChanged: (country) =>
-              setState(() => _selectedCountryPrice = country),
+          onCountryChanged: (country) => setState(() {
+            _selectedCountryPrice = country;
+          }),
           onSelect: (plan) => setState(() {
             _selectedPlan = plan;
             _selectedCountryPrice = MembershipCountryPrice.resolve(
@@ -928,6 +989,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
           onPickRegistrationDocument: _pickRegistrationDocument,
           onRemoveRegistrationDocument: _removeRegistrationDocument,
           onContinue: () => _runStep(_saveDetailsAndSendOtp),
+          onBack: () => setState(() => _step = 0),
         ),
       2 => _VerifyStep(
           email: _emailController.text.trim(),
@@ -941,7 +1003,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
         ),
       3 => _PaymentStep(
           plan: _selectedPlan,
-          countryPrice: _selectedCountryPrice,
+          displayPrice: _checkoutDisplayPrice,
           onBack: () => setState(() => _step = 2),
           onPay: () => _runStep(_startPayment),
         ),
@@ -1227,26 +1289,6 @@ class _CountryCurrencySelector extends StatelessWidget {
                         ),
                       ),
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 7,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.muted,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        selected.currencyCode,
-                        style: GoogleFonts.inter(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.3,
-                          color: AppColors.heading,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 2),
                     Icon(
                       Icons.expand_more_rounded,
                       size: 18,
@@ -1358,15 +1400,6 @@ class _CountryMenuRow extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(width: 8),
-        Text(
-          option.displayPrice,
-          style: GoogleFonts.inter(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: selected ? AppColors.secondary : AppColors.mutedText,
-          ),
-        ),
         if (selected) ...[
           const SizedBox(width: 4),
           const Icon(Icons.check, size: 14, color: AppColors.secondary),
@@ -1424,7 +1457,7 @@ class _PlanStep extends StatelessWidget {
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 180),
             child: Text(
-              selectedCountry.displayPrice,
+              '₹1000',
               key: ValueKey(selectedCountry.code),
               textAlign: TextAlign.center,
               style: GoogleFonts.fraunces(
@@ -1446,7 +1479,7 @@ class _PlanStep extends StatelessWidget {
           ),
           const SizedBox(height: 18),
           Text(
-            'Currency',
+            'Country',
             textAlign: TextAlign.center,
             style: GoogleFonts.inter(
               fontSize: 11,
@@ -1526,6 +1559,7 @@ class _DetailsStep extends StatefulWidget {
     required this.onPickRegistrationDocument,
     required this.onRemoveRegistrationDocument,
     required this.onContinue,
+    required this.onBack,
   });
 
   final TextEditingController firstNameController;
@@ -1549,6 +1583,7 @@ class _DetailsStep extends StatefulWidget {
   final Future<void> Function(_RegDocType type) onPickRegistrationDocument;
   final void Function(_RegDocType type) onRemoveRegistrationDocument;
   final VoidCallback onContinue;
+  final VoidCallback onBack;
 
   @override
   State<_DetailsStep> createState() => _DetailsStepState();
@@ -1688,6 +1723,14 @@ class _DetailsStepState extends State<_DetailsStep> {
           _PrimaryButton(
             label: 'Continue — send OTP',
             onPressed: widget.onContinue,
+          ),
+          const SizedBox(height: 8),
+          TextButton(
+            onPressed: widget.onBack,
+            child: Text(
+              'Back',
+              style: GoogleFonts.inter(color: AppColors.bodyText),
+            ),
           ),
         ],
       ),
@@ -2548,17 +2591,15 @@ class _VerifyStep extends StatelessWidget {
 class _PaymentStep extends StatelessWidget {
   const _PaymentStep({
     required this.plan,
-    required this.countryPrice,
+    required this.displayPrice,
     required this.onBack,
     required this.onPay,
   });
 
   final MembershipPlan? plan;
-  final MembershipCountryPrice countryPrice;
+  final String displayPrice;
   final VoidCallback onBack;
   final VoidCallback onPay;
-
-  String get _price => countryPrice.displayPrice;
 
   String get _planLabel =>
       'MY KMC — ${plan?.name ?? 'Life Membership'}';
@@ -2598,7 +2639,7 @@ class _PaymentStep extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  _price,
+                  displayPrice,
                   style: GoogleFonts.fraunces(
                     fontSize: 28,
                     fontWeight: FontWeight.w600,
@@ -2618,7 +2659,9 @@ class _PaymentStep extends StatelessWidget {
               border: Border.all(color: AppColors.border),
             ),
             child: Text(
-              "You will pay on PayU's secure page. KMC does not collect card, UPI, or bank details.",
+              "You will pay on PayU's secure page. KMC does not collect card, UPI, or bank details. "
+              "For a card, your bank sends the OTP to the mobile number registered on that card. "
+              "Wait on that page for the SMS. Refreshing it cancels the payment.",
               style: GoogleFonts.inter(
                 fontSize: 14,
                 height: 1.5,
@@ -2629,7 +2672,10 @@ class _PaymentStep extends StatelessWidget {
           const SizedBox(height: 28),
           const _PaymentLegalNotice(),
           const SizedBox(height: 12),
-          _PrimaryButton(label: 'Pay $_price on PayU', onPressed: onPay),
+          _PrimaryButton(
+            label: 'Pay $displayPrice',
+            onPressed: onPay,
+          ),
           const SizedBox(height: 8),
           TextButton(
             onPressed: onBack,

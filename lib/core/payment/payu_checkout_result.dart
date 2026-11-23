@@ -4,11 +4,13 @@ class PayuCheckoutLaunchResult {
   const PayuCheckoutLaunchResult({
     required this.outcome,
     this.draftId,
+    this.reason,
   });
 
   /// PayU return flag: success | failure | pending | cancelled
   final String outcome;
   final String? draftId;
+  final String? reason;
 
   bool get isSuccess => outcome == 'success' || outcome == 'pending';
   bool get isFailure => outcome == 'failure';

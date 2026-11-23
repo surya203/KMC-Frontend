@@ -12,12 +12,14 @@ class AuthSession extends ChangeNotifier {
 
   final AuthService _authService = AuthService();
   bool _initialized = false;
+  Future<void>? _restoreInFlight;
 
   bool get isAuthenticated => AuthService.isAuthenticated;
   bool get isInitialized => _initialized;
   AuthUser? get currentUser => AuthService.currentUser;
 
-  /// Restores tokens and user from storage. Safe to call on every app start.
+  /// Restores tokens from local storage and starts /auth/me in the background.
+  /// Safe to call on every app start. Does not wait on the network.
   Future<void> initialize() async {
     if (_initialized) return;
     final stored = await AuthTokenStorage.load();
@@ -26,7 +28,7 @@ class AuthSession extends ChangeNotifier {
         accessToken: stored.accessToken,
         refreshToken: stored.refreshToken,
       );
-      await _restoreSession();
+      _restoreInFlight = _restoreSession();
     }
     _initialized = true;
     notifyListeners();
@@ -36,11 +38,13 @@ class AuthSession extends ChangeNotifier {
     for (var attempt = 0; attempt < 3; attempt++) {
       try {
         await _authService.fetchMe(allowRefresh: true);
+        notifyListeners();
         return;
       } on AuthException {
         try {
           await _authService.refresh();
           await _authService.fetchMe(allowRefresh: false);
+          notifyListeners();
           return;
         } on AuthException {
           await clearSession();
@@ -56,12 +60,15 @@ class AuthSession extends ChangeNotifier {
           continue;
         }
         // Keep stored tokens on transient network errors; screens can retry.
+        notifyListeners();
         return;
       }
     }
+    notifyListeners();
   }
 
   /// Ensures startup auth restore has finished before protected API calls.
+  /// A down API must not freeze the splash: wait at most a few seconds.
   Future<void> ensureReady() async {
     if (!_initialized) {
       await initialize();
@@ -69,6 +76,16 @@ class AuthSession extends ChangeNotifier {
     if (!AuthService.isAuthenticated) return;
 
     if (AuthService.currentUser != null) return;
+
+    final pending = _restoreInFlight;
+    if (pending != null) {
+      try {
+        await pending.timeout(const Duration(seconds: 4));
+      } catch (_) {}
+      if (AuthService.currentUser != null || !AuthService.isAuthenticated) {
+        return;
+      }
+    }
 
     for (var attempt = 0; attempt < 3; attempt++) {
       try {
